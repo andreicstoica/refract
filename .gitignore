@@ -57,3 +57,8 @@ dev-dist
 .dev.vars*
 
 .open-next
+
+# Agents
+AGENTS.md
+.claude
+.cursor
