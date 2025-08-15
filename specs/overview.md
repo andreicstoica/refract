@@ -6,7 +6,7 @@ A distraction-free, continuous writing space where the user simply writes on a b
 
 ## Milestones
 
-### Milestone 1 — Continuous Writing UI
+### ✅ Milestone 1 — Continuous Writing UI
 
 Goal: Replace send-button chat with a freeform writing surface that fades upward as text accumulates.
 
@@ -24,7 +24,7 @@ Deliverable: User can open the app and just type, feeling like it’s a blank pa
 
 Acceptance Criteria: Mobile first/friendly design
 
-## Milestone 2 — Smart Chunk Sending & AI Prods
+## 👉 Milestone 2 — Smart Chunk Sending & AI Prods
 
 Goal: Send relevant slices of the draft to OpenAI API when meaningful pauses or sentence boundaries occur.
 
