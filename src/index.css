@@ -11,8 +11,16 @@
 
 /* Top fade for the scroll area */
 .mask-top-fade {
-	-webkit-mask-image: linear-gradient(to bottom, transparent 0, black 60px);
-	mask-image: linear-gradient(to bottom, transparent 0, black 60px);
+	-webkit-mask-image: linear-gradient(to bottom, transparent 0px, rgba(0,0,0,0.2) 60px, rgba(0,0,0,0.6) 120px, black 180px);
+	mask-image: linear-gradient(to bottom, transparent 0px, rgba(0,0,0,0.2) 60px, rgba(0,0,0,0.6) 120px, black 180px);
+	/* Hide scrollbar */
+	scrollbar-width: none; /* Firefox */
+	-ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide scrollbar for webkit browsers */
+.mask-top-fade::-webkit-scrollbar {
+	display: none;
 }
 
 html,
