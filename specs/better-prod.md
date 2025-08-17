@@ -132,7 +132,103 @@ Technical details:
 
 Deliverable: Robust queue that never stalls, leaks memory, or overwhelms APIs.
 
-### Milestone 6 — Advanced Selection Features
+### ✅ Milestone 6 — Performance Optimization
+
+Goal: Dramatically improve speed by reducing unnecessary processing and API calls.
+
+Performance bottlenecks identified:
+
+1. **Sequential dual API calls**: 2 API calls per sentence + 700ms delays = very slow
+2. **No relevance filtering**: Processing every sentence, even trivial ones
+3. **Over-conservative rate limiting**: 7-second throttle is excessive
+4. **Redundant context processing**: Full document sent to selection API every time
+
+Implementation:
+
+- **Smart relevance filtering**: Allow AI to skip irrelevant sentences
+- **Client-side pre-filtering**: Skip obvious non-candidates (short sentences, punctuation, etc.)
+- **Reduce rate limiting**: Drop from 7s to 1-2s throttle
+- **Combined API approach**: Merge prod generation + selection into single smart call
+- **Parallel processing**: Process multiple sentences concurrently (with limits)
+
+Technical details:
+
+- Update selection API schema to include `shouldSkip` boolean
+- Add client-side `shouldProcessSentence()` filter
+- Reduce `waitForRateLimit` from 700ms to 200ms
+- Reduce queue throttle from 7000ms to 2000ms
+- Optional: Combine APIs or make selection decide "no prod needed"
+- Process 2-3 sentences in parallel instead of purely sequential
+
+Success metrics:
+- 50-70% reduction in API calls via relevance filtering
+- 80% reduction in delays via optimized rate limiting
+- Faster user experience with parallel processing
+
+Deliverable: Responsive prod system that processes only relevant content quickly.
+
+### ✅ Milestone 7 — Tone & Quality Improvements
+
+Goal: Fix overly negative/cynical prods and improve contextual sensitivity.
+
+Issues identified:
+
+1. **Negative bias**: Prods assume problems/postponement even for positive statements
+2. **Tone mismatch**: Not respecting emotional context (happy → critical questions)
+3. **Missing nuance**: Not distinguishing between celebration and complaint
+4. **Over-probing**: Challenging positive experiences unnecessarily
+
+Implementation:
+
+- **Tone awareness**: Respect positive/negative sentiment in original sentence
+- **Context preservation**: Match prod energy to user's emotional state
+- **Balanced curiosity**: Encourage exploration without assuming problems
+- **Positive framings**: Ask growth/insight questions vs. deficit-focused ones
+
+Examples of improvements:
+- "had a slow morning, which was really nice" → "What made it feel especially restorative?" (not "What tasks did you postpone?")
+- "glad I had time with lily" → "What did you appreciate most about that time?" (not "Did they express enjoyment?")
+
+Technical details:
+
+- Update system prompts to include tone awareness
+- Add sentiment detection guidelines
+- Emphasize curiosity over criticism
+- Provide better positive/negative examples
+
+Deliverable: Prods that enhance reflection while respecting emotional context.
+
+### ✅ Milestone 8 — Single Smart API Architecture
+
+Goal: Eliminate dual API latency by combining generation + selection into one endpoint.
+
+Performance issue:
+- Current: Generate candidates (API 1) → Wait → Select best (API 2) → Wait → Display
+- Problem: Two network round-trips make system feel slow despite optimizations
+
+Solution: **Single Smart API**
+- New: Generate + select best internally → Display  
+- Benefit: Cut processing time in half while keeping quality
+
+Implementation:
+
+- **Combine logic**: Update `/api/prod` to do generation AND selection internally
+- **Remove `/api/selection`**: No longer needed as separate endpoint  
+- **Keep both prompts**: Use two-stage prompting within single API call
+- **Simplify useProds**: Remove dual API orchestration, just call `/api/prod`
+- **Maintain quality**: Same specialized prompts, better context flow
+
+Technical details:
+
+- Internal two-stage prompting in `/api/prod` endpoint
+- Remove selection API route entirely
+- Update useProds.ts to use single API call
+- Keep all client-side filtering and queue optimizations
+- Maintain tone awareness and shouldSkip functionality
+
+Deliverable: 50% faster prod system with same quality and features.
+
+### Milestone 9 — Advanced Selection Features
 
 Goal: Add more sophisticated selection criteria and learning.
 
