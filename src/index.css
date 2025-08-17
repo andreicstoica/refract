@@ -7,6 +7,7 @@
 	--font-sans:
 		"Inter", "Geist", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
 		"Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+	--font-cursive: "Edu NSW ACT Foundation", cursive;
 }
 
 /* Top fade for the scroll area */

@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { AnimatedText } from "./AnimatedText";
 
 interface ChipProps {
   text: string;
@@ -27,11 +28,11 @@ export function Chip({
   const [shouldFade, setShouldFade] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
 
-  // Start fade after 6 seconds
+  // Start fade after 8 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
       setShouldFade(true);
-    }, 6000);
+    }, 8000); // Start fade at 8s
 
     return () => clearTimeout(timer);
   }, []);
@@ -52,7 +53,7 @@ export function Chip({
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.8, y: 10 }}
+          initial={{ opacity: 1, scale: 1, y: 0 }}
           animate={{
             opacity: shouldFade ? 0 : 1,
             scale: 1,
@@ -60,7 +61,7 @@ export function Chip({
           }}
           exit={{ opacity: 0, scale: 0.8 }}
           transition={{
-            duration: shouldFade ? 1 : 0.3,
+            duration: shouldFade ? 4 : 0, // No initial animation, just fade
             ease: "easeOut",
           }}
           onAnimationComplete={() => {
@@ -81,7 +82,11 @@ export function Chip({
           }}
           onClick={handleTap}
         >
-          {text}
+          <AnimatedText
+            text={text}
+            duration={1500} // 1.5 seconds for handwriting animation
+            delay={0} // Start immediately
+          />
         </motion.div>
       )}
     </AnimatePresence>
