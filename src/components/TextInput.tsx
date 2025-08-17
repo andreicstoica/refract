@@ -30,7 +30,7 @@ export function TextInput({
   const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use our custom hook for prod management
-  const { prods, callProdAPI } = useProds();
+  const { prods, callProdAPI, clearQueue, queueState } = useProds();
 
   // Position measurement with memoization
   const measurePositions = useCallback(
@@ -101,18 +101,17 @@ export function TextInput({
     if (hasPunctuation && newSentences.length > 0) {
       console.log("⚙️ Punctuation trigger detected");
       const lastSentence = newSentences[newSentences.length - 1];
-      callProdAPI(lastSentence);
+      callProdAPI(newText, lastSentence);
     } else {
       // Set 3-second debounce timer
       console.log("⏳ Setting 3s debounce timer");
       debounceTimerRef.current = setTimeout(() => {
         // Use current sentences state instead of closure variable
-        const currentSentences = splitIntoSentences(
-          textareaRef.current?.value || ""
-        );
+        const currentText = textareaRef.current?.value || "";
+        const currentSentences = splitIntoSentences(currentText);
         if (currentSentences.length > 0) {
           const lastSentence = currentSentences[currentSentences.length - 1];
-          callProdAPI(lastSentence);
+          callProdAPI(currentText, lastSentence);
         }
       }, 3000);
     }
@@ -172,6 +171,20 @@ export function TextInput({
         <div>📏 Text length: {text.length}</div>
         <div>🤖 AI Status:</div>
         <div className="ml-2">prodsCount: {prods.length}</div>
+        <div className="ml-2">queueLength: {queueState.items.length}</div>
+        <div className="ml-2">isProcessing: {queueState.isProcessing ? 'yes' : 'no'}</div>
+        <div className="ml-2 text-blue-400">
+          pending: {queueState.items.filter(i => i.status === 'pending').length}, 
+          processing: {queueState.items.filter(i => i.status === 'processing').length}
+        </div>
+        <div className="ml-2">
+          <button 
+            onClick={clearQueue}
+            className="text-xs px-1 py-0.5 bg-red-500/20 text-red-400 rounded hover:bg-red-500/40"
+          >
+            Clear Queue
+          </button>
+        </div>
         <div>💡 Current prods:</div>
         <div className="ml-2 text-red-400">
           ({prods.length}) {JSON.stringify(prods.map((p) => p.text))}

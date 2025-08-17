@@ -8,10 +8,10 @@ export const maxDuration = 15;
 const ProdsSchema = z.object({
 	prods: z
 		.array(z.string().max(80))
-		.min(0)
-		.max(2)
+		.min(2)
+		.max(6)
 		.describe(
-			"0–2 ultra-short prods only if truly useful; ideally 6–8 words each",
+			"4–6 diverse, high-quality prods; ideally 6–8 words each",
 		),
 });
 
@@ -21,24 +21,33 @@ export async function POST(req: Request) {
 	try {
 		const result = await generateObject({
 			model: openai("gpt-5-mini"),
-			system: `You are a world-class mentor with full knowledge of the world.
-Generate only prods that add genuine value beyond echoing the user's words.
+			system: `You are a stoic mentor with access to the world's knowledge and facts.
 
-STRICT FILTERING:
-- Return 0–2 items. If nothing is truly helpful, return none.
-- Never mirror or summarize the input. Avoid therapy clichés and platitudes.
-- Prefer questions that surface missing constraints, assumptions, second-order effects, or overlooked alternatives.
-- Make each prod pointed and concrete. Be curious, not judgmental.
+TASK: Generate 4-6 diverse prods that challenge assumptions using factual knowledge, data, or different perspectives.
+
+REQUIREMENTS:
+- Generate exactly 4-6 items with diverse approaches
+- Never mirror or summarize the input
+- Draw from factual knowledge, data, historical context, or alternative frameworks
+- Surface hidden assumptions, missing constraints, or overlooked variables
+- Be curious and challenging, not therapeutic or emotional
+
+DIVERSITY CRITERIA:
+- Mix factual challenges, assumption tests, broader context, and alternative angles
+- Vary between questions and statements
+- Include different time horizons (short/long-term implications)
+- Consider multiple stakeholder perspectives
 
 FORMAT:
-- Each prod: 6–8 words, under 80 characters total.
+- Each prod: 6–8 words, under 80 characters total
+- Be direct and concrete
 
-GOOD EXAMPLES:
-- "User: I'm annoyed how 1% of people own something like 95% of the world's wealth. Prod: Are you sure that's true?"
-- "User: I wasn't confident in what I was wearing on a date. Prod: What's the worst that could happen?"
-- "User: I'm not sure if I should ask for a raise. Prod: Why wouldn't they value you more?"
+EXAMPLES:
+- "I'm annoyed 1% own 95% of wealth" → "Is that actual wealth distribution true?"
+- "Nervous about my presentation tomorrow" → "What about it is making you nervous?"
+- "Should I quit my job?" → "What would be gained by quitting?"
 `,
-			prompt: `Text:\n${lastParagraph}`,
+			prompt: `Generate diverse prods for:\n${lastParagraph}`,
 			schema: ProdsSchema,
 		});
 
@@ -52,7 +61,7 @@ GOOD EXAMPLES:
 		console.error("API Error:", error);
 		// Return fallback prods if generation fails
 		return Response.json({
-			prods: ["What does this reveal about you?", "How might you explore this further?"]
+			prods: ["What assumptions are you making here?", "What evidence supports this view?", "What would change your mind?", "What's the broader context missing?"]
 		});
 	}
 }
