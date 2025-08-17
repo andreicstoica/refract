@@ -10,20 +10,33 @@ interface ChipOverlayProps {
   className?: string;
 }
 
-export function ChipOverlay({ prods, sentencePositions, className }: ChipOverlayProps) {
-  // For now, show chips at the top instead of using complex positioning
+export function ChipOverlay({
+  prods,
+  sentencePositions,
+  className,
+}: ChipOverlayProps) {
+  // Create a map for quick sentence position lookup
+  const positionMap = new Map(
+    sentencePositions.map((pos) => [pos.sentenceId, pos])
+  );
+
   return (
-    <div className={`absolute top-4 left-4 right-4 pointer-events-none z-20 ${className || ""}`}>
-      <div className="flex flex-wrap gap-2">
-        {prods.map((prod, index) => (
-          <div
-            key={prod.id}
-            className="bg-blue-500/20 border border-blue-500/40 rounded-lg px-3 py-2 text-sm text-blue-700 dark:text-blue-300 font-medium shadow-lg backdrop-blur-sm"
-          >
-            {prod.text}
-          </div>
-        ))}
-      </div>
+    <div
+      className={`absolute inset-0 pointer-events-none z-20 ${className || ""}`}
+    >
+      {prods.map((prod, index) => {
+        const sentencePosition = positionMap.get(prod.sentenceId);
+        if (!sentencePosition) return null;
+
+        // Only show the first prod for each sentence
+        const isFirstForSentence =
+          prods.findIndex((p) => p.sentenceId === prod.sentenceId) === index;
+        if (!isFirstForSentence) return null;
+
+        return (
+          <Chip key={prod.id} text={prod.text} position={sentencePosition} />
+        );
+      })}
     </div>
   );
 }

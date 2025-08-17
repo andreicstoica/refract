@@ -9,6 +9,7 @@ import { measureSentencePositions } from "@/lib/positionUtils";
 import type { SentencePosition } from "@/lib/positionUtils";
 import { useProds } from "@/lib/useProds";
 import { ChipOverlay } from "./ChipOverlay";
+import { TEXTAREA_CLASSES } from "@/lib/constants";
 
 interface TextInputProps {
   onTextChange?: (text: string) => void;
@@ -48,7 +49,7 @@ export function TextInput({
       textareaRef.current.focus();
     }
   }, []);
-  
+
   // Auto-scroll to cursor when text changes
   useEffect(() => {
     if (textareaRef.current) {
@@ -75,6 +76,16 @@ export function TextInput({
     positionTimerRef.current = setTimeout(() => {
       if (textareaRef.current && newSentences.length > 0) {
         const positions = measurePositions(newSentences, textareaRef.current);
+        console.log("📍 Position measurement:", {
+          sentencesCount: newSentences.length,
+          positionsCount: positions.length,
+          sentences: newSentences.map((s) => ({ id: s.id, text: s.text })),
+          positions: positions.map((p) => ({
+            sentenceId: p.sentenceId,
+            top: p.top,
+            left: p.left,
+          })),
+        });
         setSentencePositions(positions);
       }
     }, 100); // Short delay to avoid measuring while actively typing
@@ -96,7 +107,9 @@ export function TextInput({
       console.log("⏳ Setting 3s debounce timer");
       debounceTimerRef.current = setTimeout(() => {
         // Use current sentences state instead of closure variable
-        const currentSentences = splitIntoSentences(textareaRef.current?.value || "");
+        const currentSentences = splitIntoSentences(
+          textareaRef.current?.value || ""
+        );
         if (currentSentences.length > 0) {
           const lastSentence = currentSentences[currentSentences.length - 1];
           callProdAPI(lastSentence);
@@ -141,25 +154,33 @@ export function TextInput({
   // Determine if we should use full height or centered layout
   const hasContent = text.trim().length > 0;
   const textLength = text.length;
-  const lineCount = text.split('\n').length;
-  
+  const lineCount = text.split("\n").length;
+
   // Switch to full height when text would exceed the initial box
   // Check both character count and line count for better detection
   let shouldUseFullHeight = hasContent && (textLength > 400 || lineCount > 10);
 
   return (
-    <div className={cn(
-      "h-dvh bg-background text-foreground relative",
-      shouldUseFullHeight ? "overflow-hidden" : "overflow-hidden"
-    )}>
-      {/* TODO - Temporary debug info - moved to bottom */}
+    <div
+      className={cn(
+        "h-dvh bg-background text-foreground relative",
+        shouldUseFullHeight ? "overflow-hidden" : "overflow-hidden"
+      )}
+    >
+      {/* Temporary debug info - moved to bottom */}
       <div className="absolute bottom-2 right-2 z-50 text-xs opacity-70 bg-background/80 p-2 rounded max-w-xs">
         <div>📏 Text length: {text.length}</div>
         <div>🤖 AI Status:</div>
-        <div className="ml-2">prodsCount: {prods.length}, isLoading: false</div>
+        <div className="ml-2">prodsCount: {prods.length}</div>
         <div>💡 Current prods:</div>
         <div className="ml-2 text-red-400">
           ({prods.length}) {JSON.stringify(prods.map((p) => p.text))}
+        </div>
+        <div>📍 Sentence positions: {sentencePositions.length}</div>
+        <div className="ml-2 text-green-400">
+          {sentencePositions
+            .map((pos) => `${pos.sentenceId}: ${pos.top},${pos.left}`)
+            .join(", ")}
         </div>
       </div>
       {/* Fade overlay for top - always visible for subtle effect */}
@@ -194,7 +215,7 @@ export function TextInput({
             onChange={handleTextChange}
             placeholder={placeholder}
             className={cn(
-              "w-full bg-transparent text-lg leading-relaxed outline-none border-none placeholder:text-muted-foreground/40 resize-none box-border px-4",
+              `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING}`,
               shouldUseFullHeight ? "py-6 pb-24" : "py-4"
             )}
             style={{
@@ -209,11 +230,11 @@ export function TextInput({
             autoCapitalize="off"
             spellCheck="false"
           />
+
+          {/* Chip Overlay - positioned relative to textarea */}
+          <ChipOverlay prods={prods} sentencePositions={sentencePositions} />
         </motion.div>
       </motion.div>
-
-      {/* Chip Overlay */}
-      <ChipOverlay prods={prods} sentencePositions={sentencePositions} />
     </div>
   );
 }
