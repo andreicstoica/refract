@@ -1,4 +1,5 @@
 import type { Sentence } from "./sentenceUtils";
+import { TEXT_STYLES } from "./constants";
 
 export interface SentencePosition {
   sentenceId: string;
@@ -34,6 +35,16 @@ export function measureSentencePositions(
   mirror.style.font = style.font;
   mirror.style.padding = style.padding;
   mirror.style.width = style.width;
+  mirror.style.lineHeight = style.lineHeight; // Add line height for accurate positioning
+
+  // Ensure we have the correct line height from our constants
+  console.log("🔧 Mirror styles:", {
+    font: mirror.style.font,
+    padding: mirror.style.padding,
+    width: mirror.style.width,
+    lineHeight: mirror.style.lineHeight,
+    expectedLineHeight: TEXT_STYLES.LINE_HEIGHT
+  });
 
   // Build mirror HTML with <span> for each sentence
   let cursor = 0;
@@ -48,9 +59,16 @@ export function measureSentencePositions(
         .replace(/\n/g, "<br/>");
     }
     if (idx !== -1) {
-      html += `<span id="mirror-sent-${s.id}">${s.text
-        .replace(/ /g, "&nbsp;")
-        .replace(/\n/g, "<br/>")}</span>`;
+      // Don't include line breaks in the sentence span - they should be outside
+      const sentenceText = s.text.replace(/\n/g, ""); // Remove line breaks from sentence text
+      html += `<span id="mirror-sent-${s.id}">${sentenceText
+        .replace(/ /g, "&nbsp;")}</span>`;
+
+      // Add line break after sentence if it ends with one
+      if (s.text.endsWith('\n')) {
+        html += "<br/>";
+      }
+
       cursor = idx + s.text.length;
     }
   }
@@ -62,24 +80,38 @@ export function measureSentencePositions(
   }
   mirror.innerHTML = html;
 
+  console.log("🔍 Mirror HTML:", html);
+  console.log("🔍 Textarea value:", text);
+  console.log("🔍 Sentences:", sentences.map(s => ({ id: s.id, text: s.text })));
+
   // Align mirror with textarea
   const taRect = textareaElement.getBoundingClientRect();
   mirror.style.left = `${taRect.left + window.scrollX}px`;
   mirror.style.top = `${taRect.top + window.scrollY}px`;
 
+  console.log("🔍 Textarea rect:", taRect);
+
   // Measure
-  return sentences
+  const results = sentences
     .map((s) => {
       const el = document.getElementById(`mirror-sent-${s.id}`);
-      if (!el) return null;
+      if (!el) {
+        console.log("❌ Mirror element not found for sentence:", s.id);
+        return null;
+      }
       const r = el.getBoundingClientRect();
-      return {
+      const position = {
         sentenceId: s.id,
         top: r.top - taRect.top,
         left: r.left - taRect.left,
         width: r.width,
         height: r.height,
       };
+      console.log("📍 Measured position for sentence:", s.text, position);
+      return position;
     })
     .filter(Boolean) as SentencePosition[];
+
+  console.log("🎯 Final position results:", results);
+  return results;
 }

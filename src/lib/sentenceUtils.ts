@@ -25,11 +25,12 @@ export function splitIntoSentences(inputText: string): Sentence[] {
       text: sentenceText,
       startIndex,
       endIndex,
-      id: `sentence-${index}-${Date.now()}`,
+      id: `sentence-${index}`, // Remove Date.now() to keep IDs stable
     });
 
     currentIndex = endIndex;
   });
 
+  console.log("📝 Split sentences:", result.map(s => ({ id: s.id, text: s.text })));
   return result;
 }
