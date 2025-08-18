@@ -188,14 +188,26 @@ export function TextInput({
           </button>
         </div>
         <div>💡 Current prods:</div>
-        <div className="ml-2 text-red-400">
-          ({prods.length}) {JSON.stringify(prods.map((p) => p.text))}
+        <div className="ml-2 space-y-1">
+          {prods.map((prod, index) => (
+            <div
+              key={prod.id}
+              className="inline-block bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs mr-1 mb-1"
+            >
+              {prod.text}
+            </div>
+          ))}
         </div>
         <div>📍 Sentence positions: {sentencePositions.length}</div>
-        <div className="ml-2 text-green-400">
-          {sentencePositions
-            .map((pos) => `${pos.sentenceId}: ${pos.top},${pos.left}`)
-            .join(", ")}
+        <div className="ml-2 space-y-1">
+          {sentencePositions.map((pos) => (
+            <div
+              key={pos.sentenceId}
+              className="inline-block bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded text-xs mr-1 mb-1"
+            >
+              {pos.sentenceId}: {pos.top},{pos.left}
+            </div>
+          ))}
         </div>
       </div>
 
