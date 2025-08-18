@@ -16,11 +16,13 @@ import { TEXTAREA_CLASSES } from "@/lib/constants";
 interface TextInputProps {
   onTextChange?: (text: string) => void;
   placeholder?: string;
+  hideThemes?: boolean;
 }
 
 export function TextInput({
   onTextChange,
   placeholder = "What's on your mind?",
+  hideThemes = false,
 }: TextInputProps) {
   const [text, setText] = useState("");
   const [sentences, setSentences] = useState<Sentence[]>([]);
@@ -188,7 +190,11 @@ export function TextInput({
       console.log("✨ Embeddings result:", data);
 
       setThemes(data.themes || []);
-      setShowThemes(true);
+      setShowThemes(!hideThemes);
+
+      // Save to localStorage for themes page
+      localStorage.setItem("refract-themes", JSON.stringify(data.themes || []));
+      localStorage.setItem("refract-text", text);
     } catch (error) {
       console.error("❌ Embeddings generation failed:", error);
     } finally {

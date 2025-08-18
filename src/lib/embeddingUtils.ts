@@ -119,24 +119,47 @@ export function clusterEmbeddings(
   // K-means clustering implementation
   const maxIterations = 10;
   const n = embeddings.length;
-  
-  // Step 1: Initialize centroids - use first k embeddings as starting points
+
+  // Step 1: Initialize centroids - use k-means++ initialization for better results
   let centroids: number[][] = [];
-  for (let i = 0; i < k; i++) {
-    centroids.push([...embeddings[i % n]]); // Use modulo to handle k > n case
+
+  // K-means++ initialization
+  centroids.push([...embeddings[Math.floor(Math.random() * n)]]);
+
+  for (let i = 1; i < k; i++) {
+    const distances = embeddings.map(embedding => {
+      const minDistance = Math.min(...centroids.map(centroid =>
+        1 - cosineSimilarity(embedding, centroid)
+      ));
+      return minDistance;
+    });
+
+    const totalDistance = distances.reduce((sum, d) => sum + d, 0);
+    let random = Math.random() * totalDistance;
+    let selectedIndex = 0;
+
+    for (let j = 0; j < n; j++) {
+      random -= distances[j];
+      if (random <= 0) {
+        selectedIndex = j;
+        break;
+      }
+    }
+
+    centroids.push([...embeddings[selectedIndex]]);
   }
-  
+
   let assignments = new Array(n).fill(0);
   let converged = false;
-  
+
   for (let iteration = 0; iteration < maxIterations && !converged; iteration++) {
     const previousAssignments = [...assignments];
-    
+
     // Step 2: Assign each embedding to nearest centroid
     for (let i = 0; i < n; i++) {
       let bestCluster = 0;
       let bestSimilarity = cosineSimilarity(embeddings[i], centroids[0]);
-      
+
       for (let j = 1; j < k; j++) {
         const similarity = cosineSimilarity(embeddings[i], centroids[j]);
         if (similarity > bestSimilarity) {
@@ -144,10 +167,10 @@ export function clusterEmbeddings(
           bestCluster = j;
         }
       }
-      
+
       assignments[i] = bestCluster;
     }
-    
+
     // Step 3: Update centroids based on assignments
     for (let cluster = 0; cluster < k; cluster++) {
       const clusterEmbeddings = embeddings.filter((_, i) => assignments[i] === cluster);
@@ -155,33 +178,34 @@ export function clusterEmbeddings(
         centroids[cluster] = calculateCentroid(clusterEmbeddings);
       }
     }
-    
+
     // Check for convergence (assignments didn't change)
     converged = assignments.every((assignment, i) => assignment === previousAssignments[i]);
   }
-  
-  // Step 4: Build final clusters
+
+  // Step 4: Build final clusters and filter out empty ones
   const clusters: ClusterResult[] = [];
   for (let cluster = 0; cluster < k; cluster++) {
     const clusterChunks = chunks.filter((_, i) => assignments[i] === cluster);
-    
+
     if (clusterChunks.length === 0) continue;
-    
+
     // Calculate confidence as average similarity to centroid
     const clusterEmbeddings = embeddings.filter((_, i) => assignments[i] === cluster);
-    const avgSimilarity = clusterEmbeddings.reduce((sum, embedding) => 
+    const avgSimilarity = clusterEmbeddings.reduce((sum, embedding) =>
       sum + cosineSimilarity(embedding, centroids[cluster]), 0) / clusterEmbeddings.length;
-    
+
     clusters.push({
       id: `cluster-${cluster}`,
-      label: `Theme ${cluster + 1}`,
+      label: `Cluster ${cluster + 1}`, // This will be overridden by LLM labeling
       chunks: clusterChunks,
       centroid: centroids[cluster],
       confidence: avgSimilarity,
     });
   }
 
-  return clusters;
+  // Sort clusters by size and confidence to prioritize meaningful ones
+  return clusters.sort((a, b) => (b.chunks.length * b.confidence) - (a.chunks.length * a.confidence));
 }
 
 /**

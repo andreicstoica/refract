@@ -1,17 +1,21 @@
 "use client";
 
-import { TextInput } from "@/components/TextInput";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function ReflectiveMirror() {
-  const handleTextChange = (text: string) => {
-    // This will be used for Milestone 2 - AI prods integration
-    console.log("Text updated:", text);
-  };
+export default function HomePage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to the writing page
+    router.replace("/write");
+  }, [router]);
 
   return (
-    <TextInput
-      onTextChange={handleTextChange}
-      placeholder="What's on your mind?"
-    />
+    <div className="h-dvh bg-background flex items-center justify-center">
+      <div className="animate-pulse text-muted-foreground">
+        Redirecting to writing...
+      </div>
+    </div>
   );
 }

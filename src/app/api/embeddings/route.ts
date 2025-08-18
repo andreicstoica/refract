@@ -109,7 +109,7 @@ export async function POST(req: Request) {
     if (error instanceof z.ZodError) {
       return Response.json({
         error: "Invalid request format",
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
@@ -175,12 +175,24 @@ Be insightful but concise. Avoid generic labels like "Theme 1" or overly specifi
 
   } catch (error) {
     console.error("❌ Theme labeling failed:", error);
-    // Return fallback labels
-    return clusters.map((cluster, index) => ({
-      clusterId: cluster.id,
-      label: `Theme ${index + 1}`,
-      description: "A collection of related thoughts",
-      confidence: 0.5,
-    }));
+    // Return more descriptive fallback labels based on cluster content
+    return clusters.map((cluster, index) => {
+      // Try to extract a meaningful label from the cluster content
+      const texts = cluster.chunks.map(chunk => chunk.text).join(' ');
+      const words = texts.toLowerCase().split(/\s+/);
+      const commonWords = ['work', 'job', 'stress', 'anxiety', 'family', 'friend', 'relationship', 'goal', 'future', 'past', 'learning', 'growth', 'health', 'exercise', 'food', 'money', 'finance', 'travel', 'hobby', 'creative', 'art', 'music', 'book', 'movie', 'game'];
+
+      const foundWords = commonWords.filter(word => words.includes(word));
+      const label = foundWords.length > 0
+        ? foundWords.slice(0, 2).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+        : `Cluster ${index + 1}`;
+
+      return {
+        clusterId: cluster.id,
+        label,
+        description: "A collection of related thoughts",
+        confidence: 0.5,
+      };
+    });
   }
 }
