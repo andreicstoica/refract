@@ -14,6 +14,10 @@ interface UseTextProcessingOptions {
     ) => void;
 }
 
+const COOLDOWN_MS = 1200;
+const CHAR_TRIGGER = 60;
+const TRAILING_DEBOUNCE_MS = 1500;
+
 export function useTextProcessing({
     onProdTrigger,
     onTextChange,
@@ -26,6 +30,12 @@ export function useTextProcessing({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // New trigger state tracking
+    const lastTriggerAtRef = useRef<number>(0);
+    const lastTriggerCharPosRef = useRef<number>(0);
+    const lastTriggerSentenceIdRef = useRef<string | null>(null);
+    const lastTriggerSentenceTextRef = useRef<string | null>(null);
 
     // Position measurement with memoization
     const measurePositions = useCallback(
@@ -50,6 +60,37 @@ export function useTextProcessing({
         }
     }, [text]);
 
+    // Helper to check if we should trigger a prod
+    const shouldTriggerProd = useCallback((currentText: string, lastSentence: Sentence) => {
+        const now = Date.now();
+
+        // Check cooldown
+        if (now - lastTriggerAtRef.current < COOLDOWN_MS) {
+            console.log("⏰ Cooldown active, skipping trigger for:", lastSentence.text.substring(0, 30) + "...");
+            return false;
+        }
+
+        // Check if we've already processed this exact sentence (ID + content)
+        if (lastTriggerSentenceIdRef.current === lastSentence.id &&
+            lastTriggerSentenceTextRef.current === lastSentence.text) {
+            console.log("🔄 Already processed exact sentence:", lastSentence.text.substring(0, 30) + "...");
+            return false;
+        }
+
+        console.log("✅ Should trigger prod for:", lastSentence.text.substring(0, 30) + "...");
+        return true;
+    }, []);
+
+    // Helper to trigger prod and update tracking state
+    const triggerProd = useCallback((currentText: string, lastSentence: Sentence) => {
+        console.log("🚀 Triggering prod for sentence:", lastSentence.text);
+        onProdTrigger(currentText, lastSentence);
+        lastTriggerAtRef.current = Date.now();
+        lastTriggerCharPosRef.current = currentText.length;
+        lastTriggerSentenceIdRef.current = lastSentence.id;
+        lastTriggerSentenceTextRef.current = lastSentence.text;
+    }, [onProdTrigger]);
+
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const newText = e.target.value;
         setText(newText);
@@ -59,13 +100,53 @@ export function useTextProcessing({
         const newSentences = splitIntoSentences(newText);
         setSentences(newSentences);
 
-        // Immediate position update for better sync
-        if (textareaRef.current && newSentences.length > 0) {
-            const positions = measurePositions(newSentences, textareaRef.current);
-            setSentencePositions(positions);
+        // Clear any existing debounce timer
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
         }
 
-        // Debounced position update for fine-tuning
+        if (newSentences.length === 0) return;
+
+        const lastSentence = newSentences[newSentences.length - 1];
+        const trimmed = newText.trimEnd();
+        const hasPunctuation = /[.!?;:]$/.test(trimmed);
+        const charsSince = newText.length - lastTriggerCharPosRef.current;
+
+        console.log("🔍 Trigger analysis:", {
+            sentenceText: lastSentence.text.substring(0, 50) + "...",
+            hasPunctuation,
+            charsSince,
+            sentenceLength: lastSentence.text.length,
+            shouldTrigger: shouldTriggerProd(newText, lastSentence)
+        });
+
+        // Trigger for sentence endings and natural pauses
+        if (shouldTriggerProd(newText, lastSentence)) {
+            if (hasPunctuation) {
+                console.log("⚙️ Punctuation trigger detected");
+                triggerProd(newText, lastSentence);
+            } else if (charsSince >= CHAR_TRIGGER) {
+                console.log("⚙️ Character threshold trigger detected");
+                triggerProd(newText, lastSentence);
+            } else {
+                // Set trailing debounce timer
+                console.log("⏳ Setting trailing debounce timer");
+                debounceTimerRef.current = setTimeout(() => {
+                    const currentText = textareaRef.current?.value || "";
+                    const currentSentences = splitIntoSentences(currentText);
+                    if (currentSentences.length > 0) {
+                        const lastSentence = currentSentences[currentSentences.length - 1];
+                        if (shouldTriggerProd(currentText, lastSentence)) {
+                            triggerProd(currentText, lastSentence);
+                        }
+                    }
+                }, TRAILING_DEBOUNCE_MS);
+            }
+        } else {
+            console.log("❌ Trigger conditions not met for:", lastSentence.text.substring(0, 30) + "...");
+        }
+
+        // Delay position calculation to ensure accurate positioning
         if (positionTimerRef.current) {
             clearTimeout(positionTimerRef.current);
         }
@@ -74,33 +155,9 @@ export function useTextProcessing({
             if (textareaRef.current && newSentences.length > 0) {
                 const positions = measurePositions(newSentences, textareaRef.current);
                 setSentencePositions(positions);
+                console.log("📍 Updated sentence positions:", positions.length, "positions");
             }
-        }, 50);
-
-        // Clear existing debounce timer
-        if (debounceTimerRef.current) {
-            clearTimeout(debounceTimerRef.current);
-        }
-
-        // Check for punctuation trigger (sentence ending)
-        const hasPunctuation = /[.!?;:]\s*$/.test(newText.trim());
-
-        if (hasPunctuation && newSentences.length > 0) {
-            console.log("⚙️ Punctuation trigger detected");
-            const lastSentence = newSentences[newSentences.length - 1];
-            onProdTrigger(newText, lastSentence);
-        } else {
-            // Set 3-second debounce timer
-            console.log("⏳ Setting 3s debounce timer");
-            debounceTimerRef.current = setTimeout(() => {
-                const currentText = textareaRef.current?.value || "";
-                const currentSentences = splitIntoSentences(currentText);
-                if (currentSentences.length > 0) {
-                    const lastSentence = currentSentences[currentSentences.length - 1];
-                    onProdTrigger(currentText, lastSentence);
-                }
-            }, 3000);
-        }
+        }, 100); // Back to reasonable delay
     };
 
     // Handle scroll and resize events to reposition chips

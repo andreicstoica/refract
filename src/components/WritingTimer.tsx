@@ -22,31 +22,35 @@ export function WritingTimer({
   isProcessing = false,
   className,
 }: WritingTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(initialMinutes * 60); // Convert to seconds
+  const [timeLeft, setTimeLeft] = useState(initialMinutes * 60); // Positive = countdown, negative = overtime
   const [isRunning, setIsRunning] = useState(true);
-  const [showFastForward, setShowFastForward] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
+  const [showSkip, setShowSkip] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const modeRef = useRef<"down" | "up">("down");
-  const initialTimeRef = useRef(initialMinutes * 60); // Store initial time to prevent reset
-
-  // Start timer when component mounts
+  const initialTimeRef = useRef(initialMinutes * 60);
+  const hasTriggeredComplete = useRef(false); // Prevent multiple onTimerComplete calls
+  const onTimerCompleteRef = useRef(onTimerComplete);
+  
+  // Keep the callback ref updated
   useEffect(() => {
-    setHasStarted(true);
+    onTimerCompleteRef.current = onTimerComplete;
+  }, [onTimerComplete]);
+  
+  // Derived states
+  const isCompleted = timeLeft <= 0;
+
+  // Start timer immediately when component mounts
+  useEffect(() => {
     setIsRunning(true);
-  }, []);
 
-  // Show fastforward option after 20 seconds
-  useEffect(() => {
-    const fastForwardTimer = setTimeout(() => {
-      setShowFastForward(true);
+    // Show skip button after 20 seconds
+    const skipTimer = setTimeout(() => {
+      setShowSkip(true);
     }, 20000);
 
-    return () => clearTimeout(fastForwardTimer);
+    return () => clearTimeout(skipTimer);
   }, []);
 
-  // Drive ticking using effect to avoid stale closures
+  // Simple timer logic
   useEffect(() => {
     if (!isRunning) {
       if (intervalRef.current) {
@@ -56,29 +60,8 @@ export function WritingTimer({
       return;
     }
 
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
     intervalRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        // Switch mode once when reaching zero
-        if (modeRef.current === "down") {
-          if (prev <= 1) {
-            modeRef.current = "up";
-            if (!isCompleted) {
-              setIsCompleted(true);
-              onTimerComplete();
-            }
-            return 0;
-          }
-          return prev - 1;
-        }
-
-        // Count up
-        return prev + 1;
-      });
+      setTimeLeft((prev) => prev - 1); // Just update the time, handle completion separately
     }, 1000);
 
     return () => {
@@ -87,7 +70,18 @@ export function WritingTimer({
         intervalRef.current = null;
       }
     };
-  }, [isRunning, isCompleted, onTimerComplete]);
+  }, [isRunning]); // Only depend on isRunning to prevent interval recreation
+
+  // Handle timer completion separately to avoid setState during render
+  useEffect(() => {
+    if (timeLeft <= 0 && !hasTriggeredComplete.current) {
+      hasTriggeredComplete.current = true;
+      // Use setTimeout to ensure this runs after the current render cycle
+      setTimeout(() => {
+        onTimerCompleteRef.current();
+      }, 0);
+    }
+  }, [timeLeft]);
 
   const pauseTimer = () => {
     if (intervalRef.current) {
@@ -101,16 +95,18 @@ export function WritingTimer({
     setIsRunning(true);
   };
 
-  const handleFastForward = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+  const handleSkip = () => {
+    if (isCompleted) {
+      onDone();
+    } else {
+      // Skip to done state: stop timer and set to 0 (no overtime counting)
+      setIsRunning(false);
+      setTimeLeft(0);
+      if (!hasTriggeredComplete.current) {
+        hasTriggeredComplete.current = true;
+        onTimerCompleteRef.current();
+      }
     }
-    modeRef.current = "up";
-    setIsCompleted(true);
-    onFastForward();
-    // Keep running so it starts counting up from current time
-    setIsRunning(true);
   };
 
   // Cleanup on unmount
@@ -123,10 +119,17 @@ export function WritingTimer({
   }, []);
 
   const formatTime = (seconds: number) => {
+    if (seconds <= 0) {
+      // Show overtime: +0:01, +0:02, etc.
+      const overtimeSeconds = Math.abs(seconds);
+      const mins = Math.floor(overtimeSeconds / 60);
+      const secs = overtimeSeconds % 60;
+      return `+${mins}:${secs.toString().padStart(2, "0")}`;
+    }
+    // Show countdown: 1:00, 0:59, etc.
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    const timeString = `${mins}:${secs.toString().padStart(2, "0")}`;
-    return isCompleted ? `+${timeString}` : timeString;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const progressPercentage = isCompleted
@@ -145,73 +148,66 @@ export function WritingTimer({
         className
       )}
     >
-      {/* Timer Display - hidden when completed */}
-      {!isCompleted && (
-        <>
-          <div className="flex items-center gap-2">
-            <div className="text-2xl font-mono tabular-nums">
-              {formatTime(timeLeft)}
-            </div>
+      {/* Timer Display */}
+      <div className="flex items-center gap-2">
+        <div className="text-2xl font-mono tabular-nums">
+          {formatTime(timeLeft)}
+        </div>
 
-            {/* Play/Pause Button */}
-            <button
-              onClick={isRunning ? pauseTimer : resumeTimer}
-              className="p-1 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
-            >
-              {isRunning ? (
-                <Pause className="w-4 h-4" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-            </button>
-          </div>
+        {/* Play/Pause Button */}
+        <button
+          onClick={isRunning ? pauseTimer : resumeTimer}
+          className="p-1 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
+        >
+          {isRunning ? (
+            <Pause className="w-4 h-4" />
+          ) : (
+            <Play className="w-4 h-4" />
+          )}
+        </button>
+      </div>
 
-          {/* Progress Bar */}
-          <div className="w-24 h-1 bg-blue-200/30 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-blue-500 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPercentage}%` }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            />
-          </div>
-        </>
-      )}
+      {/* Progress Bar */}
+      <div className="w-24 h-1 bg-blue-200/30 rounded-full overflow-hidden">
+        <motion.div
+          className="h-full bg-blue-500 rounded-full"
+          initial={{ width: 0 }}
+          animate={{ width: `${progressPercentage}%` }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        />
+      </div>
 
-      {/* Right-side CTA: Skip → Done */}
+      {/* Skip/Done Button */}
       <AnimatePresence>
-        {!isCompleted && showFastForward && (
+        {showSkip && (
           <motion.button
-            key="skip"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            onClick={handleFastForward}
-            className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-500/20 hover:bg-blue-500/30 rounded-full transition-colors"
-          >
-            <SkipForward className="w-3 h-3" />
-            Skip
-          </motion.button>
-        )}
-
-        {isCompleted && (
-          <motion.button
-            key="done"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            onClick={onDone}
+            onClick={handleSkip}
             disabled={isProcessing}
             className={cn(
-              "px-3 py-1 text-sm rounded-full transition-colors",
-              "border border-blue-400/30 bg-blue-500/10",
-              "text-blue-700 dark:text-blue-300",
+              "flex items-center gap-1 px-3 py-1 text-sm rounded-full transition-colors",
+              isCompleted
+                ? "border border-blue-400/30 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                : "bg-blue-500/20 hover:bg-blue-500/30",
               isProcessing
                 ? "opacity-60 cursor-not-allowed"
                 : "hover:bg-blue-500/20"
             )}
           >
-            {isProcessing ? "Analyzing…" : "Done"}
+            {isCompleted ? (
+              isProcessing ? (
+                "Analyzing…"
+              ) : (
+                "Done"
+              )
+            ) : (
+              <>
+                <SkipForward className="w-3 h-3" />
+                Skip
+              </>
+            )}
           </motion.button>
         )}
       </AnimatePresence>

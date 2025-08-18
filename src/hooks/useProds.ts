@@ -77,9 +77,9 @@ export function useProds() {
             console.log("🤖 Processing sentence:", sentence.text);
 
             // Rate limiting: wait before making API calls
-            await waitForRateLimit(200); // 200ms between API call sequences
+            await waitForRateLimit(150);
 
-            // Single smart API call: Generate candidates and select best internally
+            // Single smart API call: Generate and select best internally
             const data = await generateProd({
                 lastParagraph: sentence.text,
                 fullText: fullText
@@ -123,18 +123,26 @@ export function useProds() {
     // Process queue sequentially
     useEffect(() => {
         const processQueue = async () => {
-            if (queueState.isProcessing) return;
+            if (queueState.isProcessing) {
+                console.log("⏸️ Queue is already processing, skipping");
+                return;
+            }
 
             const pendingItems = queueState.items.filter(item => item.status === 'pending');
-            if (pendingItems.length === 0) return;
+            if (pendingItems.length === 0) {
+                console.log("📭 No pending items in queue");
+                return;
+            }
+
+            console.log("🔄 Processing queue with", pendingItems.length, "pending items");
 
             // Check throttling for the entire queue processing
             const now = Date.now();
             const timeSinceLastCall = now - lastApiCallRef.current;
-            if (timeSinceLastCall < 2000) {
+            if (timeSinceLastCall < 500) {
                 console.log("⏰ Queue processing throttled – scheduling wake-up");
                 // Schedule wake-up to prevent permanent stall
-                const wakeUpDelay = 2000 - timeSinceLastCall + 100; // +100ms buffer
+                const wakeUpDelay = 500 - timeSinceLastCall + 100; // +100ms buffer
                 setTimeout(() => {
                     queueDispatch({ type: 'SET_PROCESSING', payload: false }); // Trigger re-run
                 }, wakeUpDelay);
@@ -148,6 +156,7 @@ export function useProds() {
             const batchSize = 2;
             for (let i = 0; i < pendingItems.length; i += batchSize) {
                 const batch = pendingItems.slice(i, i + batchSize);
+                console.log("📦 Processing batch", Math.floor(i / batchSize) + 1, "with", batch.length, "items");
                 const promises = batch.map(item => processSingleItem(item));
                 await Promise.all(promises);
 
@@ -165,6 +174,8 @@ export function useProds() {
 
     // Public API to add sentences to queue
     const callProdAPI = useCallback((fullText: string, sentence: Sentence) => {
+        console.log("📝 callProdAPI called for sentence:", sentence.text.substring(0, 50) + "...");
+
         // Pre-filter sentences to skip obvious non-candidates
         if (!shouldProcessSentence(sentence)) {
             console.log("⏭️ Skipping sentence:", sentence.text);
@@ -188,7 +199,7 @@ export function useProds() {
             timestamp: Date.now(),
         };
 
-        console.log("📝 Adding to queue:", sentence.text);
+        console.log("📝 Adding to queue:", sentence.text.substring(0, 50) + "...");
         queueDispatch({ type: 'ENQUEUE', payload: queueItem });
     }, []);
 
