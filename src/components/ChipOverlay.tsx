@@ -1,11 +1,11 @@
 "use client";
 
 import { Chip } from "./Chip";
-import type { Prod } from "@/lib/useProds";
-import type { SentencePosition } from "@/lib/positionUtils";
+import type { Prod } from "@/types/prod";
+import type { SentencePosition } from "@/types/sentence";
 
 interface ChipOverlayProps {
-  prods: Prod[];
+  visibleProds: Prod[];
   sentencePositions: SentencePosition[];
   className?: string;
   onChipFade?: (prodId: string) => void;
@@ -13,7 +13,7 @@ interface ChipOverlayProps {
 }
 
 export function ChipOverlay({
-  prods,
+  visibleProds,
   sentencePositions,
   className,
   onChipFade,
@@ -28,14 +28,9 @@ export function ChipOverlay({
     <div
       className={`absolute inset-0 pointer-events-none z-20 ${className || ""}`}
     >
-      {prods.map((prod, index) => {
+      {visibleProds.map((prod) => {
         const sentencePosition = positionMap.get(prod.sentenceId);
         if (!sentencePosition) return null;
-
-        // Only show the first prod for each sentence
-        const isFirstForSentence =
-          prods.findIndex((p) => p.sentenceId === prod.sentenceId) === index;
-        if (!isFirstForSentence) return null;
 
         return (
           <Chip

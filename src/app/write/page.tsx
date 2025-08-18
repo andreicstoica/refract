@@ -1,40 +1,54 @@
 "use client";
 
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { TextInput } from "@/components/TextInput";
-import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
+import { WritingNav } from "@/components/WritingNav";
+import { useGenerateEmbeddings } from "@/hooks/useGenerateEmbeddings";
+import type { Sentence } from "@/types/sentence";
+import type { SentencePosition } from "@/types/sentence";
 
 export default function WritePage() {
-  const [hasContent, setHasContent] = useState(false);
+  const router = useRouter();
+  const { generate: generateEmbeddings, isGenerating } =
+    useGenerateEmbeddings();
+  const [currentText, setCurrentText] = useState("");
+  const [currentSentences, setCurrentSentences] = useState<Sentence[]>([]);
+  const [currentPositions, setCurrentPositions] = useState<SentencePosition[]>(
+    []
+  );
 
   const handleTextChange = (text: string) => {
-    setHasContent(text.trim().length > 0);
+    setCurrentText(text);
   };
 
-  return (
-    <div className="relative h-dvh">
-      {/* Clean navigation - only show when there's content */}
-      {hasContent && (
-        <div className="absolute top-4 right-4 z-50">
-          <Link href="/themes">
-            <Button
-              variant="outline"
-              size="sm"
-              className="bg-background/80 backdrop-blur-sm border-blue-200/30 hover:bg-blue-50/50"
-            >
-              View Themes
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </Link>
-        </div>
-      )}
+  const handleTextUpdate = (
+    text: string,
+    sentences: Sentence[],
+    positions: SentencePosition[]
+  ) => {
+    setCurrentText(text);
+    setCurrentSentences(sentences);
+    setCurrentPositions(positions);
+  };
 
+  const handleDone = useCallback(async () => {
+    try {
+      await generateEmbeddings(currentSentences, currentText);
+      // Navigate to themes page
+      router.push("/themes");
+    } catch (error) {
+      console.error("❌ Embeddings generation failed:", error);
+    }
+  }, [currentSentences, currentText, router, generateEmbeddings]);
+
+  return (
+    <div className="relative h-dvh bg-background text-foreground overflow-hidden">
+      <WritingNav onDone={handleDone} isProcessing={isGenerating} />
       <TextInput
         onTextChange={handleTextChange}
+        onTextUpdate={handleTextUpdate}
         placeholder="What's on your mind?"
-        hideThemes={true} // Hide theme bubbles on writing page
       />
     </div>
   );

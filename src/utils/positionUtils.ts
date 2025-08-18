@@ -1,13 +1,5 @@
-import type { Sentence } from "./sentenceUtils";
+import type { Sentence, SentencePosition } from "@/types/sentence";
 import { TEXT_STYLES } from "./constants";
-
-export interface SentencePosition {
-  sentenceId: string;
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
 
 export function measureSentencePositions(
   sentences: Sentence[],

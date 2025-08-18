@@ -55,14 +55,32 @@ Approach
   Interaction
 - Chips fade in; clickable in future (to expand into prompts, or insert into text).
 
-Deliverable: Chips visually feel like they’re “pointing” to your last thought.
+Deliverable: Chips visually feel like they're "pointing" to your last thought.
+
+## ✅ Milestone 4 — Semantic Bubble Map
+
+Goal: Transform writing into interactive semantic bubble clusters that users can explore.
+
+**Approach**
+- K-means clustering with cosine similarity for semantic grouping
+- Circular layout with confidence-based sizing and organic randomization
+- Framer Motion animations for smooth, mobile-friendly interactions
+- Themes generated via LLM labeling of clusters
+
+**Implementation**
+- `/themes` page displays bubbles positioned using trigonometric functions
+- Each bubble sized by cluster confidence, positioned in circular pattern with random offsets
+- Tappable bubbles reveal cluster contents and related phrases
+- Optimized for short writing sessions (5-10 minutes)
+
+Deliverable: Users see their thoughts visualized as beautiful, interactive bubbles they can explore.
 
 # Later (not yet in scope)
 
-- Semantic/embeddings powered cluster map view on next page
 - Meta-reflection challenges between sessions
 - Voice dictation mode (Web Speech API)
-- Clustering animations (PCA → UMAP via Canvas/WebGL)
+- Enhanced bubble physics (Matter.js for gentle floating, PixiJS for advanced interactions)
+- Long-press bubble interactions with content previews
 
 # Existing Tech Stack
 

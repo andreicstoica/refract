@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import type { Sentence } from "../sentenceUtils";
+import type { Sentence } from "@/types/sentence";
 
 describe("Sentence Caching Logic", () => {
   // Test the core caching logic that's used in useProds

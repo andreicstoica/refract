@@ -20,23 +20,23 @@ Web-based journaling tool that annotates your writing in real time with short �
 ## Features
 
 - Inline Focus Chips: sentence-level analysis triggers on pauses/punctuation; 1–2 tappable chips guide the next thought.
-- Interactive Idea Map: entry is embedded, clustered, and projected into 2D bubbles sized by salience, labeled by theme; tapping reveals phrases and targeted prompts.
+- Interactive Idea Map: entry is embedded, clustered into semantic themes using k-means, and displayed as 2D bubbles sized by confidence; tapping reveals phrases and targeted prompts.
 - Meta-Reflection: tracks interaction patterns (e.g., ignored chips) and offers a tailored challenge next session/day.
-- Smooth Projection Morphing: instant PCA layout that morphs to UMAP when idle for clearer clusters.
+- Semantic Bubble Layout: circular positioning with organic randomization creates natural, explorable clusters.
 - Mobile-first Design: optimized for thumb use, large tap targets, responsive motion.
 
 ## Technical Plan
 
-- Frontend: Next.js 15 (App Router), React 19, Tailwind, GSAP; Canvas/WebGL as needed for 60fps bubble animations; mobile gestures (tap, long‑press drag, pinch zoom).
+- Frontend: Next.js 15 (App Router), React 19, Tailwind, Framer Motion; future enhancements with Matter.js for gentle physics and PixiJS for advanced interactions.
 - Language Processing:
-  - Sentence chunking + small, fast embeddings.
-  - Clustering: k-means; labels via TF‑IDF with optional lightweight LLM refinement.
-  - Projection: PCA for instant layout → UMAP for aesthetic cluster separation.
+  - Sentence chunking + small, fast embeddings (OpenAI text-embedding-3-small).
+  - Clustering: k-means with cosine similarity; theme labels via LLM refinement.
+  - Layout: circular positioning with confidence-based sizing and organic randomization.
   - Optional Voice Input: Web Speech API for dictation/commands.
 - Performance:
   - Batched + debounced embedding calls; pre-warm on first keystroke.
-  - Cap visible nodes (top ~4 phrases for mobile).
-  - Staged projection (PCA→UMAP) and incremental animation.
+  - Optimized for short writing sessions (5-10 minutes).
+  - Smooth DOM-based animations tuned for mobile.
 
 ## Scope
 
@@ -46,10 +46,10 @@ Web-based journaling tool that annotates your writing in real time with short �
 
 ## Challenges & Mitigations
 
-- Limited wow factor: lean on interaction/motion polish; the “computer responds as you write” moment and morphing map are the hook.
+- Limited wow factor: lean on interaction/motion polish; the "computer responds as you write" moment and semantic bubble exploration are the hook.
 - Low-latency semantics: sentence batching + lightweight embeddings; slow mobile typing effectively increases slack.
-- Appealing projections on mobile: mode separation (Write vs Map) and adaptive detail; PCA→UMAP morph.
-- Reactive UI under load: cap nodes, staged projections, motion tuned for mobile GPUs.
+- Appealing visualizations on mobile: mode separation (Write vs Map) and adaptive detail; circular bubble layout with natural spacing.
+- Reactive UI under load: optimized for short sessions, smooth DOM animations, mobile-first performance.
 
 ## Quickstart
 

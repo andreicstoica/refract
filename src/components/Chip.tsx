@@ -1,9 +1,9 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 import { useState, useEffect } from "react";
-import { AnimatedText } from "./AnimatedText";
+import { AnimatedText } from "./ui/AnimatedText";
 
 interface ChipProps {
   text: string;

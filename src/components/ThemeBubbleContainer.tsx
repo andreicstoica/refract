@@ -3,16 +3,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useMemo } from "react";
 import { ThemeBubble } from "./ThemeBubble";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 
-interface Theme {
-  id: string;
-  label: string;
-  description?: string;
-  confidence: number;
-  chunkCount: number;
-  chunks?: Array<{ text: string; sentenceId: string }>;
-}
+import type { Theme } from "@/types/theme";
 
 interface ThemeBubbleContainerProps {
   themes: Theme[];
@@ -52,7 +45,7 @@ export function ThemeBubbleContainer({
 
       return {
         theme,
-        position: { x: `${x}%`, y: `${y}%` },
+        position: { x, y },
         size: 80 + theme.confidence * 40, // Size based on confidence
       };
     });
@@ -132,11 +125,11 @@ export function ThemeBubbleContainer({
               bubblePositions[(index + 1) % bubblePositions.length];
             if (!nextBubble) return null;
 
-            // Convert percentage positions to pixels for SVG
-            const x1 = parseFloat(bubble.position.x);
-            const y1 = parseFloat(bubble.position.y);
-            const x2 = parseFloat(nextBubble.position.x);
-            const y2 = parseFloat(nextBubble.position.y);
+            // Use percentage positions directly for SVG
+            const x1 = bubble.position.x;
+            const y1 = bubble.position.y;
+            const x2 = nextBubble.position.x;
+            const y2 = nextBubble.position.y;
 
             return (
               <motion.line

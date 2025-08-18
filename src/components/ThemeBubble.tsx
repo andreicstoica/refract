@@ -2,17 +2,12 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
+
+import type { Theme } from "@/types/theme";
 
 interface ThemeBubbleProps {
-  theme: {
-    id: string;
-    label: string;
-    description?: string;
-    confidence: number;
-    chunkCount: number;
-    chunks?: Array<{ text: string; sentenceId: string }>;
-  };
+  theme: Theme;
   position: { x: number; y: number };
   size: number;
   onExpand?: (themeId: string) => void;
@@ -76,21 +71,27 @@ export function ThemeBubble({
       <motion.div
         className={cn(
           "relative w-full h-full rounded-full",
-          "bg-gradient-to-br from-blue-400/20 to-purple-500/20",
-          "border border-blue-300/30",
-          "backdrop-blur-sm",
+          "border backdrop-blur-sm",
           "flex items-center justify-center",
           "overflow-hidden"
         )}
+        style={{
+          background: theme.color
+            ? `linear-gradient(135deg, ${theme.color}20, ${theme.color}10)`
+            : "linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.1))",
+          borderColor: theme.color
+            ? `${theme.color}30`
+            : "rgba(59, 130, 246, 0.3)",
+        }}
         animate={{
           scale: isHovered ? 1.05 : 1,
           boxShadow: isHovered
-            ? `0 0 ${
-                20 + glowIntensity * 30
-              }px rgba(59, 130, 246, ${glowIntensity})`
-            : `0 0 ${10 + glowIntensity * 20}px rgba(59, 130, 246, ${
-                glowIntensity * 0.5
-              })`,
+            ? `0 0 ${20 + glowIntensity * 30}px ${
+                theme.color || "rgba(59, 130, 246, 0.6)"
+              }`
+            : `0 0 ${10 + glowIntensity * 20}px ${
+                theme.color || "rgba(59, 130, 246, 0.3)"
+              }`,
         }}
         transition={{ duration: 0.2 }}
       >
@@ -98,11 +99,17 @@ export function ThemeBubble({
         <motion.div
           className="absolute inset-0 opacity-30"
           animate={{
-            background: [
-              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.3) 0%, transparent 50%)",
-              "radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.3) 0%, transparent 50%)",
-              "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.3) 0%, transparent 50%)",
-            ],
+            background: theme.color
+              ? [
+                  `radial-gradient(circle at 20% 20%, ${theme.color}30 0%, transparent 50%)`,
+                  `radial-gradient(circle at 80% 80%, ${theme.color}20 0%, transparent 50%)`,
+                  `radial-gradient(circle at 20% 20%, ${theme.color}30 0%, transparent 50%)`,
+                ]
+              : [
+                  "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.3) 0%, transparent 50%)",
+                  "radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.3) 0%, transparent 50%)",
+                  "radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.3) 0%, transparent 50%)",
+                ],
           }}
           transition={{
             duration: 4,
@@ -115,7 +122,14 @@ export function ThemeBubble({
         {[...Array(3)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-blue-300/60 rounded-full"
+            className="absolute w-1 h-1 rounded-full"
+            style={{
+              backgroundColor: theme.color
+                ? `${theme.color}60`
+                : "rgba(59, 130, 246, 0.6)",
+              left: `${20 + i * 30}%`,
+              top: `${30 + i * 20}%`,
+            }}
             animate={{
               x: [0, 20, 0],
               y: [0, -20, 0],
@@ -127,17 +141,16 @@ export function ThemeBubble({
               ease: "easeInOut",
               delay: i * 0.5,
             }}
-            style={{
-              left: `${20 + i * 30}%`,
-              top: `${30 + i * 20}%`,
-            }}
           />
         ))}
 
         {/* Content */}
         <div className="relative z-10 text-center px-2">
           <motion.div
-            className="text-xs font-medium text-blue-700 dark:text-blue-300"
+            className="text-xs font-medium"
+            style={{
+              color: theme.color ? theme.color : "rgb(29, 78, 216)", // Default blue
+            }}
             animate={{
               scale: isHovered ? 1.1 : 1,
             }}
@@ -150,7 +163,12 @@ export function ThemeBubble({
             <motion.div
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-1"
+              className="text-[10px] mt-1"
+              style={{
+                color: theme.color
+                  ? `${theme.color}70`
+                  : "rgba(29, 78, 216, 0.7)",
+              }}
             >
               {theme.chunkCount} segments
             </motion.div>
