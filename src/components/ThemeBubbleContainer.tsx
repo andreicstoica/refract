@@ -3,16 +3,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useMemo } from "react";
 import { ThemeBubble } from "./ThemeBubble";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 
-interface Theme {
-  id: string;
-  label: string;
-  description?: string;
-  confidence: number;
-  chunkCount: number;
-  chunks?: Array<{ text: string; sentenceId: string }>;
-}
+import type { Theme } from "@/types/theme";
 
 interface ThemeBubbleContainerProps {
   themes: Theme[];

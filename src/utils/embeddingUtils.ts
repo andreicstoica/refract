@@ -1,30 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { embedMany, cosineSimilarity } from "ai";
-import type { Sentence } from "./sentenceUtils";
-
-export interface TextChunk {
-  id: string;
-  text: string;
-  sentenceId: string;
-  embedding?: number[];
-}
-
-export interface EmbeddingResult {
-  chunks: TextChunk[];
-  embeddings: number[][];
-  usage: {
-    tokens: number;
-    cost?: number;
-  };
-}
-
-export interface ClusterResult {
-  id: string;
-  label: string;
-  chunks: TextChunk[];
-  centroid: number[];
-  confidence: number;
-}
+import type { Sentence } from "@/types/sentence";
+import type { TextChunk, EmbeddingResult, ClusterResult } from "@/types/embedding";
 
 /**
  * Convert filtered sentences to text chunks ready for embedding

@@ -2,18 +2,12 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
+
+import type { Theme } from "@/types/theme";
 
 interface ThemeBubbleProps {
-  theme: {
-    id: string;
-    label: string;
-    description?: string;
-    confidence: number;
-    chunkCount: number;
-    color?: string; // Add color property
-    chunks?: Array<{ text: string; sentenceId: string }>;
-  };
+  theme: Theme;
   position: { x: number; y: number };
   size: number;
   onExpand?: (themeId: string) => void;
@@ -133,6 +127,8 @@ export function ThemeBubble({
               backgroundColor: theme.color
                 ? `${theme.color}60`
                 : "rgba(59, 130, 246, 0.6)",
+              left: `${20 + i * 30}%`,
+              top: `${30 + i * 20}%`,
             }}
             animate={{
               x: [0, 20, 0],
@@ -144,10 +140,6 @@ export function ThemeBubble({
               repeat: Infinity,
               ease: "easeInOut",
               delay: i * 0.5,
-            }}
-            style={{
-              left: `${20 + i * 30}%`,
-              top: `${30 + i * 20}%`,
             }}
           />
         ))}

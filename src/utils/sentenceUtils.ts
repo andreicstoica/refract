@@ -1,11 +1,5 @@
 import nlp from "compromise";
-
-export interface Sentence {
-  text: string;
-  startIndex: number;
-  endIndex: number;
-  id: string;
-}
+import type { Sentence } from "@/types/sentence";
 
 export function splitIntoSentences(inputText: string): Sentence[] {
   if (!inputText.trim()) return [];

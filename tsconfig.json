@@ -21,7 +21,12 @@
 		],
 		"types": ["bun-types"],
 		"paths": {
-			"@/*": ["./src/*"]
+			"@/*": ["./src/*"],
+			"@/hooks/*": ["./src/hooks/*"],
+			"@/services/*": ["./src/services/*"],
+			"@/types/*": ["./src/types/*"],
+			"@/utils/*": ["./src/utils/*"],
+			"@/components/*": ["./src/components/*"]
 		}
 	},
 	"include": [

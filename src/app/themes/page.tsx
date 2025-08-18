@@ -5,15 +5,8 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { ThemeBubbleContainer } from "@/components/ThemeBubbleContainer";
 
-interface Theme {
-  id: string;
-  label: string;
-  description?: string;
-  confidence: number;
-  chunkCount: number;
-  color?: string; // Add color property
-  chunks?: Array<{ text: string; sentenceId: string }>;
-}
+import type { Theme } from "@/types/theme";
+import { storage } from "@/services/storage";
 
 export default function ThemesPage() {
   const [themes, setThemes] = useState<Theme[]>([]);
@@ -21,11 +14,11 @@ export default function ThemesPage() {
 
   // Load themes from localStorage or recent session
   useEffect(() => {
-    const savedThemes = localStorage.getItem("refract-themes");
-    const savedText = localStorage.getItem("refract-text");
+    const savedThemes = storage.getThemes();
+    const savedText = storage.getText();
 
     if (savedThemes) {
-      setThemes(JSON.parse(savedThemes));
+      setThemes(savedThemes);
     }
     if (savedText) {
       setSelectedText(savedText);

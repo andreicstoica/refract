@@ -5,10 +5,9 @@ import {
   generateEmbeddings,
   clusterEmbeddings,
   sentencesToChunks,
-  type TextChunk,
-  type ClusterResult
-} from "@/lib/embeddingUtils";
-import type { Sentence } from "@/lib/sentenceUtils";
+} from "@/utils/embeddingUtils";
+import type { Sentence } from "@/types/sentence";
+import type { TextChunk, ClusterResult } from "@/types/embedding";
 
 export const maxDuration = 30; // Embeddings can take longer than prods
 
@@ -67,14 +66,16 @@ export async function POST(req: Request) {
     // Step 4: Generate meaningful theme labels using LLM
     const themeLabels = await generateThemeLabels(clusters, fullText);
 
-    // Step 5: Merge cluster data with theme labels
-    const enrichedClusters = clusters.map(cluster => {
+    // Step 5: Merge cluster data with theme labels and assign colors
+    const colors = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444"];
+    const enrichedClusters = clusters.map((cluster, index) => {
       const themeLabel = themeLabels.find(t => t.clusterId === cluster.id);
       return {
         ...cluster,
         label: themeLabel?.label || cluster.label,
         description: themeLabel?.description || "",
         confidence: Math.min(cluster.confidence, themeLabel?.confidence || 0.5),
+        color: colors[index % colors.length],
       };
     });
 

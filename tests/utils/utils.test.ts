@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { cn } from "../utils";
+import { cn } from "@/utils/utils";
 
 describe("cn", () => {
 	it("merges class names and prefers the latter tailwind utility", () => {
