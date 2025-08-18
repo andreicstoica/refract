@@ -1,12 +1,12 @@
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { 
-  generateEmbeddings, 
-  clusterEmbeddings, 
+import {
+  generateEmbeddings,
+  clusterEmbeddings,
   sentencesToChunks,
   type TextChunk,
-  type ClusterResult 
+  type ClusterResult
 } from "@/lib/embeddingUtils";
 import type { Sentence } from "@/lib/sentenceUtils";
 
@@ -49,15 +49,15 @@ export async function POST(req: Request) {
 
     // Step 1: Convert sentences to chunks
     const chunks = sentencesToChunks(sentences);
-    
+
     // Step 2: Generate embeddings
     const embeddingResult = await generateEmbeddings(chunks);
-    
+
     // Step 3: Cluster embeddings (default to 3 clusters, adjust based on content)
     const numClusters = Math.min(3, Math.max(2, Math.floor(chunks.length / 3)));
     const clusters = clusterEmbeddings(
-      embeddingResult.chunks, 
-      embeddingResult.embeddings, 
+      embeddingResult.chunks,
+      embeddingResult.embeddings,
       numClusters
     );
 
@@ -90,6 +90,10 @@ export async function POST(req: Request) {
         description: c.description,
         confidence: c.confidence,
         chunkCount: c.chunks.length,
+        chunks: c.chunks.map(chunk => ({
+          text: chunk.text,
+          sentenceId: chunk.sentenceId,
+        })),
       })),
       usage: embeddingResult.usage,
       debug: {
@@ -101,7 +105,7 @@ export async function POST(req: Request) {
 
   } catch (error) {
     console.error("❌ Embeddings API error:", error);
-    
+
     if (error instanceof z.ZodError) {
       return Response.json({
         error: "Invalid request format",
@@ -122,7 +126,7 @@ export async function POST(req: Request) {
  * Generate meaningful theme labels for clusters using LLM
  */
 async function generateThemeLabels(
-  clusters: ClusterResult[], 
+  clusters: ClusterResult[],
   fullText?: string
 ): Promise<Array<{ clusterId: string; label: string; description: string; confidence: number }>> {
   if (clusters.length === 0) return [];
@@ -154,11 +158,10 @@ EXAMPLES:
 - "Future Planning" for texts about goals, aspirations, decisions
 
 Be insightful but concise. Avoid generic labels like "Theme 1" or overly specific ones.`,
-      prompt: `${fullText ? `FULL CONTEXT:\n${fullText}\n\n` : ''}CLUSTERS TO LABEL:\n${
-        clusterSummaries.map((cluster, i) => 
-          `Cluster ${i + 1} (${cluster.chunkCount} texts):\n${cluster.texts.join('\n')}\n`
-        ).join('\n')
-      }\n\nGenerate theme labels for these clusters:`,
+      prompt: `${fullText ? `FULL CONTEXT:\n${fullText}\n\n` : ''}CLUSTERS TO LABEL:\n${clusterSummaries.map((cluster, i) =>
+        `Cluster ${i + 1} (${cluster.chunkCount} texts):\n${cluster.texts.join('\n')}\n`
+      ).join('\n')
+        }\n\nGenerate theme labels for these clusters:`,
       schema: ThemeLabelSchema,
     });
 

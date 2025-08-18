@@ -93,10 +93,10 @@ Text Input -> Existing Sentence Processing (useProds) -> Cache Filtered Sentence
 
 ### Phase 4: Bubble Visualization
 
-- [ ] Create `ThemeBubble` components with animations and visual texture
-- [ ] Build mindmap layout system
-- [ ] Implement expansion interactions and text highlighting
-- [ ] Add smooth transitions between views
+- [x] Create `ThemeBubble` components with animations and visual texture
+- [x] Build mindmap layout system
+- [x] Implement expansion interactions and text highlighting
+- [x] Add smooth transitions between views
 
 ## Technical Requirements
 
@@ -143,8 +143,8 @@ Response:
 - [x] "Done" button appears reliably at 1000+ character threshold
 - [x] Embedding generation completes within 3-5 seconds for typical content
 - [x] 2-3 meaningful themes identified for most writing sessions
-- [ ] Bubble interactions feel smooth and responsive
-- [ ] Text highlighting accurately shows theme-related content
+- [x] Bubble interactions feel smooth and responsive
+- [x] Text highlighting accurately shows theme-related content
 
 ### User Experience Goals
 

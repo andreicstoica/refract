@@ -10,6 +10,7 @@ import type { SentencePosition } from "@/lib/positionUtils";
 import { useProds } from "@/lib/useProds";
 import { ChipOverlay } from "./ChipOverlay";
 import { DoneButton, DEFAULT_DONE_THRESHOLD } from "./DoneButton";
+import { ThemeBubbleContainer } from "./ThemeBubbleContainer";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
 
 interface TextInputProps {
@@ -31,12 +32,14 @@ export function TextInput({
   const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use our custom hook for prod management
-  const { prods, callProdAPI, clearQueue, queueState, filteredSentences } = useProds();
-  
+  const { prods, callProdAPI, clearQueue, queueState, filteredSentences } =
+    useProds();
+
   // Embeddings state
   const [isGeneratingEmbeddings, setIsGeneratingEmbeddings] = useState(false);
   const [themes, setThemes] = useState<any[]>([]);
   const [showThemes, setShowThemes] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
 
   // Position measurement with memoization
   const measurePositions = useCallback(
@@ -164,10 +167,12 @@ export function TextInput({
     }
 
     setIsGeneratingEmbeddings(true);
-    
+
     try {
-      console.log(`🎯 Generating embeddings for ${filteredSentences.length} cached sentences`);
-      
+      console.log(
+        `🎯 Generating embeddings for ${filteredSentences.length} cached sentences`
+      );
+
       const response = await fetch("/api/embeddings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -184,7 +189,6 @@ export function TextInput({
 
       setThemes(data.themes || []);
       setShowThemes(true);
-      
     } catch (error) {
       console.error("❌ Embeddings generation failed:", error);
     } finally {
@@ -216,13 +220,17 @@ export function TextInput({
         <div>🤖 AI Status:</div>
         <div className="ml-2">prodsCount: {prods.length}</div>
         <div className="ml-2">queueLength: {queueState.items.length}</div>
-        <div className="ml-2">isProcessing: {queueState.isProcessing ? 'yes' : 'no'}</div>
+        <div className="ml-2">
+          isProcessing: {queueState.isProcessing ? "yes" : "no"}
+        </div>
         <div className="ml-2 text-blue-400">
-          pending: {queueState.items.filter(i => i.status === 'pending').length}, 
-          processing: {queueState.items.filter(i => i.status === 'processing').length}
+          pending:{" "}
+          {queueState.items.filter((i) => i.status === "pending").length},
+          processing:{" "}
+          {queueState.items.filter((i) => i.status === "processing").length}
         </div>
         <div className="ml-2">
-          <button 
+          <button
             onClick={clearQueue}
             className="text-xs px-1 py-0.5 bg-red-500/20 text-red-400 rounded hover:bg-red-500/40"
           >
@@ -301,16 +309,30 @@ export function TextInput({
             />
           </div>
 
-          {/* Themes Display - TODO: Create proper theme bubbles */}
+          {/* Theme Bubbles Visualization */}
           {showThemes && themes.length > 0 && (
-            <div className="absolute top-4 left-4 z-30 bg-background/90 p-4 rounded-lg border">
-              <h3 className="text-sm font-medium mb-2">Themes Found:</h3>
-              {themes.map((theme, index) => (
-                <div key={theme.id || index} className="text-xs mb-1">
-                  <strong>{theme.label}</strong> ({theme.chunkCount} segments)
-                  {theme.description && <div className="text-muted-foreground">{theme.description}</div>}
-                </div>
-              ))}
+            <div className="absolute inset-0 z-30 p-4">
+              <ThemeBubbleContainer
+                themes={themes}
+                onThemeSelect={(themeId) => {
+                  setSelectedTheme(themeId);
+                }}
+              />
+
+              {/* Return to writing button */}
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.3 }}
+                onClick={() => {
+                  setShowThemes(false);
+                  setThemes([]);
+                  setSelectedTheme(null);
+                }}
+                className="absolute bottom-4 left-4 z-40 px-4 py-2 bg-background/90 backdrop-blur-sm border border-blue-200/30 rounded-full text-sm text-blue-600 hover:bg-background transition-colors"
+              >
+                ← Back to writing
+              </motion.button>
             </div>
           )}
         </motion.div>
