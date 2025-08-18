@@ -9,6 +9,7 @@ import { measureSentencePositions } from "@/lib/positionUtils";
 import type { SentencePosition } from "@/lib/positionUtils";
 import { useProds } from "@/lib/useProds";
 import { ChipOverlay } from "./ChipOverlay";
+import { DoneButton, DEFAULT_DONE_THRESHOLD } from "./DoneButton";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
 
 interface TextInputProps {
@@ -30,7 +31,12 @@ export function TextInput({
   const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use our custom hook for prod management
-  const { prods, callProdAPI, clearQueue, queueState } = useProds();
+  const { prods, callProdAPI, clearQueue, queueState, filteredSentences } = useProds();
+  
+  // Embeddings state
+  const [isGeneratingEmbeddings, setIsGeneratingEmbeddings] = useState(false);
+  const [themes, setThemes] = useState<any[]>([]);
+  const [showThemes, setShowThemes] = useState(false);
 
   // Position measurement with memoization
   const measurePositions = useCallback(
@@ -150,6 +156,42 @@ export function TextInput({
     };
   }, []);
 
+  // Handle embeddings generation when user clicks "Done"
+  const handleGenerateEmbeddings = useCallback(async () => {
+    if (filteredSentences.length === 0) {
+      console.log("⚠️ No filtered sentences available for embeddings");
+      return;
+    }
+
+    setIsGeneratingEmbeddings(true);
+    
+    try {
+      console.log(`🎯 Generating embeddings for ${filteredSentences.length} cached sentences`);
+      
+      const response = await fetch("/api/embeddings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sentences: filteredSentences,
+          fullText: text,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Embeddings API call failed");
+
+      const data = await response.json();
+      console.log("✨ Embeddings result:", data);
+
+      setThemes(data.themes || []);
+      setShowThemes(true);
+      
+    } catch (error) {
+      console.error("❌ Embeddings generation failed:", error);
+    } finally {
+      setIsGeneratingEmbeddings(false);
+    }
+  }, [filteredSentences, text]);
+
   // Determine if we should use full height or centered layout
   const hasContent = text.trim().length > 0;
   const textLength = text.length;
@@ -169,6 +211,8 @@ export function TextInput({
       {/* Temporary debug info - moved to bottom */}
       <div className="absolute bottom-2 right-2 z-50 text-xs opacity-70 bg-background/80 p-2 rounded max-w-xs">
         <div>📏 Text length: {text.length}</div>
+        <div>💾 Cached sentences: {filteredSentences.length}</div>
+        <div>🎯 Themes: {themes.length}</div>
         <div>🤖 AI Status:</div>
         <div className="ml-2">prodsCount: {prods.length}</div>
         <div className="ml-2">queueLength: {queueState.items.length}</div>
@@ -246,6 +290,29 @@ export function TextInput({
 
           {/* Chip Overlay - positioned relative to textarea */}
           <ChipOverlay prods={prods} sentencePositions={sentencePositions} />
+
+          {/* Done Button - appears when threshold is met */}
+          <div className="absolute bottom-4 right-4 z-30">
+            <DoneButton
+              textLength={textLength}
+              onDone={handleGenerateEmbeddings}
+              isProcessing={isGeneratingEmbeddings}
+              threshold={DEFAULT_DONE_THRESHOLD}
+            />
+          </div>
+
+          {/* Themes Display - TODO: Create proper theme bubbles */}
+          {showThemes && themes.length > 0 && (
+            <div className="absolute top-4 left-4 z-30 bg-background/90 p-4 rounded-lg border">
+              <h3 className="text-sm font-medium mb-2">Themes Found:</h3>
+              {themes.map((theme, index) => (
+                <div key={theme.id || index} className="text-xs mb-1">
+                  <strong>{theme.label}</strong> ({theme.chunkCount} segments)
+                  {theme.description && <div className="text-muted-foreground">{theme.description}</div>}
+                </div>
+              ))}
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </div>

@@ -77,6 +77,8 @@ export function useProds() {
     items: [],
     isProcessing: false
   });
+  // Cache for filtered sentences to reuse for embeddings
+  const [filteredSentences, setFilteredSentences] = useState<Sentence[]>([]);
   const lastApiCallRef = useRef<number>(0);
   const nextAvailableAtRef = useRef<number>(0);
 
@@ -225,6 +227,16 @@ export function useProds() {
       return;
     }
 
+    // Cache filtered sentence for embedding reuse
+    setFilteredSentences(prev => {
+      // Check if sentence already exists to avoid duplicates
+      const exists = prev.some(s => s.id === sentence.id);
+      if (exists) return prev;
+      
+      console.log("💾 Caching filtered sentence for embeddings:", sentence.text.substring(0, 50) + "...");
+      return [...prev, sentence];
+    });
+
     const queueItem = {
       id: `queue-${sentence.id}-${Date.now()}`,
       fullText,
@@ -241,11 +253,18 @@ export function useProds() {
     queueDispatch({ type: 'CLEAR_QUEUE' });
   }, []);
 
+  // Clear cached sentences (for new writing sessions)
+  const clearFilteredSentences = useCallback(() => {
+    console.log("🗑️ Clearing cached filtered sentences");
+    setFilteredSentences([]);
+  }, []);
 
   return {
     prods,
     callProdAPI,
     clearQueue,
     queueState, // Expose queue state for UI feedback
+    filteredSentences, // Expose cached sentences for embeddings
+    clearFilteredSentences, // Allow clearing cache for new sessions
   };
 }

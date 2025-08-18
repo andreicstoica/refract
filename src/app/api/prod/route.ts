@@ -110,7 +110,7 @@ OUTPUT:
 
 		// Return the selected result
 		const selection = selectionResult.object;
-		
+
 		return Response.json({
 			selectedProd: selection.selectedProd || "",
 			shouldSkip: selection.shouldSkip || false,
