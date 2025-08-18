@@ -28,11 +28,12 @@ export function WritingTimer({
   const [hasStarted, setHasStarted] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const modeRef = useRef<"down" | "up">("down");
 
   // Start timer when component mounts
   useEffect(() => {
     setHasStarted(true);
-    startTimer();
+    setIsRunning(true);
   }, []);
 
   // Show fastforward option after 20 seconds
@@ -44,26 +45,48 @@ export function WritingTimer({
     return () => clearTimeout(fastForwardTimer);
   }, []);
 
-  const startTimer = () => {
-    if (intervalRef.current) return;
+  // Drive ticking using effect to avoid stale closures
+  useEffect(() => {
+    if (!isRunning) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
 
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev <= 1 && !isCompleted) {
-          // Timer reached 0, mark as completed and start counting up
-          setIsCompleted(true);
-          onTimerComplete();
-          return 0;
+        // Switch mode once when reaching zero
+        if (modeRef.current === "down") {
+          if (prev <= 1) {
+            modeRef.current = "up";
+            if (!isCompleted) {
+              setIsCompleted(true);
+              onTimerComplete();
+            }
+            return 0;
+          }
+          return prev - 1;
         }
-        if (isCompleted) {
-          // Count up after completion
-          return prev + 1;
-        }
-        // Count down normally
-        return prev - 1;
+
+        // Count up
+        return prev + 1;
       });
     }, 1000);
-  };
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isRunning, isCompleted, onTimerComplete]);
 
   const pauseTimer = () => {
     if (intervalRef.current) {
@@ -75,7 +98,6 @@ export function WritingTimer({
 
   const resumeTimer = () => {
     setIsRunning(true);
-    startTimer();
   };
 
   const handleFastForward = () => {
@@ -83,8 +105,11 @@ export function WritingTimer({
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    modeRef.current = "up";
     setIsCompleted(true);
     onFastForward();
+    // Keep running so it starts counting up
+    setIsRunning(true);
   };
 
   // Cleanup on unmount
@@ -119,34 +144,38 @@ export function WritingTimer({
         className
       )}
     >
-      {/* Timer Display */}
-      <div className="flex items-center gap-2">
-        <div className="text-2xl font-mono tabular-nums">
-          {formatTime(timeLeft)}
-        </div>
+      {/* Timer Display - hidden when completed */}
+      {!isCompleted && (
+        <>
+          <div className="flex items-center gap-2">
+            <div className="text-2xl font-mono tabular-nums">
+              {formatTime(timeLeft)}
+            </div>
 
-        {/* Play/Pause Button */}
-        <button
-          onClick={isRunning ? pauseTimer : resumeTimer}
-          className="p-1 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
-        >
-          {isRunning ? (
-            <Pause className="w-4 h-4" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
-        </button>
-      </div>
+            {/* Play/Pause Button */}
+            <button
+              onClick={isRunning ? pauseTimer : resumeTimer}
+              className="p-1 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
+            >
+              {isRunning ? (
+                <Pause className="w-4 h-4" />
+              ) : (
+                <Play className="w-4 h-4" />
+              )}
+            </button>
+          </div>
 
-      {/* Progress Bar */}
-      <div className="w-24 h-1 bg-blue-200/30 rounded-full overflow-hidden">
-        <motion.div
-          className="h-full bg-blue-500 rounded-full"
-          initial={{ width: 0 }}
-          animate={{ width: `${progressPercentage}%` }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-        />
-      </div>
+          {/* Progress Bar */}
+          <div className="w-24 h-1 bg-blue-200/30 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-blue-500 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercentage}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+          </div>
+        </>
+      )}
 
       {/* Right-side CTA: Skip → Done */}
       <AnimatePresence>

@@ -9,20 +9,22 @@ import { measureSentencePositions } from "@/lib/positionUtils";
 import type { SentencePosition } from "@/lib/positionUtils";
 import { useProds } from "@/lib/useProds";
 import { ChipOverlay } from "./ChipOverlay";
-import { DoneButton } from "./DoneButton";
-import { WritingTimer } from "./WritingTimer";
-import { TimerSetupModal } from "./TimerSetupModal";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
-import { useRouter } from "next/navigation";
 
 interface TextInputProps {
   onTextChange?: (text: string) => void;
   placeholder?: string;
+  onTextUpdate?: (
+    text: string,
+    sentences: Sentence[],
+    positions: SentencePosition[]
+  ) => void;
 }
 
 export function TextInput({
   onTextChange,
   placeholder = "What's on your mind?",
+  onTextUpdate,
 }: TextInputProps) {
   const [text, setText] = useState("");
   const [sentences, setSentences] = useState<Sentence[]>([]);
@@ -32,19 +34,10 @@ export function TextInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const router = useRouter();
 
   // Use our custom hook for prod management
   const { prods, callProdAPI, clearQueue, queueState, filteredSentences } =
     useProds();
-
-  // Embeddings state
-  const [isGeneratingEmbeddings, setIsGeneratingEmbeddings] = useState(false);
-
-  // Timer state
-  const [showTimerSetup, setShowTimerSetup] = useState(true);
-  const [timerMinutes, setTimerMinutes] = useState(1);
-  const [timerCompleted, setTimerCompleted] = useState(false);
 
   // Position measurement with memoization
   const measurePositions = useCallback(
@@ -68,7 +61,6 @@ export function TextInput({
   useEffect(() => {
     if (textareaRef.current) {
       const textarea = textareaRef.current;
-      // Scroll to the bottom to keep cursor in view
       textarea.scrollTop = textarea.scrollHeight;
     }
   }, [text]);
@@ -96,19 +88,9 @@ export function TextInput({
     positionTimerRef.current = setTimeout(() => {
       if (textareaRef.current && newSentences.length > 0) {
         const positions = measurePositions(newSentences, textareaRef.current);
-        console.log("📍 Position measurement:", {
-          sentencesCount: newSentences.length,
-          positionsCount: positions.length,
-          sentences: newSentences.map((s) => ({ id: s.id, text: s.text })),
-          positions: positions.map((p) => ({
-            sentenceId: p.sentenceId,
-            top: p.top,
-            left: p.left,
-          })),
-        });
         setSentencePositions(positions);
       }
-    }, 50); // Reduced delay for better responsiveness
+    }, 50);
 
     // Clear existing debounce timer
     if (debounceTimerRef.current) {
@@ -126,7 +108,6 @@ export function TextInput({
       // Set 3-second debounce timer
       console.log("⏳ Setting 3s debounce timer");
       debounceTimerRef.current = setTimeout(() => {
-        // Use current sentences state instead of closure variable
         const currentText = textareaRef.current?.value || "";
         const currentSentences = splitIntoSentences(currentText);
         if (currentSentences.length > 0) {
@@ -170,102 +151,21 @@ export function TextInput({
     };
   }, []);
 
-  // Handle embeddings generation when user clicks "Done"
-  const handleGenerateEmbeddings = useCallback(async () => {
-    if (filteredSentences.length === 0) {
-      console.log("⚠️ No filtered sentences available for embeddings");
-      return;
-    }
-
-    setIsGeneratingEmbeddings(true);
-
-    try {
-      console.log(
-        `🎯 Generating embeddings for ${filteredSentences.length} cached sentences`
-      );
-
-      const response = await fetch("/api/embeddings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sentences: filteredSentences,
-          fullText: text,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Embeddings API call failed");
-
-      const data = await response.json();
-      console.log("✨ Embeddings result:", data);
-
-      // Save to localStorage for themes page
-      localStorage.setItem("refract-themes", JSON.stringify(data.themes || []));
-      localStorage.setItem("refract-text", text);
-
-      // Navigate to themes page
-      router.push("/themes");
-    } catch (error) {
-      console.error("❌ Embeddings generation failed:", error);
-    } finally {
-      setIsGeneratingEmbeddings(false);
-    }
-  }, [filteredSentences, text, router]);
-
-  // Timer handlers
-  const handleTimerStart = (minutes: number) => {
-    setTimerMinutes(minutes);
-    setShowTimerSetup(false);
-  };
-
-  const handleTimerComplete = () => {
-    setTimerCompleted(true);
-  };
-
-  const handleFastForward = () => {
-    setTimerCompleted(true);
-  };
+  // Notify parent of text updates
+  useEffect(() => {
+    onTextUpdate?.(text, sentences, sentencePositions);
+  }, [text, sentences, sentencePositions, onTextUpdate]);
 
   // Determine if we should use full height or centered layout
   const hasContent = text.trim().length > 0;
   const lineCount = text.split("\n").length;
-
-  // Switch to full height when text would exceed the initial box
-  // Check both character count and line count for better detection
   let shouldUseFullHeight = hasContent && (text.length > 400 || lineCount > 10);
 
-  // Update positions immediately when layout changes
-  useEffect(() => {
-    if (textareaRef.current && sentences.length > 0) {
-      const positions = measurePositions(sentences, textareaRef.current);
-      setSentencePositions(positions);
-    }
-  }, [shouldUseFullHeight, sentences, measurePositions]);
-
   return (
-    <div
-      className={cn(
-        "h-dvh bg-background text-foreground relative overflow-hidden"
-      )}
-    >
-      {/* Timer Setup Modal */}
-      <TimerSetupModal isOpen={showTimerSetup} onStart={handleTimerStart} />
-
-      {/* Timer Display */}
-      {!showTimerSetup && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40">
-          <WritingTimer
-            initialMinutes={timerMinutes}
-            onTimerComplete={handleTimerComplete}
-            onFastForward={handleFastForward}
-            onDone={handleGenerateEmbeddings}
-            isProcessing={isGeneratingEmbeddings}
-          />
-        </div>
-      )}
-      {/* Temporary debug info - moved to bottom */}
+    <div className="h-full w-full">
+      {/* Temporary debug info */}
       <div className="absolute bottom-2 right-2 z-50 text-xs opacity-70 bg-background/80 p-2 rounded max-w-xs">
         <div>📏 Text length: {text.length}</div>
-        <div>⏱️ Timer completed: {timerCompleted ? "yes" : "no"}</div>
         <div>💾 Cached sentences: {filteredSentences.length}</div>
         <div>🤖 AI Status:</div>
         <div className="ml-2">prodsCount: {prods.length}</div>
@@ -298,22 +198,15 @@ export function TextInput({
             .join(", ")}
         </div>
       </div>
-      {/* Fade overlay for top - always visible for subtle effect */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: shouldUseFullHeight ? 1 : 0.6 }}
-        transition={{ duration: 0.2 }}
-        className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-background from-40% via-background/60 via-70% to-transparent z-10 pointer-events-none"
-      />
 
       <motion.div
-        className="mx-auto max-w-2xl px-4 w-full"
+        className="mx-auto max-w-2xl px-4 w-full h-full"
         animate={{
           position: shouldUseFullHeight ? "absolute" : "relative",
-          top: shouldUseFullHeight ? "80px" : "auto", // Account for timer height
+          top: shouldUseFullHeight ? "0" : "auto",
           left: shouldUseFullHeight ? "50%" : "auto",
           transform: shouldUseFullHeight ? "translateX(-50%)" : "none",
-          height: shouldUseFullHeight ? "calc(100vh - 80px)" : "auto", // Subtract timer height
+          height: shouldUseFullHeight ? "100vh" : "auto",
           marginTop: shouldUseFullHeight ? "0" : "20vh",
         }}
         transition={{ duration: 0.3, ease: "easeOut" }}
@@ -341,8 +234,8 @@ export function TextInput({
               caretColor: "currentColor",
               height: shouldUseFullHeight ? "100%" : "calc(100vh - 8rem)",
               transition: "height 0.3s ease-out",
-              overflow: "auto", // Always allow scrolling when needed
-              resize: "none", // Prevent manual resizing
+              overflow: "auto",
+              resize: "none",
             }}
             autoComplete="off"
             autoCorrect="off"
