@@ -19,6 +19,7 @@
 				"name": "next"
 			}
 		],
+		"types": ["bun-types"],
 		"paths": {
 			"@/*": ["./src/*"]
 		}
@@ -26,13 +27,13 @@
 	"include": [
 		"./**/*.ts",
 		"./**/*.tsx",
+		"./**/*.d.ts",
 		"./.next/types/**/*.ts",
 		"./next-env.d.ts",
 		".next/types/**/*.ts"
 	],
 	"exclude": [
 		"./node_modules",
-		"vitest.config.ts",
 		"src/**/*.test.ts",
 		"src/**/*.test.tsx",
 		"src/**/__tests__/**"

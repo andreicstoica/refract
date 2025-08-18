@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { splitIntoSentences } from "@/lib/sentenceUtils";
+import { describe, it, expect } from "bun:test";
+import { splitIntoSentences } from "../sentenceUtils.js";
 
 describe("splitIntoSentences", () => {
 	it("returns empty array for empty or whitespace-only input", () => {
@@ -29,5 +29,57 @@ describe("splitIntoSentences", () => {
 		expect(sentences[1].startIndex).toBe(s1Start);
 		expect(sentences[1].endIndex).toBe(s1End);
 	});
-});
 
+	it("handles repeated sentences with correct ordering and indices", () => {
+		const text = "Hello. Hello. Hello.";
+		const sentences = splitIntoSentences(text);
+
+		expect(sentences.length).toBe(3);
+		// Ensure IDs are stable and ordered
+		expect(sentences.map((s) => s.id)).toEqual([
+			"sentence-0",
+			"sentence-1",
+			"sentence-2",
+		]);
+
+		let cursor = 0;
+		for (const s of sentences) {
+			const start = text.indexOf(s.text, cursor);
+			expect(s.startIndex).toBe(start);
+			expect(s.endIndex).toBe(start + s.text.length);
+			cursor = s.endIndex;
+		}
+	});
+
+	it("handles newlines and maintains correct indices", () => {
+		const text = "First line.\nSecond line continues here.\nThird line.";
+		const sentences = splitIntoSentences(text);
+
+		expect(sentences.length).toBe(3);
+		let cursor = 0;
+		for (const s of sentences) {
+			const start = text.indexOf(s.text, cursor);
+			expect(s.startIndex).toBe(start);
+			expect(s.endIndex).toBe(start + s.text.length);
+			cursor = s.endIndex;
+		}
+	});
+
+	it("treats text without terminal punctuation as a single sentence", () => {
+		const text = "This is a single sentence without punctuation";
+		const sentences = splitIntoSentences(text);
+		expect(sentences.length).toBe(1);
+		expect(sentences[0].text).toBe(text);
+		expect(sentences[0].startIndex).toBe(0);
+		expect(sentences[0].endIndex).toBe(text.length);
+	});
+
+	it("supports unicode and emoji characters", () => {
+		const text = "I love pizza 🍕.";
+		const sentences = splitIntoSentences(text);
+		expect(sentences.length).toBe(1);
+		expect(sentences[0].text).toBe(text);
+		expect(sentences[0].startIndex).toBe(0);
+		expect(sentences[0].endIndex).toBe(text.length);
+	});
+});
