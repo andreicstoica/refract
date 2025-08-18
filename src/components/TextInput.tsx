@@ -9,16 +9,20 @@ import { measureSentencePositions } from "@/lib/positionUtils";
 import type { SentencePosition } from "@/lib/positionUtils";
 import { useProds } from "@/lib/useProds";
 import { ChipOverlay } from "./ChipOverlay";
+import { DoneButton, DEFAULT_DONE_THRESHOLD } from "./DoneButton";
+import { ThemeBubbleContainer } from "./ThemeBubbleContainer";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
 
 interface TextInputProps {
   onTextChange?: (text: string) => void;
   placeholder?: string;
+  hideThemes?: boolean;
 }
 
 export function TextInput({
   onTextChange,
   placeholder = "What's on your mind?",
+  hideThemes = false,
 }: TextInputProps) {
   const [text, setText] = useState("");
   const [sentences, setSentences] = useState<Sentence[]>([]);
@@ -30,7 +34,14 @@ export function TextInput({
   const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use our custom hook for prod management
-  const { prods, callProdAPI, clearQueue, queueState } = useProds();
+  const { prods, callProdAPI, clearQueue, queueState, filteredSentences } =
+    useProds();
+
+  // Embeddings state
+  const [isGeneratingEmbeddings, setIsGeneratingEmbeddings] = useState(false);
+  const [themes, setThemes] = useState<any[]>([]);
+  const [showThemes, setShowThemes] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
 
   // Position measurement with memoization
   const measurePositions = useCallback(
@@ -150,6 +161,47 @@ export function TextInput({
     };
   }, []);
 
+  // Handle embeddings generation when user clicks "Done"
+  const handleGenerateEmbeddings = useCallback(async () => {
+    if (filteredSentences.length === 0) {
+      console.log("⚠️ No filtered sentences available for embeddings");
+      return;
+    }
+
+    setIsGeneratingEmbeddings(true);
+
+    try {
+      console.log(
+        `🎯 Generating embeddings for ${filteredSentences.length} cached sentences`
+      );
+
+      const response = await fetch("/api/embeddings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sentences: filteredSentences,
+          fullText: text,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Embeddings API call failed");
+
+      const data = await response.json();
+      console.log("✨ Embeddings result:", data);
+
+      setThemes(data.themes || []);
+      setShowThemes(!hideThemes);
+
+      // Save to localStorage for themes page
+      localStorage.setItem("refract-themes", JSON.stringify(data.themes || []));
+      localStorage.setItem("refract-text", text);
+    } catch (error) {
+      console.error("❌ Embeddings generation failed:", error);
+    } finally {
+      setIsGeneratingEmbeddings(false);
+    }
+  }, [filteredSentences, text]);
+
   // Determine if we should use full height or centered layout
   const hasContent = text.trim().length > 0;
   const textLength = text.length;
@@ -169,16 +221,22 @@ export function TextInput({
       {/* Temporary debug info - moved to bottom */}
       <div className="absolute bottom-2 right-2 z-50 text-xs opacity-70 bg-background/80 p-2 rounded max-w-xs">
         <div>📏 Text length: {text.length}</div>
+        <div>💾 Cached sentences: {filteredSentences.length}</div>
+        <div>🎯 Themes: {themes.length}</div>
         <div>🤖 AI Status:</div>
         <div className="ml-2">prodsCount: {prods.length}</div>
         <div className="ml-2">queueLength: {queueState.items.length}</div>
-        <div className="ml-2">isProcessing: {queueState.isProcessing ? 'yes' : 'no'}</div>
+        <div className="ml-2">
+          isProcessing: {queueState.isProcessing ? "yes" : "no"}
+        </div>
         <div className="ml-2 text-blue-400">
-          pending: {queueState.items.filter(i => i.status === 'pending').length}, 
-          processing: {queueState.items.filter(i => i.status === 'processing').length}
+          pending:{" "}
+          {queueState.items.filter((i) => i.status === "pending").length},
+          processing:{" "}
+          {queueState.items.filter((i) => i.status === "processing").length}
         </div>
         <div className="ml-2">
-          <button 
+          <button
             onClick={clearQueue}
             className="text-xs px-1 py-0.5 bg-red-500/20 text-red-400 rounded hover:bg-red-500/40"
           >
@@ -246,6 +304,43 @@ export function TextInput({
 
           {/* Chip Overlay - positioned relative to textarea */}
           <ChipOverlay prods={prods} sentencePositions={sentencePositions} />
+
+          {/* Done Button - appears when threshold is met */}
+          <div className="absolute bottom-4 right-4 z-30">
+            <DoneButton
+              textLength={textLength}
+              onDone={handleGenerateEmbeddings}
+              isProcessing={isGeneratingEmbeddings}
+              threshold={DEFAULT_DONE_THRESHOLD}
+            />
+          </div>
+
+          {/* Theme Bubbles Visualization */}
+          {showThemes && themes.length > 0 && (
+            <div className="absolute inset-0 z-30 p-4">
+              <ThemeBubbleContainer
+                themes={themes}
+                onThemeSelect={(themeId) => {
+                  setSelectedTheme(themeId);
+                }}
+              />
+
+              {/* Return to writing button */}
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.3 }}
+                onClick={() => {
+                  setShowThemes(false);
+                  setThemes([]);
+                  setSelectedTheme(null);
+                }}
+                className="absolute bottom-4 left-4 z-40 px-4 py-2 bg-background/90 backdrop-blur-sm border border-blue-200/30 rounded-full text-sm text-blue-600 hover:bg-background transition-colors"
+              >
+                ← Back to writing
+              </motion.button>
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </div>

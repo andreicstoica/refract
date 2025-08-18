@@ -42,7 +42,7 @@ Trigger logic
 
 Deliverable: As you write and pause, small prods appear in the UI (even if not yet perfectly positioned inline)
 
-## 👉 Milestone 3 — Inline / Anchored Chips
+## ✅ Milestone 3 — Inline / Anchored Chips
 
 Goal: Position chips visually near the sentence they relate to, not in a static gutter.
 
