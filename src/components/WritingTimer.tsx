@@ -24,29 +24,25 @@ export function WritingTimer({
 }: WritingTimerProps) {
   const [timeLeft, setTimeLeft] = useState(initialMinutes * 60); // Convert to seconds
   const [isRunning, setIsRunning] = useState(true);
-  const [showFastForward, setShowFastForward] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
+  const [showSkip, setShowSkip] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const modeRef = useRef<"down" | "up">("down");
-  const initialTimeRef = useRef(initialMinutes * 60); // Store initial time to prevent reset
+  const initialTimeRef = useRef(initialMinutes * 60);
+  const hasCompletedRef = useRef(false); // Track completion to prevent multiple calls
 
-  // Start timer when component mounts
+  // Start timer immediately when component mounts
   useEffect(() => {
-    setHasStarted(true);
     setIsRunning(true);
-  }, []);
 
-  // Show fastforward option after 20 seconds
-  useEffect(() => {
-    const fastForwardTimer = setTimeout(() => {
-      setShowFastForward(true);
+    // Show skip button after 20 seconds
+    const skipTimer = setTimeout(() => {
+      setShowSkip(true);
     }, 20000);
 
-    return () => clearTimeout(fastForwardTimer);
+    return () => clearTimeout(skipTimer);
   }, []);
 
-  // Drive ticking using effect to avoid stale closures
+  // Simple timer logic
   useEffect(() => {
     if (!isRunning) {
       if (intervalRef.current) {
@@ -56,28 +52,18 @@ export function WritingTimer({
       return;
     }
 
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
-        // Switch mode once when reaching zero
-        if (modeRef.current === "down") {
-          if (prev <= 1) {
-            modeRef.current = "up";
-            if (!isCompleted) {
-              setIsCompleted(true);
-              onTimerComplete();
-            }
-            return 0;
+        if (prev <= 1) {
+          // Timer reached zero, start counting up
+          if (!hasCompletedRef.current) {
+            hasCompletedRef.current = true;
+            setIsCompleted(true);
+            onTimerComplete();
           }
-          return prev - 1;
+          return 0;
         }
-
-        // Count up
-        return prev + 1;
+        return prev - 1;
       });
     }, 1000);
 
@@ -87,7 +73,7 @@ export function WritingTimer({
         intervalRef.current = null;
       }
     };
-  }, [isRunning, isCompleted, onTimerComplete]);
+  }, [isRunning, onTimerComplete]); // Removed isCompleted from dependencies
 
   const pauseTimer = () => {
     if (intervalRef.current) {
@@ -101,16 +87,12 @@ export function WritingTimer({
     setIsRunning(true);
   };
 
-  const handleFastForward = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+  const handleSkip = () => {
+    if (isCompleted) {
+      onDone();
+    } else {
+      onFastForward();
     }
-    modeRef.current = "up";
-    setIsCompleted(true);
-    onFastForward();
-    // Keep running so it starts counting up from current time
-    setIsRunning(true);
   };
 
   // Cleanup on unmount
@@ -145,73 +127,66 @@ export function WritingTimer({
         className
       )}
     >
-      {/* Timer Display - hidden when completed */}
-      {!isCompleted && (
-        <>
-          <div className="flex items-center gap-2">
-            <div className="text-2xl font-mono tabular-nums">
-              {formatTime(timeLeft)}
-            </div>
+      {/* Timer Display */}
+      <div className="flex items-center gap-2">
+        <div className="text-2xl font-mono tabular-nums">
+          {formatTime(timeLeft)}
+        </div>
 
-            {/* Play/Pause Button */}
-            <button
-              onClick={isRunning ? pauseTimer : resumeTimer}
-              className="p-1 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
-            >
-              {isRunning ? (
-                <Pause className="w-4 h-4" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-            </button>
-          </div>
+        {/* Play/Pause Button */}
+        <button
+          onClick={isRunning ? pauseTimer : resumeTimer}
+          className="p-1 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
+        >
+          {isRunning ? (
+            <Pause className="w-4 h-4" />
+          ) : (
+            <Play className="w-4 h-4" />
+          )}
+        </button>
+      </div>
 
-          {/* Progress Bar */}
-          <div className="w-24 h-1 bg-blue-200/30 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-blue-500 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPercentage}%` }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            />
-          </div>
-        </>
-      )}
+      {/* Progress Bar */}
+      <div className="w-24 h-1 bg-blue-200/30 rounded-full overflow-hidden">
+        <motion.div
+          className="h-full bg-blue-500 rounded-full"
+          initial={{ width: 0 }}
+          animate={{ width: `${progressPercentage}%` }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        />
+      </div>
 
-      {/* Right-side CTA: Skip → Done */}
+      {/* Skip/Done Button */}
       <AnimatePresence>
-        {!isCompleted && showFastForward && (
+        {showSkip && (
           <motion.button
-            key="skip"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            onClick={handleFastForward}
-            className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-500/20 hover:bg-blue-500/30 rounded-full transition-colors"
-          >
-            <SkipForward className="w-3 h-3" />
-            Skip
-          </motion.button>
-        )}
-
-        {isCompleted && (
-          <motion.button
-            key="done"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            onClick={onDone}
+            onClick={handleSkip}
             disabled={isProcessing}
             className={cn(
-              "px-3 py-1 text-sm rounded-full transition-colors",
-              "border border-blue-400/30 bg-blue-500/10",
-              "text-blue-700 dark:text-blue-300",
+              "flex items-center gap-1 px-3 py-1 text-sm rounded-full transition-colors",
+              isCompleted
+                ? "border border-blue-400/30 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                : "bg-blue-500/20 hover:bg-blue-500/30",
               isProcessing
                 ? "opacity-60 cursor-not-allowed"
                 : "hover:bg-blue-500/20"
             )}
           >
-            {isProcessing ? "Analyzing…" : "Done"}
+            {isCompleted ? (
+              isProcessing ? (
+                "Analyzing…"
+              ) : (
+                "Done"
+              )
+            ) : (
+              <>
+                <SkipForward className="w-3 h-3" />
+                Skip
+              </>
+            )}
           </motion.button>
         )}
       </AnimatePresence>
