@@ -8,12 +8,16 @@ interface ChipOverlayProps {
   prods: Prod[];
   sentencePositions: SentencePosition[];
   className?: string;
+  onChipFade?: (prodId: string) => void;
+  onChipKeep?: (prod: Prod) => void;
 }
 
 export function ChipOverlay({
   prods,
   sentencePositions,
   className,
+  onChipFade,
+  onChipKeep,
 }: ChipOverlayProps) {
   // Create a map for quick sentence position lookup
   const positionMap = new Map(
@@ -34,7 +38,13 @@ export function ChipOverlay({
         if (!isFirstForSentence) return null;
 
         return (
-          <Chip key={prod.id} text={prod.text} position={sentencePosition} />
+          <Chip
+            key={prod.id}
+            text={prod.text}
+            position={sentencePosition}
+            onFadeComplete={() => onChipFade?.(prod.id)}
+            onKeepChip={() => onChipKeep?.(prod)}
+          />
         );
       })}
     </div>
