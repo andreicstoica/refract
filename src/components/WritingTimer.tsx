@@ -29,6 +29,7 @@ export function WritingTimer({
   const [isCompleted, setIsCompleted] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const modeRef = useRef<"down" | "up">("down");
+  const initialTimeRef = useRef(initialMinutes * 60); // Store initial time to prevent reset
 
   // Start timer when component mounts
   useEffect(() => {
@@ -108,7 +109,7 @@ export function WritingTimer({
     modeRef.current = "up";
     setIsCompleted(true);
     onFastForward();
-    // Keep running so it starts counting up
+    // Keep running so it starts counting up from current time
     setIsRunning(true);
   };
 
@@ -130,7 +131,7 @@ export function WritingTimer({
 
   const progressPercentage = isCompleted
     ? 100 // Show full progress when completed
-    : ((initialMinutes * 60 - timeLeft) / (initialMinutes * 60)) * 100;
+    : ((initialTimeRef.current - timeLeft) / initialTimeRef.current) * 100;
 
   return (
     <motion.div
