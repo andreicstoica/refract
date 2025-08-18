@@ -22,13 +22,21 @@ export function WritingTimer({
   isProcessing = false,
   className,
 }: WritingTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(initialMinutes * 60); // Convert to seconds
+  const [timeLeft, setTimeLeft] = useState(initialMinutes * 60); // Positive = countdown, negative = overtime
   const [isRunning, setIsRunning] = useState(true);
   const [showSkip, setShowSkip] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const initialTimeRef = useRef(initialMinutes * 60);
-  const hasCompletedRef = useRef(false); // Track completion to prevent multiple calls
+  const hasTriggeredComplete = useRef(false); // Prevent multiple onTimerComplete calls
+  const onTimerCompleteRef = useRef(onTimerComplete);
+  
+  // Keep the callback ref updated
+  useEffect(() => {
+    onTimerCompleteRef.current = onTimerComplete;
+  }, [onTimerComplete]);
+  
+  // Derived states
+  const isCompleted = timeLeft <= 0;
 
   // Start timer immediately when component mounts
   useEffect(() => {
@@ -53,18 +61,7 @@ export function WritingTimer({
     }
 
     intervalRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          // Timer reached zero, start counting up
-          if (!hasCompletedRef.current) {
-            hasCompletedRef.current = true;
-            setIsCompleted(true);
-            onTimerComplete();
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeLeft((prev) => prev - 1); // Just update the time, handle completion separately
     }, 1000);
 
     return () => {
@@ -73,7 +70,18 @@ export function WritingTimer({
         intervalRef.current = null;
       }
     };
-  }, [isRunning, onTimerComplete]); // Removed isCompleted from dependencies
+  }, [isRunning]); // Only depend on isRunning to prevent interval recreation
+
+  // Handle timer completion separately to avoid setState during render
+  useEffect(() => {
+    if (timeLeft <= 0 && !hasTriggeredComplete.current) {
+      hasTriggeredComplete.current = true;
+      // Use setTimeout to ensure this runs after the current render cycle
+      setTimeout(() => {
+        onTimerCompleteRef.current();
+      }, 0);
+    }
+  }, [timeLeft]);
 
   const pauseTimer = () => {
     if (intervalRef.current) {
@@ -91,7 +99,13 @@ export function WritingTimer({
     if (isCompleted) {
       onDone();
     } else {
-      onFastForward();
+      // Skip to done state: stop timer and set to 0 (no overtime counting)
+      setIsRunning(false);
+      setTimeLeft(0);
+      if (!hasTriggeredComplete.current) {
+        hasTriggeredComplete.current = true;
+        onTimerCompleteRef.current();
+      }
     }
   };
 
@@ -105,10 +119,17 @@ export function WritingTimer({
   }, []);
 
   const formatTime = (seconds: number) => {
+    if (seconds <= 0) {
+      // Show overtime: +0:01, +0:02, etc.
+      const overtimeSeconds = Math.abs(seconds);
+      const mins = Math.floor(overtimeSeconds / 60);
+      const secs = overtimeSeconds % 60;
+      return `+${mins}:${secs.toString().padStart(2, "0")}`;
+    }
+    // Show countdown: 1:00, 0:59, etc.
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    const timeString = `${mins}:${secs.toString().padStart(2, "0")}`;
-    return isCompleted ? `+${timeString}` : timeString;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const progressPercentage = isCompleted
