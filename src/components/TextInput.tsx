@@ -9,20 +9,20 @@ import { measureSentencePositions } from "@/lib/positionUtils";
 import type { SentencePosition } from "@/lib/positionUtils";
 import { useProds } from "@/lib/useProds";
 import { ChipOverlay } from "./ChipOverlay";
-import { DoneButton, DEFAULT_DONE_THRESHOLD } from "./DoneButton";
-import { ThemeBubbleContainer } from "./ThemeBubbleContainer";
+import { DoneButton } from "./DoneButton";
+import { WritingTimer } from "./WritingTimer";
+import { TimerSetupModal } from "./TimerSetupModal";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
+import { useRouter } from "next/navigation";
 
 interface TextInputProps {
   onTextChange?: (text: string) => void;
   placeholder?: string;
-  hideThemes?: boolean;
 }
 
 export function TextInput({
   onTextChange,
   placeholder = "What's on your mind?",
-  hideThemes = false,
 }: TextInputProps) {
   const [text, setText] = useState("");
   const [sentences, setSentences] = useState<Sentence[]>([]);
@@ -32,6 +32,7 @@ export function TextInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
 
   // Use our custom hook for prod management
   const { prods, callProdAPI, clearQueue, queueState, filteredSentences } =
@@ -39,9 +40,11 @@ export function TextInput({
 
   // Embeddings state
   const [isGeneratingEmbeddings, setIsGeneratingEmbeddings] = useState(false);
-  const [themes, setThemes] = useState<any[]>([]);
-  const [showThemes, setShowThemes] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
+
+  // Timer state
+  const [showTimerSetup, setShowTimerSetup] = useState(true);
+  const [timerMinutes, setTimerMinutes] = useState(1);
+  const [timerCompleted, setTimerCompleted] = useState(false);
 
   // Position measurement with memoization
   const measurePositions = useCallback(
@@ -79,7 +82,13 @@ export function TextInput({
     const newSentences = splitIntoSentences(newText);
     setSentences(newSentences);
 
-    // Debounced position update to avoid measuring during active typing
+    // Immediate position update for better sync
+    if (textareaRef.current && newSentences.length > 0) {
+      const positions = measurePositions(newSentences, textareaRef.current);
+      setSentencePositions(positions);
+    }
+
+    // Debounced position update for fine-tuning
     if (positionTimerRef.current) {
       clearTimeout(positionTimerRef.current);
     }
@@ -99,7 +108,7 @@ export function TextInput({
         });
         setSentencePositions(positions);
       }
-    }, 100); // Short delay to avoid measuring while actively typing
+    }, 50); // Reduced delay for better responsiveness
 
     // Clear existing debounce timer
     if (debounceTimerRef.current) {
@@ -189,40 +198,75 @@ export function TextInput({
       const data = await response.json();
       console.log("✨ Embeddings result:", data);
 
-      setThemes(data.themes || []);
-      setShowThemes(!hideThemes);
-
       // Save to localStorage for themes page
       localStorage.setItem("refract-themes", JSON.stringify(data.themes || []));
       localStorage.setItem("refract-text", text);
+
+      // Navigate to themes page
+      router.push("/themes");
     } catch (error) {
       console.error("❌ Embeddings generation failed:", error);
     } finally {
       setIsGeneratingEmbeddings(false);
     }
-  }, [filteredSentences, text]);
+  }, [filteredSentences, text, router]);
+
+  // Timer handlers
+  const handleTimerStart = (minutes: number) => {
+    setTimerMinutes(minutes);
+    setShowTimerSetup(false);
+  };
+
+  const handleTimerComplete = () => {
+    setTimerCompleted(true);
+  };
+
+  const handleFastForward = () => {
+    setTimerCompleted(true);
+  };
 
   // Determine if we should use full height or centered layout
   const hasContent = text.trim().length > 0;
-  const textLength = text.length;
   const lineCount = text.split("\n").length;
 
   // Switch to full height when text would exceed the initial box
   // Check both character count and line count for better detection
-  let shouldUseFullHeight = hasContent && (textLength > 400 || lineCount > 10);
+  let shouldUseFullHeight = hasContent && (text.length > 400 || lineCount > 10);
+
+  // Update positions immediately when layout changes
+  useEffect(() => {
+    if (textareaRef.current && sentences.length > 0) {
+      const positions = measurePositions(sentences, textareaRef.current);
+      setSentencePositions(positions);
+    }
+  }, [shouldUseFullHeight, sentences, measurePositions]);
 
   return (
     <div
       className={cn(
-        "h-dvh bg-background text-foreground relative",
-        shouldUseFullHeight ? "overflow-hidden" : "overflow-hidden"
+        "h-dvh bg-background text-foreground relative overflow-hidden"
       )}
     >
+      {/* Timer Setup Modal */}
+      <TimerSetupModal isOpen={showTimerSetup} onStart={handleTimerStart} />
+
+      {/* Timer Display */}
+      {!showTimerSetup && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40">
+          <WritingTimer
+            initialMinutes={timerMinutes}
+            onTimerComplete={handleTimerComplete}
+            onFastForward={handleFastForward}
+            onDone={handleGenerateEmbeddings}
+            isProcessing={isGeneratingEmbeddings}
+          />
+        </div>
+      )}
       {/* Temporary debug info - moved to bottom */}
       <div className="absolute bottom-2 right-2 z-50 text-xs opacity-70 bg-background/80 p-2 rounded max-w-xs">
         <div>📏 Text length: {text.length}</div>
+        <div>⏱️ Timer completed: {timerCompleted ? "yes" : "no"}</div>
         <div>💾 Cached sentences: {filteredSentences.length}</div>
-        <div>🎯 Themes: {themes.length}</div>
         <div>🤖 AI Status:</div>
         <div className="ml-2">prodsCount: {prods.length}</div>
         <div className="ml-2">queueLength: {queueState.items.length}</div>
@@ -266,10 +310,10 @@ export function TextInput({
         className="mx-auto max-w-2xl px-4 w-full"
         animate={{
           position: shouldUseFullHeight ? "absolute" : "relative",
-          top: shouldUseFullHeight ? "0" : "auto",
+          top: shouldUseFullHeight ? "80px" : "auto", // Account for timer height
           left: shouldUseFullHeight ? "50%" : "auto",
           transform: shouldUseFullHeight ? "translateX(-50%)" : "none",
-          height: shouldUseFullHeight ? "100vh" : "auto",
+          height: shouldUseFullHeight ? "calc(100vh - 80px)" : "auto", // Subtract timer height
           marginTop: shouldUseFullHeight ? "0" : "20vh",
         }}
         transition={{ duration: 0.3, ease: "easeOut" }}
@@ -278,7 +322,10 @@ export function TextInput({
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
-          className="relative h-full"
+          className={cn(
+            "relative",
+            shouldUseFullHeight ? "h-full overflow-hidden" : ""
+          )}
         >
           <textarea
             ref={textareaRef}
@@ -287,14 +334,15 @@ export function TextInput({
             placeholder={placeholder}
             className={cn(
               `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING}`,
-              shouldUseFullHeight ? "py-6 pb-24" : "py-4"
+              shouldUseFullHeight ? "py-6" : "py-4"
             )}
             style={{
               fontFamily: "inherit",
               caretColor: "currentColor",
               height: shouldUseFullHeight ? "100%" : "calc(100vh - 8rem)",
               transition: "height 0.3s ease-out",
-              overflow: shouldUseFullHeight ? "auto" : "hidden", // Control scrolling behavior
+              overflow: "auto", // Always allow scrolling when needed
+              resize: "none", // Prevent manual resizing
             }}
             autoComplete="off"
             autoCorrect="off"
@@ -304,43 +352,6 @@ export function TextInput({
 
           {/* Chip Overlay - positioned relative to textarea */}
           <ChipOverlay prods={prods} sentencePositions={sentencePositions} />
-
-          {/* Done Button - appears when threshold is met */}
-          <div className="absolute bottom-4 right-4 z-30">
-            <DoneButton
-              textLength={textLength}
-              onDone={handleGenerateEmbeddings}
-              isProcessing={isGeneratingEmbeddings}
-              threshold={DEFAULT_DONE_THRESHOLD}
-            />
-          </div>
-
-          {/* Theme Bubbles Visualization */}
-          {showThemes && themes.length > 0 && (
-            <div className="absolute inset-0 z-30 p-4">
-              <ThemeBubbleContainer
-                themes={themes}
-                onThemeSelect={(themeId) => {
-                  setSelectedTheme(themeId);
-                }}
-              />
-
-              {/* Return to writing button */}
-              <motion.button
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.3 }}
-                onClick={() => {
-                  setShowThemes(false);
-                  setThemes([]);
-                  setSelectedTheme(null);
-                }}
-                className="absolute bottom-4 left-4 z-40 px-4 py-2 bg-background/90 backdrop-blur-sm border border-blue-200/30 rounded-full text-sm text-blue-600 hover:bg-background transition-colors"
-              >
-                ← Back to writing
-              </motion.button>
-            </div>
-          )}
         </motion.div>
       </motion.div>
     </div>

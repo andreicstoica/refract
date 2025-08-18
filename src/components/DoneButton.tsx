@@ -5,24 +5,19 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 interface DoneButtonProps {
-  textLength: number;
   onDone: () => void;
   isProcessing?: boolean;
-  threshold?: number;
+  shouldShow?: boolean;
   className?: string;
 }
 
 export function DoneButton({
-  textLength,
   onDone,
   isProcessing = false,
-  threshold = 1000,
+  shouldShow = false,
   className,
 }: DoneButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
-  
-  const shouldShow = textLength >= threshold && !isProcessing;
-  const progressPercentage = Math.min(100, (textLength / threshold) * 100);
 
   return (
     <AnimatePresence>
@@ -92,7 +87,7 @@ export function DoneButton({
                     ease: "easeInOut",
                   }}
                 />
-                Done writing
+                Done
               </>
             )}
           </span>
