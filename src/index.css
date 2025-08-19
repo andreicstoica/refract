@@ -1,7 +1,7 @@
+@import "tw-animate-css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import "tw-animate-css";
 
 /* Top fade for the scroll area */
 .mask-top-fade {

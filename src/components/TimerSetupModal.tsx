@@ -55,7 +55,9 @@ export function TimerSetupModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
                   <Clock className="w-6 h-6" />
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Set Writing Time</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Set Writing Time
+                  </h2>
                 </div>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
                   Choose how long you'd like to write
