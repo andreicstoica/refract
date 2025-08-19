@@ -34,6 +34,8 @@ interface ThemeBubbleProps {
   listMode?: boolean; // on small screens, show vertical list instead of orbit
   listPanelMaxWidthPx?: number; // max width for list panel on larger screens
   listPanelMaxHeightVH?: number; // max height as a percentage of viewport height
+  // Container size to clamp orbit clips on-screen
+  containerSize?: { width: number; height: number };
 }
 
 export function ThemeBubble(props: ThemeBubbleProps) {
@@ -59,6 +61,7 @@ export function ThemeBubble(props: ThemeBubbleProps) {
     listMode = false,
     listPanelMaxWidthPx = 520,
     listPanelMaxHeightVH = 70,
+    containerSize,
   } = props;
   const [isHovered, setIsHovered] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -243,19 +246,46 @@ export function ThemeBubble(props: ThemeBubbleProps) {
               theme.chunks &&
               (() => {
                 const chunks = theme.chunks;
-                const count = Math.min(chunks.length, maxClips);
-                // Allow slight overlap by using a spacing adjustment (< 1)
-                const spacingAdjust = 0.9;
+                // Base sizing
+                const spacingAdjust = 0.75; // tighter spacing so more clips fit
                 const estimatedWidth = autoClipWidth
                   ? estimatedClipWidthPx
                   : clipCardSize.width;
-                const minSpacing = (estimatedWidth + 16) * spacingAdjust; // px, include margin
-                const requiredRadius = (minSpacing * count) / (2 * Math.PI);
+                const clipH = clipCardSize.height;
+                const minSpacing = (estimatedWidth + 12) * spacingAdjust; // include margin
                 const baseRadius = bubbleSize * clipRadiusFactor;
-                const orbitRadius = Math.max(baseRadius, requiredRadius);
-                return chunks.slice(0, maxClips).map((chunk, index) => {
-                  const angle =
-                    (index / Math.min(chunks.length, maxClips)) * 2 * Math.PI;
+                // Max radius allowed by container bounds (keep clips on-screen)
+                let maxRadiusByBounds = Infinity;
+                if (containerSize) {
+                  const centerX = (position.x / 100) * containerSize.width;
+                  const centerY = (position.y / 100) * containerSize.height;
+                  const halfDiag = Math.sqrt(
+                    Math.pow(estimatedWidth / 2, 2) + Math.pow(clipH / 2, 2)
+                  );
+                  const distLeft = centerX;
+                  const distRight = containerSize.width - centerX;
+                  const distTop = centerY;
+                  const distBottom = containerSize.height - centerY;
+                  maxRadiusByBounds =
+                    Math.max(0, Math.min(distLeft, distRight, distTop, distBottom) - halfDiag - 8);
+                }
+
+                // Determine how many clips we can fit around a circle of max radius
+                const maxClipsByRadius = Number.isFinite(maxRadiusByBounds)
+                  ? Math.max(1, Math.floor(((2 * Math.PI) * Math.min(maxRadiusByBounds, Math.max(baseRadius, 0))) / Math.max(minSpacing, 1)))
+                  : maxClips;
+
+                const count = Math.min(chunks.length, maxClips, maxClipsByRadius);
+                // Compute a workable radius based on final count
+                const requiredRadius = (minSpacing * count) / (2 * Math.PI);
+                const orbitRadius = Math.min(
+                  Number.isFinite(maxRadiusByBounds) ? maxRadiusByBounds : requiredRadius,
+                  Math.max(Math.max(baseRadius, requiredRadius), 0)
+                );
+
+                const renderChunks = chunks.slice(0, count);
+                return renderChunks.map((chunk, index) => {
+                  const angle = (index / renderChunks.length) * 2 * Math.PI;
                   const clipX = Math.cos(angle) * orbitRadius;
                   const clipY = Math.sin(angle) * orbitRadius;
 
@@ -310,19 +340,7 @@ export function ThemeBubble(props: ThemeBubbleProps) {
               })()}
 
             {/* Show count if more clips exist (orbit mode) */}
-            {!listMode && theme.chunks && theme.chunks.length > maxClips && (
-              <MotionDiv
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0 }}
-                transition={{ duration: 0.3, delay: 0.8 }}
-                className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 z-40"
-              >
-                <div className="text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border">
-                  +{theme.chunks.length - maxClips} more clips
-                </div>
-              </MotionDiv>
-            )}
+            {/* No "+N more" indicator by design */}
 
             {/* Vertical list mode (mobile) */}
             {listMode &&

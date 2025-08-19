@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState } from "react";
 import { cn } from "@/utils/utils";
 import type { Sentence } from "@/types/sentence";
 import type { SentencePosition } from "@/types/sentence";
@@ -44,72 +44,101 @@ export function TextInput({
     onTextUpdate,
   });
 
+  // Debug panel toggle (off by default)
+  const [showDebug, setShowDebug] = useState(false);
+
   return (
-    <div className="h-full w-full">
-      {/* Debug HUD */}
-      <TextInputDebug
-        text={text}
-        filteredSentences={filteredSentences}
-        prods={prods}
-        queueState={queueState}
-        sentencePositions={sentencePositions}
-        onClearQueue={clearQueue}
-      />
-
-      <motion.div
-        className="mx-auto max-w-2xl px-4 w-full h-full"
-        animate={{
-          position: layout.shouldUseFullHeight ? "absolute" : "relative",
-          top: layout.shouldUseFullHeight ? "0" : "auto",
-          left: layout.shouldUseFullHeight ? "50%" : "auto",
-          transform: layout.shouldUseFullHeight ? "translateX(-50%)" : "none",
-          height: layout.shouldUseFullHeight ? "100vh" : "auto",
-          marginTop: layout.shouldUseFullHeight ? "0" : "20vh",
-        }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.15, ease: "easeOut" }}
-          className={cn(
-            "relative",
-            layout.shouldUseFullHeight ? "h-full overflow-hidden" : ""
-          )}
+    <div className="relative h-full w-full">
+      {/* Debug toggle button */}
+      {process.env.NODE_ENV !== "production" && (
+        <button
+          type="button"
+          aria-label="Toggle debug"
+          className="absolute z-50 bottom-3 right-3 bg-transparent text-lg leading-none"
+          onClick={() => setShowDebug((v) => !v)}
         >
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={handleTextChange}
-            placeholder={placeholder}
-            className={cn(
-              `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING}`,
-              layout.shouldUseFullHeight ? "py-6" : "py-4"
-            )}
-            style={{
-              fontFamily: "inherit",
-              caretColor: "currentColor",
-              height: layout.shouldUseFullHeight
-                ? "100%"
-                : "calc(100vh - 8rem)",
-              transition: "height 0.3s ease-out",
-              overflow: "auto",
-              resize: "none",
-              lineHeight: "3.5rem",
-            }}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck="false"
-          />
+          {showDebug ? "🔴" : "🔴"}
+        </button>
+      )}
 
-          {/* Chip Overlay - positioned relative to textarea */}
-          <ChipOverlay
-            visibleProds={selectFirstProdPerSentence(prods)}
-            sentencePositions={sentencePositions}
-          />
-        </motion.div>
-      </motion.div>
+      {/* Debug HUD (hidden by default) */}
+      {showDebug && (
+        <TextInputDebug
+          text={text}
+          filteredSentences={filteredSentences}
+          prods={prods}
+          queueState={queueState}
+          sentencePositions={sentencePositions}
+          onClearQueue={clearQueue}
+        />
+      )}
+
+      {/* Static centered container, with top offset for timer */}
+      <div className="mx-auto max-w-2xl w-full h-full px-4">
+        <div className={cn("h-full overflow-hidden flex flex-col min-h-0")}>
+          {/* Reserve space for the timer overlay at the top */}
+          <div className="shrink-0 h-24" />
+
+          {/* Scrollable writing area fills remaining height */}
+          <div className="relative flex-1 min-h-0">
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={handleTextChange}
+              placeholder={placeholder}
+              className={cn(
+                `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING}`,
+                "py-6 h-full"
+              )}
+              style={{
+                fontFamily: "inherit",
+                caretColor: "currentColor",
+                overflow: "auto", // only textarea scrolls
+                resize: "none",
+                lineHeight: "3.5rem",
+              }}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              onWheelCapture={(e) => e.stopPropagation()}
+              onPaste={(e) => {
+                // Prevent the page from scrolling when pasting
+                e.stopPropagation();
+                // Small delay to ensure the paste event is handled before any scroll attempts
+                setTimeout(() => {
+                  if (textareaRef.current) {
+                    textareaRef.current.focus();
+                  }
+                }, 0);
+              }}
+              onKeyDown={(e) => {
+                // Prevent page scroll on arrow keys when textarea is focused
+                if (
+                  [
+                    "ArrowUp",
+                    "ArrowDown",
+                    "ArrowLeft",
+                    "ArrowRight",
+                    "Home",
+                    "End",
+                    "PageUp",
+                    "PageDown",
+                  ].includes(e.key)
+                ) {
+                  e.stopPropagation();
+                }
+              }}
+            />
+
+            {/* Chip Overlay - positioned relative to textarea container */}
+            <ChipOverlay
+              visibleProds={selectFirstProdPerSentence(prods)}
+              sentencePositions={sentencePositions}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

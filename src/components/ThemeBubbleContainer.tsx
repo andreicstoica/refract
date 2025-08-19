@@ -35,7 +35,8 @@ export function ThemeBubbleContainer({
   const expandedScale = isUltraShort ? 1.5 : isSmall ? 1.8 : 2.5;
   const clipRadiusFactor =
     isUltraShort || isUltraNarrow ? 0.4 : isSmall ? 0.48 : 0.65;
-  const maxClips = isUltraShort || isUltraNarrow ? 10 : isSmall ? 10 : 8; // list mode shows more via scroll
+  // Always cap visible clips to 5 (design choice)
+  const maxClips = 5;
   const clipCardSize =
     isUltraShort || isUltraNarrow
       ? { width: 60, height: 30 }
@@ -326,6 +327,7 @@ export function ThemeBubbleContainer({
             listMode={listMode}
             listPanelMaxWidthPx={listPanelMaxWidthPx}
             listPanelMaxHeightVH={listPanelMaxHeightVH}
+            containerSize={containerSize}
           />
         ))}
       </AnimatePresence>
