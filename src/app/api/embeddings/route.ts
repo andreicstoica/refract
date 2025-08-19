@@ -1,4 +1,5 @@
 import { openai } from "@ai-sdk/openai";
+import { cosineSimilarity } from "ai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { generateEmbeddingVectors } from "@/services/embeddingsClient";
@@ -85,21 +86,34 @@ export async function POST(req: Request) {
       .sort((a, b) => (b.confidence * b.chunks.length) - (a.confidence * a.chunks.length))
       .slice(0, 3); // Return top 3 themes
 
+    // For each cluster, pick the most representative clips (top 5 by similarity to centroid)
+    const THEMES_TOP_CLIPS = 5;
+
     return Response.json({
       clusters: sortedClusters,
-      themes: sortedClusters.map(c => ({
-        id: c.id,
-        label: c.label,
-        description: c.description || "",
-        confidence: c.confidence,
-        chunkCount: c.chunks.length,
-        color: c.color,
-        intensity: c.intensity,
-        chunks: c.chunks.map(chunk => ({
-          text: chunk.text,
-          sentenceId: chunk.sentenceId,
-        })),
-      })),
+      themes: sortedClusters.map(c => {
+        const withSimilarity = c.chunks
+          .filter(ch => Array.isArray(ch.embedding) && ch.embedding.length && Array.isArray(c.centroid) && c.centroid.length)
+          .map(ch => ({ ch, sim: cosineSimilarity(ch.embedding!, c.centroid) }))
+          .sort((a, b) => b.sim - a.sim)
+          .map(x => x.ch);
+
+        const chosen = (withSimilarity.length ? withSimilarity : c.chunks).slice(0, THEMES_TOP_CLIPS);
+
+        return {
+          id: c.id,
+          label: c.label,
+          description: c.description || "",
+          confidence: c.confidence,
+          chunkCount: c.chunks.length,
+          color: c.color,
+          intensity: c.intensity,
+          chunks: chosen.map(chunk => ({
+            text: chunk.text,
+            sentenceId: chunk.sentenceId,
+          })),
+        };
+      }),
       usage: embeddingResult.usage,
       debug: {
         totalSentences: sentences.length,

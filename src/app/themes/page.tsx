@@ -26,7 +26,7 @@ export default function ThemesPage() {
   }, []);
 
   return (
-    <div className="h-dvh bg-background text-foreground">
+    <div className="relative h-dvh overflow-hidden bg-background text-foreground">
       {/* Write Again Button - positioned like WritingNav */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40">
         <Link href="/write">
@@ -83,7 +83,7 @@ export default function ThemesPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-4 pt-20 h-full">
+      <div className="p-4 pt-20 h-full">
         {themes.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}

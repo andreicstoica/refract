@@ -53,12 +53,13 @@ export function TimerSetupModal({
             <div className="text-center space-y-8">
               {/* Header */}
               <div className="flex flex-col items-center justify-center gap-2">
-                <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
-                  <Clock className="w-6 h-6" />
-                </div>
                 <div className="text-gray-600 dark:text-gray-400 text-md">
-                  Choose how long you'd like to write
+                  How long would you like to write?
                 </div>
+                {/* Info */}
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  You can pause, resume, or skip the timer at any time
+                </p>
               </div>
 
               {/* Clock Display */}
@@ -103,11 +104,6 @@ export function TimerSetupModal({
                 <Play className="w-4 h-4" />
                 Start Writing
               </button>
-
-              {/* Info */}
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                You can pause, resume, or skip the timer at any time
-              </p>
             </div>
           </motion.div>
         </motion.div>

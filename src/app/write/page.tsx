@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TextInput } from "@/components/TextInput";
 import { WritingNav } from "@/components/WritingNav";
@@ -44,6 +44,20 @@ export default function WritePage() {
       console.error("❌ Embeddings generation failed:", error);
     }
   }, [currentSentences, currentText, router, generateEmbeddings]);
+
+  // Prevent page scrolling when on write page
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    const originalHeight = document.body.style.height;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.height = "100vh";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.height = originalHeight;
+    };
+  }, []);
 
   return (
     <div className="relative h-dvh bg-background text-foreground overflow-hidden">
