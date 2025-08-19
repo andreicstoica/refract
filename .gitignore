@@ -60,5 +60,6 @@ dev-dist
 
 # Agents
 AGENTS.md
+CLAUDE.md
 .claude
 .cursor

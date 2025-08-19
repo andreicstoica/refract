@@ -37,7 +37,7 @@ export default function WritePage() {
       console.log("🔄 Starting embeddings generation...");
       const themes = await generateEmbeddings(currentSentences, currentText);
       console.log("✅ Embeddings generation complete, themes:", themes);
-      
+
       // Only navigate after AI processing is complete
       router.push("/themes");
     } catch (error) {

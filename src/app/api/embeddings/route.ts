@@ -156,8 +156,9 @@ async function generateComprehensiveThemes(
       fullTextLength: fullText?.length || 0
     });
 
+    // Use a valid, fast JSON-capable model
     const result = await generateObject({
-      model: openai("gpt-5-turbo"),
+      model: openai("gpt-5-nano"),
       system: `Create meaningful theme labels for personal writing clusters.
 
 REQUIREMENTS:
@@ -175,7 +176,8 @@ EXAMPLES:
 
 Make each theme unique and meaningful based on the text content.`,
 
-      prompt: `${fullText ? `FULL WRITING CONTEXT:\n${fullText}\n\n` : ''}
+      // Truncate fullText to reduce token pressure while keeping context
+      prompt: `${fullText ? `FULL WRITING CONTEXT:\n${fullText.slice(0, 4000)}\n\n` : ''}
 CLUSTERS TO ANALYZE:
 ${clusterSummaries.map((cluster) =>
         `Cluster ${cluster.index} (${cluster.chunkCount} segments):
