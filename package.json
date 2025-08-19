@@ -10,8 +10,8 @@
 		"format": "biome format --write .",
 		"test": "bun test",
 		"test:watch": "bun test --watch",
-		"postinstall": "node -e \"try { require('lightningcss'); console.log('lightningcss found'); } catch(e) { console.log('lightningcss not found, attempting to rebuild...'); try { require('child_process').execSync('npm rebuild lightningcss --update-binary', {stdio: 'inherit'}); } catch(rebuildError) { console.log('Failed to rebuild lightningcss:', rebuildError.message); } }\"",
-		"ensure-lightningcss": "node -e \"try { require('lightningcss'); } catch(e) { console.log('Ensuring lightningcss is properly installed...'); require('child_process').execSync('npm rebuild lightningcss --update-binary', {stdio: 'inherit'}); }\""
+		"postinstall": "node -e \"if (process.env.VERCEL || process.env.CI) { console.log('CI/Vercel environment detected, skipping postinstall lightningcss rebuild'); } else { try { require('lightningcss'); console.log('lightningcss found'); } catch(e) { console.log('lightningcss not found, attempting to rebuild...'); try { require('child_process').execSync('npm rebuild lightningcss --update-binary', {stdio: 'inherit'}); } catch(rebuildError) { console.log('Failed to rebuild lightningcss:', rebuildError.message); } } }\"",
+		"ensure-lightningcss": "node -e \"try { require('lightningcss'); console.log('lightningcss already available'); } catch(e) { console.log('Ensuring lightningcss is properly installed...'); try { require('child_process').execSync('npm rebuild lightningcss --update-binary', {stdio: 'inherit'}); console.log('lightningcss rebuild completed'); } catch(rebuildError) { console.log('Failed to rebuild lightningcss:', rebuildError.message); process.exit(1); } }\""
 	},
 	"dependencies": {
 		"@ai-sdk/openai": "^2.0.15",
