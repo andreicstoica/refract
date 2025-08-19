@@ -1,10 +1,13 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import type { RefObject } from "react";
 import { cn } from "@/utils/utils";
 
 import type { Theme } from "@/types/theme";
+const MotionDiv = motion.div;
 
 interface ThemeBubbleProps {
   theme: Theme;
@@ -14,18 +17,56 @@ interface ThemeBubbleProps {
   onCollapse?: () => void;
   isExpanded?: boolean;
   className?: string;
+  expandedScale?: number;
+  clipRadiusFactor?: number; // fraction of bubbleSize used for orbit radius
+  maxClips?: number; // max number of clip cards to render
+  clipCardSize?: { width: number; height: number };
+  // Enable auto width for orbit cards (size-to-content) on large screens
+  autoClipWidth?: boolean;
+  // Estimated width used for spacing math when auto width is enabled
+  estimatedClipWidthPx?: number;
+  // Optional max width constraint for auto-sized cards
+  maxClipWidthPx?: number;
+  draggable?: boolean;
+  dragConstraintsRef?: RefObject<Element | null>;
+  clipTextClassName?: string;
+  clipLineClamp?: number;
+  listMode?: boolean; // on small screens, show vertical list instead of orbit
+  listPanelMaxWidthPx?: number; // max width for list panel on larger screens
+  listPanelMaxHeightVH?: number; // max height as a percentage of viewport height
 }
 
-export function ThemeBubble({
-  theme,
-  position,
-  size,
-  onExpand,
-  onCollapse,
-  isExpanded = false,
-  className,
-}: ThemeBubbleProps) {
+export function ThemeBubble(props: ThemeBubbleProps) {
+  const {
+    theme,
+    position,
+    size,
+    onExpand,
+    onCollapse,
+    isExpanded = false,
+    className,
+    expandedScale = 2.5,
+    clipRadiusFactor = 0.8,
+    maxClips = 8,
+    clipCardSize = { width: 120, height: 60 },
+    autoClipWidth = false,
+    estimatedClipWidthPx = 120,
+    maxClipWidthPx = 220,
+    draggable = false,
+    dragConstraintsRef,
+    clipTextClassName = "text-xs",
+    clipLineClamp = 3,
+    listMode = false,
+    listPanelMaxWidthPx = 520,
+    listPanelMaxHeightVH = 70,
+  } = props;
   const [isHovered, setIsHovered] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [topClipId, setTopClipId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleClick = () => {
     if (isExpanded) {
@@ -40,20 +81,26 @@ export function ThemeBubble({
   const glowIntensity = theme.confidence * 0.6 + 0.2;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0, x: position.x, y: position.y }}
+    <MotionDiv
+      layout
+      initial={{ opacity: 0, scale: 0 }}
       animate={{
         opacity: 1,
-        scale: isExpanded ? 1.2 : 1,
-        x: position.x,
-        y: position.y,
+        scale: isExpanded ? expandedScale : 1,
+        zIndex: isExpanded ? 50 : 10,
       }}
       exit={{ opacity: 0, scale: 0 }}
       transition={{
         duration: 0.6,
         ease: "easeOut",
-        delay: Math.random() * 0.3, // Stagger effect
+        delay: Math.random() * 0.3,
+        layout: { type: "spring", stiffness: 300, damping: 28 },
       }}
+      drag={isExpanded && draggable}
+      dragConstraints={dragConstraintsRef}
+      dragElastic={0.12}
+      dragMomentum={false}
+      whileDrag={{ scale: expandedScale * 0.98 }}
       className={cn(
         "absolute cursor-pointer select-none",
         "flex items-center justify-center",
@@ -62,13 +109,16 @@ export function ThemeBubble({
       style={{
         width: bubbleSize,
         height: bubbleSize,
+        left: `${position.x}%`,
+        top: `${position.y}%`,
+        transform: "translate(-50%, -50%)", // Center the bubble on its position
       }}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Main bubble */}
-      <motion.div
+      <MotionDiv
         className={cn(
           "relative w-full h-full rounded-full",
           "border backdrop-blur-sm",
@@ -96,7 +146,7 @@ export function ThemeBubble({
         transition={{ duration: 0.2 }}
       >
         {/* Animated background particles */}
-        <motion.div
+        <MotionDiv
           className="absolute inset-0 opacity-30"
           animate={{
             background: theme.color
@@ -120,7 +170,7 @@ export function ThemeBubble({
 
         {/* Floating particles */}
         {[...Array(3)].map((_, i) => (
-          <motion.div
+          <MotionDiv
             key={i}
             className="absolute w-1 h-1 rounded-full"
             style={{
@@ -146,7 +196,7 @@ export function ThemeBubble({
 
         {/* Content */}
         <div className="relative z-10 text-center px-2">
-          <motion.div
+          <MotionDiv
             className="text-xs font-medium"
             style={{
               color: theme.color ? theme.color : "rgb(29, 78, 216)", // Default blue
@@ -157,10 +207,10 @@ export function ThemeBubble({
             transition={{ duration: 0.2 }}
           >
             {theme.label}
-          </motion.div>
+          </MotionDiv>
 
           {isHovered && (
-            <motion.div
+            <MotionDiv
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-[10px] mt-1"
@@ -171,58 +221,182 @@ export function ThemeBubble({
               }}
             >
               {theme.chunkCount} segments
-            </motion.div>
+            </MotionDiv>
           )}
         </div>
 
         {/* Expansion indicator */}
         {isExpanded && (
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, scale: 0 }}
             animate={{ opacity: 1, scale: 1 }}
             className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"
           />
         )}
-      </motion.div>
+      </MotionDiv>
 
-      {/* Expansion content */}
+      {/* Sentence clips: orbit (default) or vertical list (mobile) */}
       <AnimatePresence>
         {isExpanded && theme.chunks && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="absolute top-full left-1/2 transform -translate-x-1/2 mt-4 z-50"
-          >
-            <div className="bg-background/95 backdrop-blur-md border border-blue-200/30 rounded-lg p-4 shadow-xl max-w-sm">
-              <div className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
-                {theme.label}
-              </div>
-              {theme.description && (
-                <div className="text-xs text-muted-foreground mb-3">
-                  {theme.description}
+          <>
+            {!listMode &&
+              theme.chunks &&
+              (() => {
+                const chunks = theme.chunks;
+                const count = Math.min(chunks.length, maxClips);
+                // Allow slight overlap by using a spacing adjustment (< 1)
+                const spacingAdjust = 0.9;
+                const estimatedWidth = autoClipWidth
+                  ? estimatedClipWidthPx
+                  : clipCardSize.width;
+                const minSpacing = (estimatedWidth + 16) * spacingAdjust; // px, include margin
+                const requiredRadius = (minSpacing * count) / (2 * Math.PI);
+                const baseRadius = bubbleSize * clipRadiusFactor;
+                const orbitRadius = Math.max(baseRadius, requiredRadius);
+                return chunks.slice(0, maxClips).map((chunk, index) => {
+                  const angle =
+                    (index / Math.min(chunks.length, maxClips)) * 2 * Math.PI;
+                  const clipX = Math.cos(angle) * orbitRadius;
+                  const clipY = Math.sin(angle) * orbitRadius;
+
+                  return (
+                    <MotionDiv
+                      key={chunk.sentenceId}
+                      initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                      animate={{
+                        opacity: 1,
+                        scale: 1,
+                        x: clipX,
+                        y: clipY,
+                      }}
+                      exit={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                      transition={{
+                        duration: 0.4,
+                        ease: "easeOut",
+                        delay: index * 0.1,
+                      }}
+                      className="absolute pointer-events-auto"
+                      style={{
+                        zIndex: topClipId === chunk.sentenceId ? 60 : 40,
+                        width: autoClipWidth
+                          ? "auto"
+                          : `${clipCardSize.width}px`,
+                        height: "auto",
+                        maxWidth: autoClipWidth
+                          ? `${maxClipWidthPx}px`
+                          : undefined,
+                      }}
+                      onMouseDown={() => setTopClipId(chunk.sentenceId)}
+                    >
+                      <div className="w-full h-auto bg-background/95 backdrop-blur-md border border-blue-200/30 rounded-lg p-2 shadow-lg">
+                        <div
+                          className={cn(
+                            clipTextClassName,
+                            "text-foreground/80"
+                          )}
+                          style={{
+                            lineHeight: "1.25",
+                            whiteSpace: "normal",
+                          }}
+                        >
+                          {chunk.text}
+                        </div>
+                      </div>
+
+                      {/* Connection line removed for cleaner look */}
+                    </MotionDiv>
+                  );
+                });
+              })()}
+
+            {/* Show count if more clips exist (orbit mode) */}
+            {!listMode && theme.chunks && theme.chunks.length > maxClips && (
+              <MotionDiv
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0 }}
+                transition={{ duration: 0.3, delay: 0.8 }}
+                className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 z-40"
+              >
+                <div className="text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border">
+                  +{theme.chunks.length - maxClips} more clips
                 </div>
-              )}
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {theme.chunks.slice(0, 5).map((chunk, index) => (
+              </MotionDiv>
+            )}
+
+            {/* Vertical list mode (mobile) */}
+            {listMode &&
+              mounted &&
+              createPortal(
+                <MotionDiv
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="fixed inset-0 z-50 flex items-center justify-center p-0"
+                >
                   <div
-                    key={chunk.sentenceId}
-                    className="text-xs text-foreground/80 p-2 bg-blue-50/50 dark:bg-blue-950/30 rounded"
-                  >
-                    {chunk.text}
+                    className="absolute inset-0 bg-black/20"
+                    onClick={() => onCollapse?.()}
+                  />
+                  <div className="relative w-[100vw] max-w-[100vw] px-0">
+                    <div
+                      className="relative mx-auto bg-background/95 backdrop-blur-md border border-blue-200/40 rounded-xl shadow-2xl overflow-hidden"
+                      style={{
+                        width: `min(100vw, ${listPanelMaxWidthPx}px)`,
+                        maxWidth: `min(100vw, ${listPanelMaxWidthPx}px)`,
+                        maxHeight: `${listPanelMaxHeightVH}vh`,
+                      }}
+                    >
+                      <div
+                        className="overflow-y-auto p-2"
+                        style={{ maxHeight: `${listPanelMaxHeightVH}vh` }}
+                      >
+                        {theme.chunks.slice(0, maxClips).map((chunk) => (
+                          <div
+                            key={chunk.sentenceId}
+                            className="p-2 rounded-lg border border-blue-200/30 mb-2 last:mb-0 bg-background/80"
+                          >
+                            <div
+                              className={cn(
+                                clipTextClassName,
+                                "text-foreground/80"
+                              )}
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: clipLineClamp,
+                                WebkitBoxOrient: "vertical",
+                                lineHeight: "1.25",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {chunk.text}
+                            </div>
+                          </div>
+                        ))}
+                        {theme.chunks.length > maxClips && (
+                          <div className="text-center text-[10px] text-muted-foreground py-1">
+                            +{theme.chunks.length - maxClips} more clips
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Bottom-centered close button that overlaps the card edge */}
+                    <button
+                      type="button"
+                      aria-label="Close"
+                      onClick={() => onCollapse?.()}
+                      className="absolute left-1/2 bottom-0 translate-x-[-50%] translate-y-[70%] w-10 h-10 rounded-full border border-blue-200/50 bg-background shadow-lg flex items-center justify-center text-[14px] hover:bg-blue-100/50 dark:hover:bg-blue-900/30"
+                    >
+                      ×
+                    </button>
                   </div>
-                ))}
-                {theme.chunks.length > 5 && (
-                  <div className="text-xs text-muted-foreground text-center">
-                    +{theme.chunks.length - 5} more segments
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
+                </MotionDiv>,
+                document.body
+              )}
+          </>
         )}
       </AnimatePresence>
-    </motion.div>
+    </MotionDiv>
   );
 }

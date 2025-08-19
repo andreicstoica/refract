@@ -54,6 +54,23 @@ module.exports = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        sans: [
+          "Inter", "Geist", "ui-sans-serif", "system-ui", "sans-serif", 
+          "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"
+        ],
+        cursive: ["Edu NSW ACT Foundation", "cursive"],
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
+      spacing: {
+        '18': '4.5rem',
+      },
+      zIndex: {
+        '60': '60',
+      },
     },
   },
   plugins: [],

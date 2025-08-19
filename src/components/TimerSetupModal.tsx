@@ -45,21 +45,20 @@ export function TimerSetupModal({
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "bg-background border border-blue-200/30 rounded-2xl p-8 max-w-sm w-full",
+              "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 max-w-sm w-full",
               "shadow-xl backdrop-blur-sm",
               className
             )}
           >
             <div className="text-center space-y-8">
               {/* Header */}
-              <div className="space-y-2">
+              <div className="flex flex-col items-center justify-center gap-2">
                 <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
                   <Clock className="w-6 h-6" />
-                  <h2 className="text-xl font-semibold">Set Writing Time</h2>
                 </div>
-                <p className="text-muted-foreground text-sm">
+                <div className="text-gray-600 dark:text-gray-400 text-md">
                   Choose how long you'd like to write
-                </p>
+                </div>
               </div>
 
               {/* Clock Display */}
@@ -90,7 +89,7 @@ export function TimerSetupModal({
                     <ChevronDown className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   </button>
 
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
                     {selectedMinutes === 1 ? "minute" : "minutes"}
                   </div>
                 </div>
@@ -106,7 +105,7 @@ export function TimerSetupModal({
               </button>
 
               {/* Info */}
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 You can pause, resume, or skip the timer at any time
               </p>
             </div>

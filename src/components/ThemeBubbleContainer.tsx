@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useLayoutEffect } from "react";
 import { ThemeBubble } from "./ThemeBubble";
 import { cn } from "@/utils/utils";
 
@@ -19,37 +19,235 @@ export function ThemeBubbleContainer({
   className,
 }: ThemeBubbleContainerProps) {
   const [expandedTheme, setExpandedTheme] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerSize, setContainerSize] = useState<{
+    width: number;
+    height: number;
+  }>({ width: 0, height: 0 });
+  const isSmall =
+    containerSize.width > 0 && containerSize.height > 0
+      ? containerSize.width <= 480 || containerSize.height <= 700
+      : false;
+  const isUltraShort =
+    containerSize.height > 0 ? containerSize.height <= 600 : false;
+  const isUltraNarrow =
+    containerSize.width > 0 ? containerSize.width <= 360 : false;
+  const expandedScale = isUltraShort ? 1.5 : isSmall ? 1.8 : 2.5;
+  const clipRadiusFactor =
+    isUltraShort || isUltraNarrow ? 0.4 : isSmall ? 0.48 : 0.65;
+  const maxClips = isUltraShort || isUltraNarrow ? 10 : isSmall ? 10 : 8; // list mode shows more via scroll
+  const clipCardSize =
+    isUltraShort || isUltraNarrow
+      ? { width: 60, height: 30 }
+      : isSmall
+      ? { width: 70, height: 35 }
+      : { width: 80, height: 40 };
+  // Slightly increase mobile font sizes for readability; make desktop small too
+  const clipTextClassName =
+    isUltraShort || isUltraNarrow
+      ? "text-[7px]"
+      : isSmall
+      ? "text-[8px]"
+      : "text-[9px]";
+  const listMode = isUltraNarrow || isSmall || isUltraShort;
+  const clipLineClamp = listMode ? 3 : 999; // no clamp on desktop orbit
+  const listPanelMaxWidthPx = isSmall || isUltraNarrow ? 520 : 900;
+  const listPanelMaxHeightVH = 70;
+  // On larger screens, let orbit cards size to their content
+  const autoClipWidth = !listMode;
+  // Spacing estimate for orbit placement when auto sizing
+  const estimatedClipWidthPx = 140;
+  const maxClipWidthPx = 260;
 
-  // Calculate mindmap-style positions for bubbles
+  // Track container size to keep bubbles fully within bounds
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      setContainerSize({ width: rect.width, height: rect.height });
+    };
+
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Helper to clamp a percentage position so the circle stays fully visible
+  function clampPosition(
+    posPct: { x: number; y: number },
+    diameterPx: number,
+    size: { width: number; height: number },
+    margin = 8
+  ) {
+    if (!size.width || !size.height) {
+      // Fallback when size unknown: keep within 12%-88%
+      return {
+        x: Math.max(12, Math.min(88, posPct.x)),
+        y: Math.max(12, Math.min(88, posPct.y)),
+      };
+    }
+    const radius = diameterPx / 2;
+    const minX = ((radius + margin) / size.width) * 100;
+    const maxX = (1 - (radius + margin) / size.width) * 100;
+    const minY = ((radius + margin) / size.height) * 100;
+    const maxY = (1 - (radius + margin) / size.height) * 100;
+    return {
+      x: Math.max(minX, Math.min(maxX, posPct.x)),
+      y: Math.max(minY, Math.min(maxY, posPct.y)),
+    };
+  }
+
+  // Improved bubble layout using full screen height and better spacing
   const bubblePositions = useMemo(() => {
     if (themes.length === 0) return [];
 
-    const centerX = 50; // Percentage from left
-    const centerY = 50; // Percentage from top
-    const baseRadius = 30; // Base distance from center
+    // Create bubbles with base sizes
+    const bubbles = themes.map((theme) => ({
+      theme,
+      size: 80 + theme.confidence * 40,
+    }));
 
-    return themes.map((theme, index) => {
-      const angle = (index / themes.length) * 2 * Math.PI;
-      const radius = baseRadius * (0.8 + theme.confidence * 0.4);
-
-      // Add some randomness to make it feel more organic
-      const randomOffset = 0.2;
-      const x =
-        centerX +
-        Math.cos(angle) * radius +
-        (Math.random() - 0.5) * randomOffset * 20;
-      const y =
-        centerY +
-        Math.sin(angle) * radius +
-        (Math.random() - 0.5) * randomOffset * 20;
-
-      return {
-        theme,
-        position: { x, y },
-        size: 80 + theme.confidence * 40, // Size based on confidence
-      };
+    // Seed positions clustered around center
+    const positions = bubbles.map((b, i) => {
+      const diameter = b.size * (0.8 + b.theme.confidence * 0.4);
+      const jitterX = (Math.random() - 0.5) * 12; // +/- 6%
+      const jitterY = (Math.random() - 0.5) * 12;
+      const pos = clampPosition(
+        { x: 50 + jitterX, y: 50 + jitterY },
+        diameter,
+        containerSize
+      );
+      return { theme: b.theme, position: pos, size: b.size };
     });
-  }, [themes]);
+
+    // Simple separation loop to avoid overlap, keep near center
+    const minWH = Math.max(
+      1,
+      Math.min(containerSize.width, containerSize.height)
+    );
+    const marginPct = 2; // extra separation margin in percent space
+
+    for (let iter = 0; iter < 24; iter++) {
+      // pairwise separation
+      for (let i = 0; i < positions.length; i++) {
+        for (let j = i + 1; j < positions.length; j++) {
+          const a = positions[i];
+          const b = positions[j];
+          const da = a.size * (0.8 + a.theme.confidence * 0.4);
+          const db = b.size * (0.8 + b.theme.confidence * 0.4);
+          const raPct = (da / minWH) * 50; // radius in percent approx
+          const rbPct = (db / minWH) * 50;
+
+          let dx = b.position.x - a.position.x;
+          let dy = b.position.y - a.position.y;
+          const dist = Math.hypot(dx, dy) || 0.0001;
+          const minDist = raPct + rbPct + marginPct;
+          if (dist < minDist) {
+            const overlap = (minDist - dist) / 2;
+            dx /= dist;
+            dy /= dist;
+            a.position.x -= dx * overlap;
+            a.position.y -= dy * overlap;
+            b.position.x += dx * overlap;
+            b.position.y += dy * overlap;
+          }
+        }
+      }
+
+      // gentle pull to center and clamp
+      for (const p of positions) {
+        p.position.x += (50 - p.position.x) * 0.05;
+        p.position.y += (50 - p.position.y) * 0.05;
+        const diameter = p.size * (0.8 + p.theme.confidence * 0.4);
+        const clamped = clampPosition(p.position, diameter, containerSize);
+        p.position = clamped;
+      }
+    }
+
+    return positions;
+  }, [themes, containerSize]);
+
+  // Calculate displaced positions when a bubble is expanded
+  const adjustedPositions = useMemo(() => {
+    if (!expandedTheme) return bubblePositions;
+
+    const expandedIndex = bubblePositions.findIndex(
+      (bp) => bp.theme.id === expandedTheme
+    );
+    if (expandedIndex === -1) return bubblePositions;
+
+    const expanded = bubblePositions[expandedIndex];
+    const baseDiameter =
+      expanded.size * (0.8 + expanded.theme.confidence * 0.4);
+    const expandedDiameter = baseDiameter * expandedScale;
+
+    // Place expanded bubble at center (clamped just in case)
+    const centerPos = clampPosition(
+      { x: 50, y: 50 },
+      expandedDiameter,
+      containerSize
+    );
+
+    // Arrange others on a ring around center
+    const others = bubblePositions.filter((_, i) => i !== expandedIndex);
+    const ringRadius = isUltraShort || isUltraNarrow ? 14 : isSmall ? 18 : 24; // percent units
+    const arranged = others.map((bp, i) => {
+      const angle = (i / Math.max(1, others.length)) * Math.PI * 2;
+      const target = {
+        x: centerPos.x + Math.cos(angle) * ringRadius,
+        y: centerPos.y + Math.sin(angle) * ringRadius,
+      };
+      const diameter = bp.size * (0.8 + bp.theme.confidence * 0.4);
+      const bounded = clampPosition(target, diameter, containerSize);
+      return { ...bp, position: bounded };
+    });
+
+    // Quick separation pass for others
+    const minWH = Math.max(
+      1,
+      Math.min(containerSize.width, containerSize.height)
+    );
+    const marginPct = 2;
+    for (let iter = 0; iter < 8; iter++) {
+      for (let i = 0; i < arranged.length; i++) {
+        for (let j = i + 1; j < arranged.length; j++) {
+          const a = arranged[i];
+          const b = arranged[j];
+          const da = a.size * (0.8 + a.theme.confidence * 0.4);
+          const db = b.size * (0.8 + b.theme.confidence * 0.4);
+          const raPct = (da / minWH) * 50;
+          const rbPct = (db / minWH) * 50;
+          let dx = b.position.x - a.position.x;
+          let dy = b.position.y - a.position.y;
+          const dist = Math.hypot(dx, dy) || 0.0001;
+          const minDist = raPct + rbPct + marginPct;
+          if (dist < minDist) {
+            const overlap = (minDist - dist) / 2;
+            dx /= dist;
+            dy /= dist;
+            a.position.x -= dx * overlap;
+            a.position.y -= dy * overlap;
+            b.position.x += dx * overlap;
+            b.position.y += dy * overlap;
+            // clamp after move
+            a.position = clampPosition(a.position, da, containerSize);
+            b.position = clampPosition(b.position, db, containerSize);
+          }
+        }
+      }
+    }
+
+    // Build final array with expanded at center
+    const finalPositions = [...arranged];
+    finalPositions.splice(expandedIndex, 0, {
+      ...expanded,
+      position: centerPos,
+    });
+    return finalPositions;
+  }, [bubblePositions, expandedTheme, containerSize]);
 
   const handleExpand = (themeId: string) => {
     setExpandedTheme(themeId);
@@ -70,9 +268,10 @@ export function ThemeBubbleContainer({
         "relative w-full h-full min-h-[400px]",
         "bg-gradient-to-br from-blue-50/30 to-purple-50/30 dark:from-blue-950/20 dark:to-purple-950/20",
         "rounded-2xl border border-blue-200/20",
-        "overflow-hidden",
+        "overflow-visible",
         className
       )}
+      ref={containerRef}
     >
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-20">
@@ -104,7 +303,7 @@ export function ThemeBubbleContainer({
 
       {/* Theme bubbles */}
       <AnimatePresence>
-        {bubblePositions.map(({ theme, position, size }) => (
+        {adjustedPositions.map(({ theme, position, size }) => (
           <ThemeBubble
             key={theme.id}
             theme={theme}
@@ -113,45 +312,23 @@ export function ThemeBubbleContainer({
             onExpand={handleExpand}
             onCollapse={handleCollapse}
             isExpanded={expandedTheme === theme.id}
+            expandedScale={expandedTheme === theme.id ? expandedScale : 1}
+            clipRadiusFactor={clipRadiusFactor}
+            maxClips={maxClips}
+            clipCardSize={clipCardSize}
+            autoClipWidth={autoClipWidth}
+            estimatedClipWidthPx={estimatedClipWidthPx}
+            maxClipWidthPx={maxClipWidthPx}
+            draggable={isSmall}
+            dragConstraintsRef={containerRef}
+            clipTextClassName={clipTextClassName}
+            clipLineClamp={clipLineClamp}
+            listMode={listMode}
+            listPanelMaxWidthPx={listPanelMaxWidthPx}
+            listPanelMaxHeightVH={listPanelMaxHeightVH}
           />
         ))}
       </AnimatePresence>
-
-      {/* Connection lines between bubbles (optional) */}
-      {bubblePositions.length > 1 && (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none">
-          {bubblePositions.map((bubble, index) => {
-            const nextBubble =
-              bubblePositions[(index + 1) % bubblePositions.length];
-            if (!nextBubble) return null;
-
-            // Use percentage positions directly for SVG
-            const x1 = bubble.position.x;
-            const y1 = bubble.position.y;
-            const x2 = nextBubble.position.x;
-            const y2 = nextBubble.position.y;
-
-            return (
-              <motion.line
-                key={`line-${index}`}
-                x1={`${x1}%`}
-                y1={`${y1}%`}
-                x2={`${x2}%`}
-                y2={`${y2}%`}
-                stroke="rgba(59, 130, 246, 0.2)"
-                strokeWidth="1"
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{
-                  duration: 1,
-                  delay: 0.5 + index * 0.2,
-                  ease: "easeOut",
-                }}
-              />
-            );
-          })}
-        </svg>
-      )}
 
       {/* Instructions overlay */}
       {themes.length > 0 && !expandedTheme && (
@@ -160,40 +337,8 @@ export function ThemeBubbleContainer({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1, duration: 0.5 }}
           className="absolute bottom-4 left-1/2 transform -translate-x-1/2"
-        >
-          <div className="text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border">
-            Tap bubbles to explore themes
-          </div>
-        </motion.div>
+        ></motion.div>
       )}
-
-      {/* Close button when expanded */}
-      <AnimatePresence>
-        {expandedTheme && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={handleCollapse}
-            className="absolute top-4 right-4 z-50 w-8 h-8 bg-background/90 backdrop-blur-sm border border-blue-200/30 rounded-full flex items-center justify-center text-blue-600 hover:bg-background transition-colors"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </motion.button>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }

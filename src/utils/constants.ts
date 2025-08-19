@@ -1,7 +1,7 @@
 // Text styling constants that affect layout and positioning
 export const TEXT_STYLES = {
     // Line height used in textarea - affects chip positioning
-    LINE_HEIGHT: "leading-[3.5rem] md:leading-[3rem]", // Larger on mobile, smaller on desktop
+    LINE_HEIGHT: "", // Will use inline style for better v3 compatibility
     // Font size and other text properties
     FONT_SIZE: "text-lg",
     // Padding that affects positioning calculations

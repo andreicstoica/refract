@@ -4,9 +4,9 @@ import {
   calculateSimilarityMatrix,
   clusterEmbeddings,
   findSimilarChunks,
-  type TextChunk,
 } from "@/utils/embeddingUtils";
 import type { Sentence } from "@/types/sentence";
+import type { TextChunk } from "@/types/embedding";
 
 describe("embeddingUtils", () => {
   let mockSentences: Sentence[];
