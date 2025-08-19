@@ -34,8 +34,11 @@ export default function WritePage() {
 
   const handleDone = useCallback(async () => {
     try {
-      await generateEmbeddings(currentSentences, currentText);
-      // Navigate to themes page
+      console.log("🔄 Starting embeddings generation...");
+      const themes = await generateEmbeddings(currentSentences, currentText);
+      console.log("✅ Embeddings generation complete, themes:", themes);
+      
+      // Only navigate after AI processing is complete
       router.push("/themes");
     } catch (error) {
       console.error("❌ Embeddings generation failed:", error);

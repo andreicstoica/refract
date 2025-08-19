@@ -1,8 +1,8 @@
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { generateEmbeddingVectors } from "@/services/embeddingsClient";
 import {
-  generateEmbeddings,
   clusterEmbeddings,
   sentencesToChunks,
 } from "@/utils/embeddingUtils";
@@ -21,13 +21,14 @@ const EmbeddingsRequestSchema = z.object({
   fullText: z.string().optional(),
 });
 
-const ThemeLabelSchema = z.object({
+const ComprehensiveThemeSchema = z.object({
   themes: z.array(z.object({
     clusterId: z.string(),
-    label: z.string().max(30).describe("Concise theme name, 2-4 words"),
-    description: z.string().max(100).describe("Brief description of the theme"),
-    confidence: z.number().min(0).max(1).describe("Confidence in theme quality"),
-    color: z.string().describe("CSS color for the theme bubble - use hex colors like #3B82F6, #8B5CF6, #10B981, #F59E0B, #EF4444, #EC4899"),
+    label: z.string(),
+    description: z.string(),
+    confidence: z.number(),
+    color: z.string(),
+    intensity: z.number(),
   })),
 });
 
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
     const chunks = sentencesToChunks(sentences);
 
     // Step 2: Generate embeddings
-    const embeddingResult = await generateEmbeddings(chunks);
+    const embeddingResult = await generateEmbeddingVectors(chunks);
 
     // Step 3: Cluster embeddings (default to 3 clusters, adjust based on content)
     const numClusters = Math.min(3, Math.max(2, Math.floor(chunks.length / 3)));
@@ -63,19 +64,19 @@ export async function POST(req: Request) {
 
     console.log(`📊 Created ${clusters.length} clusters from ${chunks.length} chunks`);
 
-    // Step 4: Generate meaningful theme labels using LLM
-    const themeLabels = await generateThemeLabels(clusters, fullText);
+    // Step 4: Generate rich theme data with AI
+    const themeData = await generateComprehensiveThemes(clusters, fullText);
 
-    // Step 5: Merge cluster data with theme labels and assign colors
-    const colors = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444"];
+    // Step 5: Enrich clusters with AI-generated theme data
     const enrichedClusters = clusters.map((cluster, index) => {
-      const themeLabel = themeLabels.find(t => t.clusterId === cluster.id);
+      const theme = themeData.find(t => t.clusterId === cluster.id);
       return {
         ...cluster,
-        label: themeLabel?.label || cluster.label,
-        description: themeLabel?.description || "",
-        confidence: Math.min(cluster.confidence, themeLabel?.confidence || 0.5),
-        color: colors[index % colors.length],
+        label: theme?.label || cluster.label,
+        description: theme?.description || "",
+        confidence: Math.min(cluster.confidence, theme?.confidence || 0.5),
+        color: theme?.color || "#3b82f6",
+        intensity: theme?.intensity || 0.5,
       };
     });
 
@@ -89,10 +90,11 @@ export async function POST(req: Request) {
       themes: sortedClusters.map(c => ({
         id: c.id,
         label: c.label,
-        description: c.description,
+        description: c.description || "",
         confidence: c.confidence,
         chunkCount: c.chunks.length,
-        color: c.color, // Add color to the response
+        color: c.color,
+        intensity: c.intensity,
         chunks: c.chunks.map(chunk => ({
           text: chunk.text,
           sentenceId: chunk.sentenceId,
@@ -126,134 +128,98 @@ export async function POST(req: Request) {
 }
 
 /**
- * Generate meaningful theme labels for clusters using LLM
+ * Generate comprehensive theme data using AI with deduplication
  */
-async function generateThemeLabels(
+async function generateComprehensiveThemes(
   clusters: ClusterResult[],
   fullText?: string
-): Promise<Array<{ clusterId: string; label: string; description: string; confidence: number; color: string }>> {
+): Promise<Array<{ clusterId: string; label: string; description: string; confidence: number; color: string; intensity: number }>> {
   if (clusters.length === 0) return [];
 
-  // Predefined color palette for themes
-  const colorPalette = [
-    "#3B82F6", // Blue
-    "#8B5CF6", // Purple
-    "#10B981", // Emerald
-    "#F59E0B", // Amber
-    "#EF4444", // Red
-    "#EC4899", // Pink
-    "#06B6D4", // Cyan
-    "#84CC16", // Lime
-    "#F97316", // Orange
-    "#6366F1", // Indigo
-  ];
-
   try {
-    // Prepare cluster summaries for the LLM
-    const clusterSummaries = clusters.map(cluster => ({
+    // Prepare cluster summaries for the AI
+    const clusterSummaries = clusters.map((cluster, index) => ({
       id: cluster.id,
-      texts: cluster.chunks.map(chunk => chunk.text).slice(0, 5), // Limit to 5 representative texts
+      index: index + 1,
+      texts: cluster.chunks.map(chunk => chunk.text).slice(0, 6),
       chunkCount: cluster.chunks.length,
     }));
 
-    const result = await generateObject({
-      model: openai("gpt-4o-mini"),
-      system: `You are an expert at identifying themes in reflective writing and journal entries.
-
-TASK: Generate meaningful, insightful theme labels for text clusters from personal writing.
-
-CRITICAL REQUIREMENTS:
-- Create 2-4 word theme labels that capture the emotional, conceptual, or topical essence
-- Labels should be specific and meaningful, NOT generic like "Theme 1" or "Cluster 1"
-- Focus on the underlying patterns, emotions, or topics that connect the texts
-- Provide brief descriptions that explain what the theme represents
-- Assign confidence scores (0.1-1.0) based on how coherent and meaningful each theme is
-- Choose appropriate colors from the provided palette that match the theme's emotional tone
-
-COLOR GUIDELINES:
-- Blue (#3B82F6): Work, productivity, calm, trust
-- Purple (#8B5CF6): Creativity, spirituality, wisdom, luxury
-- Emerald (#10B981): Growth, health, nature, success
-- Amber (#F59E0B): Energy, optimism, warmth, caution
-- Red (#EF4444): Passion, urgency, stress, intensity
-- Pink (#EC4899): Love, relationships, compassion, gentleness
-- Cyan (#06B6D4): Clarity, communication, freshness
-- Lime (#84CC16): Youth, vitality, new beginnings
-- Orange (#F97316): Adventure, enthusiasm, creativity
-- Indigo (#6366F1): Depth, intuition, mystery
-
-EXAMPLES OF GOOD LABELS:
-- "Work Stress & Pressure" (Red #EF4444) for texts about deadlines, workload, job anxiety
-- "Personal Growth Journey" (Emerald #10B981) for texts about learning, self-improvement, reflection
-- "Family Relationships" (Pink #EC4899) for texts about family dynamics, parenting, home life
-- "Future Aspirations" (Blue #3B82F6) for texts about goals, dreams, career planning
-- "Creative Pursuits" (Purple #8B5CF6) for texts about art, writing, hobbies, passion projects
-
-AVOID: Generic labels like "Theme 1", "Cluster 1", "General Thoughts", "Random Ideas"
-
-Be insightful and specific. Each label should immediately convey what the theme is about.`,
-      prompt: `${fullText ? `FULL CONTEXT:\n${fullText}\n\n` : ''}CLUSTERS TO LABEL:\n${clusterSummaries.map((cluster, i) =>
-        `Cluster ${i + 1} (${cluster.chunkCount} texts):\n${cluster.texts.join('\n')}\n`
-      ).join('\n')
-        }\n\nGenerate meaningful theme labels for these clusters. Focus on the emotional, conceptual, or topical patterns that connect the texts within each cluster. Choose colors that match the emotional tone of each theme:`,
-      schema: ThemeLabelSchema,
+    console.log("📝 Sending to AI:", {
+      clustersCount: clusters.length,
+      clusterSummaries: clusterSummaries.map(c => ({
+        index: c.index,
+        textCount: c.texts.length,
+        firstText: c.texts[0],
+        chunkCount: c.chunkCount
+      })),
+      fullTextLength: fullText?.length || 0
     });
 
-    console.log("🎨 Generated theme labels:", result.object.themes);
+    const result = await generateObject({
+      model: openai("gpt-5-turbo"),
+      system: `Create meaningful theme labels for personal writing clusters.
 
-    // Map back to cluster IDs
+REQUIREMENTS:
+1. Each theme must have a UNIQUE label - never duplicate
+2. Labels should be 2-4 words and specific to content  
+3. Use exact hex colors: #3B82F6 #8B5CF6 #10B981 #F59E0B #EF4444 #EC4899
+4. Set intensity 0.3 to 1.0 based on emotional weight
+5. Return valid JSON matching the schema
+
+EXAMPLES:
+- "Work Stress" #EF4444 intensity 0.8
+- "Creative Ideas" #8B5CF6 intensity 0.7  
+- "Family Time" #EC4899 intensity 0.6
+- "Daily Routine" #3B82F6 intensity 0.4
+
+Make each theme unique and meaningful based on the text content.`,
+
+      prompt: `${fullText ? `FULL WRITING CONTEXT:\n${fullText}\n\n` : ''}
+CLUSTERS TO ANALYZE:
+${clusterSummaries.map((cluster) =>
+        `Cluster ${cluster.index} (${cluster.chunkCount} segments):
+${cluster.texts.join('\n')}
+`
+      ).join('\n')}
+
+Generate unique, engaging themes for each cluster. Focus on what makes each cluster distinct. Choose appropriate colors and intensity levels based on the emotional content and importance of each theme.`,
+
+      schema: ComprehensiveThemeSchema,
+    });
+
+    console.log("🎨 Generated comprehensive themes:", result.object.themes);
+
+    // Map themes back to cluster IDs
     return result.object.themes.map((theme, index) => ({
       clusterId: clusters[index]?.id || `cluster-${index}`,
       label: theme.label,
       description: theme.description,
       confidence: theme.confidence,
       color: theme.color,
+      intensity: theme.intensity,
     }));
 
   } catch (error) {
-    console.error("❌ Theme labeling failed:", error);
-
-    // Improved fallback labels based on cluster content with colors
-    return clusters.map((cluster, index) => {
-      const texts = cluster.chunks.map(chunk => chunk.text).join(' ').toLowerCase();
-
-      // More comprehensive word matching with colors
-      const themeKeywords = {
-        'Work & Career': { keywords: ['work', 'job', 'career', 'office', 'meeting', 'project', 'deadline', 'boss', 'colleague', 'promotion', 'salary'], color: '#3B82F6' },
-        'Stress & Anxiety': { keywords: ['stress', 'anxiety', 'worry', 'pressure', 'overwhelmed', 'tired', 'exhausted', 'burnout'], color: '#EF4444' },
-        'Family & Relationships': { keywords: ['family', 'parent', 'child', 'spouse', 'partner', 'marriage', 'relationship', 'love', 'home'], color: '#EC4899' },
-        'Personal Growth': { keywords: ['learn', 'growth', 'improve', 'better', 'goal', 'achievement', 'progress', 'development'], color: '#10B981' },
-        'Health & Wellness': { keywords: ['health', 'exercise', 'workout', 'diet', 'sleep', 'mental', 'physical', 'wellness', 'fitness'], color: '#10B981' },
-        'Future Planning': { keywords: ['future', 'plan', 'goal', 'dream', 'aspiration', 'vision', 'tomorrow', 'next'], color: '#3B82F6' },
-        'Social Life': { keywords: ['friend', 'social', 'party', 'hangout', 'community', 'network', 'connection'], color: '#84CC16' },
-        'Creative Pursuits': { keywords: ['creative', 'art', 'music', 'write', 'paint', 'design', 'hobby', 'passion'], color: '#8B5CF6' },
-        'Financial': { keywords: ['money', 'finance', 'budget', 'save', 'spend', 'investment', 'debt', 'income'], color: '#F59E0B' },
-        'Travel & Adventure': { keywords: ['travel', 'trip', 'vacation', 'adventure', 'explore', 'visit', 'destination'], color: '#F97316' },
-        'Learning & Education': { keywords: ['study', 'learn', 'course', 'education', 'knowledge', 'skill', 'training'], color: '#06B6D4' },
-        'Technology': { keywords: ['tech', 'computer', 'phone', 'app', 'digital', 'online', 'internet', 'software'], color: '#6366F1' }
-      };
-
-      // Find the best matching theme
-      let bestMatch = { label: `Cluster ${index + 1}`, score: 0, color: colorPalette[index % colorPalette.length] };
-
-      for (const [themeName, themeData] of Object.entries(themeKeywords)) {
-        const score = themeData.keywords.filter(keyword => texts.includes(keyword)).length;
-        if (score > bestMatch.score) {
-          bestMatch = { label: themeName, score, color: themeData.color };
-        }
-      }
-
-      // Only use the matched theme if we found at least 2 keywords
-      const label = bestMatch.score >= 2 ? bestMatch.label : `Cluster ${index + 1}`;
-      const color = bestMatch.score >= 2 ? bestMatch.color : colorPalette[index % colorPalette.length];
-
-      return {
-        clusterId: cluster.id,
-        label,
-        description: bestMatch.score >= 2 ? `Related thoughts about ${label.toLowerCase()}` : "A collection of related thoughts",
-        confidence: Math.max(0.3, bestMatch.score * 0.2),
-        color,
-      };
+    console.error("❌ Theme generation failed - detailed error:", {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      clustersLength: clusters.length,
+      hasFullText: !!fullText
     });
+
+    // Enhanced fallback with better variety
+    const fallbackColors = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899"];
+    const fallbackThemes = clusters.map((cluster, index) => ({
+      clusterId: cluster.id,
+      label: `Theme ${index + 1}`,
+      description: "A collection of related thoughts",
+      confidence: 0.5,
+      color: fallbackColors[index % fallbackColors.length],
+      intensity: 0.6,
+    }));
+
+    console.log("🔄 Using fallback themes:", fallbackThemes);
+    return fallbackThemes;
   }
 }

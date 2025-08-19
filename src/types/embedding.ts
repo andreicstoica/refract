@@ -23,4 +23,5 @@ export interface ClusterResult {
     centroid: number[];
     confidence: number;
     color?: string;
+    description?: string;
 }

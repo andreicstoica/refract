@@ -95,6 +95,7 @@ export function TextInput({
               transition: "height 0.3s ease-out",
               overflow: "auto",
               resize: "none",
+              lineHeight: "3.5rem",
             }}
             autoComplete="off"
             autoCorrect="off"

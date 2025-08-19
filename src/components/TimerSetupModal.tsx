@@ -52,16 +52,13 @@ export function TimerSetupModal({
           >
             <div className="text-center space-y-8">
               {/* Header */}
-              <div className="space-y-2">
+              <div className="flex flex-col items-center justify-center gap-2">
                 <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
                   <Clock className="w-6 h-6" />
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Set Writing Time
-                  </h2>
                 </div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                <div className="text-gray-600 dark:text-gray-400 text-md">
                   Choose how long you'd like to write
-                </p>
+                </div>
               </div>
 
               {/* Clock Display */}

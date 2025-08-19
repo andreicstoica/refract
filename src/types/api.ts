@@ -18,5 +18,15 @@ export interface EmbeddingsRequest {
 }
 
 export interface EmbeddingsResponse {
+    clusters: any[];
     themes: Theme[];
+    usage: {
+        tokens: number;
+        cost?: number;
+    };
+    debug?: {
+        totalSentences: number;
+        totalClusters: number;
+        finalClusters: number;
+    };
 }

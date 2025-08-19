@@ -83,20 +83,20 @@ export default function ThemesPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-4 pt-20">
+      <div className="flex-1 p-4 pt-20 h-full">
         {themes.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="max-w-6xl mx-auto h-full"
+            className="w-full h-full"
           >
             <ThemeBubbleContainer
               themes={themes}
               onThemeSelect={(themeId) => {
                 console.log("Selected theme:", themeId);
               }}
-              className="h-full"
+              className="w-full h-full"
             />
           </motion.div>
         ) : (

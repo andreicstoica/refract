@@ -1,5 +1,4 @@
-import { openai } from "@ai-sdk/openai";
-import { embedMany, cosineSimilarity } from "ai";
+import { cosineSimilarity } from "ai";
 import type { Sentence } from "@/types/sentence";
 import type { TextChunk, EmbeddingResult, ClusterResult } from "@/types/embedding";
 
@@ -15,45 +14,16 @@ export function sentencesToChunks(sentences: Sentence[]): TextChunk[] {
 }
 
 /**
- * Generate embeddings for text chunks using Vercel AI SDK
+ * Attach embeddings to text chunks (pure function)
  */
-export async function generateEmbeddings(
-  chunks: TextChunk[]
-): Promise<EmbeddingResult> {
-  if (chunks.length === 0) {
-    return {
-      chunks: [],
-      embeddings: [],
-      usage: { tokens: 0, cost: 0 },
-    };
-  }
-
-  try {
-    const texts = chunks.map((chunk) => chunk.text);
-
-    const result = await embedMany({
-      model: openai.embedding("text-embedding-3-small"),
-      values: texts,
-    });
-
-    // Attach embeddings to chunks
-    const chunksWithEmbeddings = chunks.map((chunk, index) => ({
-      ...chunk,
-      embedding: result.embeddings[index],
-    }));
-
-    return {
-      chunks: chunksWithEmbeddings,
-      embeddings: result.embeddings,
-      usage: {
-        tokens: result.usage?.tokens || 0,
-        cost: (result.usage?.tokens || 0) * 0.00002, // Approximate cost for text-embedding-3-small
-      },
-    };
-  } catch (error) {
-    console.error("❌ Embedding generation failed:", error);
-    throw new Error("Failed to generate embeddings");
-  }
+export function attachEmbeddingsToChunks(
+  chunks: TextChunk[],
+  embeddings: number[][]
+): TextChunk[] {
+  return chunks.map((chunk, index) => ({
+    ...chunk,
+    embedding: embeddings[index],
+  }));
 }
 
 /**
@@ -174,7 +144,7 @@ export function clusterEmbeddings(
 
     clusters.push({
       id: `cluster-${cluster}`,
-      label: `Cluster ${cluster + 1}`, // This will be overridden by LLM labeling
+      label: `Cluster ${cluster + 1}`, // Will be replaced by AI labeling
       chunks: clusterChunks,
       centroid: centroids[cluster],
       confidence: avgSimilarity,
@@ -184,6 +154,7 @@ export function clusterEmbeddings(
   // Sort clusters by size and confidence to prioritize meaningful ones
   return clusters.sort((a, b) => (b.chunks.length * b.confidence) - (a.chunks.length * a.confidence));
 }
+
 
 /**
  * Calculate centroid (mean vector) of embeddings
@@ -228,4 +199,73 @@ export function findSimilarChunks(
     .slice(0, limit);
 
   return similarities;
+}
+
+/**
+ * Merge clusters that have the same theme label
+ */
+export function mergeClustersByTheme(
+  clusters: ClusterResult[],
+  themeLabels: Array<{ clusterId: string; label: string; description: string; confidence: number; color: string }>
+): ClusterResult[] {
+  if (clusters.length === 0) return [];
+
+  // Create a map of theme labels to clusters
+  const themeMap = new Map<string, ClusterResult[]>();
+
+  clusters.forEach((cluster, index) => {
+    const themeLabel = themeLabels.find(t => t.clusterId === cluster.id);
+    const label = themeLabel?.label || cluster.label;
+
+    if (!themeMap.has(label)) {
+      themeMap.set(label, []);
+    }
+    themeMap.get(label)!.push(cluster);
+  });
+
+  // Merge clusters with the same theme
+  const mergedClusters: ClusterResult[] = [];
+
+  themeMap.forEach((clustersWithSameTheme, themeLabel) => {
+    if (clustersWithSameTheme.length === 1) {
+      // Single cluster, just update the label
+      const cluster = clustersWithSameTheme[0];
+      const themeLabelData = themeLabels.find(t => t.clusterId === cluster.id);
+      mergedClusters.push({
+        ...cluster,
+        label: themeLabel,
+        description: themeLabelData?.description || cluster.description || "",
+        confidence: themeLabelData?.confidence || cluster.confidence,
+        color: themeLabelData?.color || cluster.color,
+      });
+    } else {
+      // Multiple clusters with same theme, merge them
+      const allChunks = clustersWithSameTheme.flatMap(c => c.chunks);
+      const allEmbeddings = clustersWithSameTheme.flatMap(c =>
+        c.chunks.map(chunk => chunk.embedding).filter((embedding): embedding is number[] => !!embedding)
+      );
+
+      // Calculate new centroid from all embeddings
+      const newCentroid = calculateCentroid(allEmbeddings);
+
+      // Calculate average confidence
+      const avgConfidence = clustersWithSameTheme.reduce((sum, c) => sum + c.confidence, 0) / clustersWithSameTheme.length;
+
+      // Get theme data from the first cluster
+      const themeLabelData = themeLabels.find(t => t.clusterId === clustersWithSameTheme[0].id);
+
+      mergedClusters.push({
+        id: `merged-${themeLabel.toLowerCase().replace(/\s+/g, '-')}`,
+        label: themeLabel,
+        chunks: allChunks,
+        centroid: newCentroid,
+        confidence: avgConfidence,
+        description: themeLabelData?.description || "Related thoughts",
+        color: themeLabelData?.color || "#3B82F6",
+      });
+    }
+  });
+
+  // Sort by confidence and chunk count
+  return mergedClusters.sort((a, b) => (b.confidence * b.chunks.length) - (a.confidence * a.chunks.length));
 }

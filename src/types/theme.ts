@@ -5,5 +5,6 @@ export interface Theme {
     confidence: number;
     chunkCount: number;
     color?: string;
+    intensity?: number;
     chunks?: Array<{ text: string; sentenceId: string }>;
 }

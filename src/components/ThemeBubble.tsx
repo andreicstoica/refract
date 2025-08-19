@@ -41,18 +41,17 @@ export function ThemeBubble({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0, x: position.x, y: position.y }}
+      initial={{ opacity: 0, scale: 0 }}
       animate={{
         opacity: 1,
-        scale: isExpanded ? 1.2 : 1,
-        x: position.x,
-        y: position.y,
+        scale: isExpanded ? 2.5 : 1,
+        zIndex: isExpanded ? 50 : 10,
       }}
       exit={{ opacity: 0, scale: 0 }}
       transition={{
         duration: 0.6,
         ease: "easeOut",
-        delay: Math.random() * 0.3, // Stagger effect
+        delay: Math.random() * 0.3,
       }}
       className={cn(
         "absolute cursor-pointer select-none",
@@ -62,6 +61,9 @@ export function ThemeBubble({
       style={{
         width: bubbleSize,
         height: bubbleSize,
+        left: `${position.x}%`,
+        top: `${position.y}%`,
+        transform: "translate(-50%, -50%)", // Center the bubble on its position
       }}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
@@ -185,42 +187,85 @@ export function ThemeBubble({
         )}
       </motion.div>
 
-      {/* Expansion content */}
+      {/* Sentence clips arranged around expanded bubble */}
       <AnimatePresence>
         {isExpanded && theme.chunks && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="absolute top-full left-1/2 transform -translate-x-1/2 mt-4 z-50"
-          >
-            <div className="bg-background/95 backdrop-blur-md border border-blue-200/30 rounded-lg p-4 shadow-xl max-w-sm">
-              <div className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
-                {theme.label}
-              </div>
-              {theme.description && (
-                <div className="text-xs text-muted-foreground mb-3">
-                  {theme.description}
-                </div>
-              )}
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {theme.chunks.slice(0, 5).map((chunk, index) => (
+          <>
+            {theme.chunks.slice(0, 8).map((chunk, index) => {
+              const angle =
+                (index / Math.min(theme.chunks!.length, 8)) * 2 * Math.PI;
+              const radius = bubbleSize * 0.8; // Distance from bubble center
+              const clipX = Math.cos(angle) * radius;
+              const clipY = Math.sin(angle) * radius;
+
+              return (
+                <motion.div
+                  key={chunk.sentenceId}
+                  initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                  animate={{
+                    opacity: 1,
+                    scale: 1,
+                    x: clipX,
+                    y: clipY,
+                  }}
+                  exit={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                  transition={{
+                    duration: 0.4,
+                    ease: "easeOut",
+                    delay: index * 0.1,
+                  }}
+                  className="absolute z-40 pointer-events-auto"
+                  style={{
+                    width: "120px",
+                    height: "60px",
+                  }}
+                >
+                  <div className="w-full h-full bg-background/95 backdrop-blur-md border border-blue-200/30 rounded-lg p-2 shadow-lg">
+                    <div
+                      className="text-xs text-foreground/80 overflow-hidden"
+                      style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: "vertical",
+                        lineHeight: "1.2",
+                      }}
+                    >
+                      {chunk.text}
+                    </div>
+                  </div>
+
+                  {/* Connection line to center bubble */}
                   <div
-                    key={chunk.sentenceId}
-                    className="text-xs text-foreground/80 p-2 bg-blue-50/50 dark:bg-blue-950/30 rounded"
-                  >
-                    {chunk.text}
-                  </div>
-                ))}
-                {theme.chunks.length > 5 && (
-                  <div className="text-xs text-muted-foreground text-center">
-                    +{theme.chunks.length - 5} more segments
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
+                    className="absolute w-px bg-blue-300/40"
+                    style={{
+                      height: `${radius * 0.6}px`,
+                      left: "50%",
+                      top: "50%",
+                      transformOrigin: "top",
+                      transform: `rotate(${
+                        angle + Math.PI
+                      }rad) translateY(-50%)`,
+                    }}
+                  />
+                </motion.div>
+              );
+            })}
+
+            {/* Show count if more clips exist */}
+            {theme.chunks.length > 8 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0 }}
+                transition={{ duration: 0.3, delay: 0.8 }}
+                className="absolute top-full mt-4 left-1/2 transform -translate-x-1/2 z-40"
+              >
+                <div className="text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border">
+                  +{theme.chunks.length - 8} more clips
+                </div>
+              </motion.div>
+            )}
+          </>
         )}
       </AnimatePresence>
     </motion.div>

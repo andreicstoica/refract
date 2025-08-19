@@ -20,36 +20,119 @@ export function ThemeBubbleContainer({
 }: ThemeBubbleContainerProps) {
   const [expandedTheme, setExpandedTheme] = useState<string | null>(null);
 
-  // Calculate mindmap-style positions for bubbles
+  // Improved bubble layout using full screen height and better spacing
   const bubblePositions = useMemo(() => {
     if (themes.length === 0) return [];
 
-    const centerX = 50; // Percentage from left
-    const centerY = 50; // Percentage from top
-    const baseRadius = 30; // Base distance from center
+    const bubbles = themes.map((theme, index) => ({
+      theme,
+      size: 80 + theme.confidence * 40,
+      radius: (80 + theme.confidence * 40) / 2, // Actual radius for collision detection
+    }));
 
-    return themes.map((theme, index) => {
-      const angle = (index / themes.length) * 2 * Math.PI;
-      const radius = baseRadius * (0.8 + theme.confidence * 0.4);
+    // Simple grid-based layout that uses full screen
+    if (themes.length === 1) {
+      return [
+        {
+          theme: bubbles[0].theme,
+          position: { x: 50, y: 50 },
+          size: bubbles[0].size,
+        },
+      ];
+    }
 
-      // Add some randomness to make it feel more organic
-      const randomOffset = 0.2;
-      const x =
-        centerX +
-        Math.cos(angle) * radius +
-        (Math.random() - 0.5) * randomOffset * 20;
-      const y =
-        centerY +
-        Math.sin(angle) * radius +
-        (Math.random() - 0.5) * randomOffset * 20;
+    if (themes.length === 2) {
+      const positions = [
+        {
+          theme: bubbles[0].theme,
+          position: { x: 30, y: 25 },
+          size: bubbles[0].size,
+        },
+        {
+          theme: bubbles[1].theme,
+          position: { x: 70, y: 75 },
+          size: bubbles[1].size,
+        },
+      ];
+      console.log("2-bubble positions:", positions);
+      return positions;
+    }
 
-      return {
-        theme,
-        position: { x, y },
-        size: 80 + theme.confidence * 40, // Size based on confidence
-      };
+    // For 3+ bubbles, use improved spacing
+    const positions: Array<{
+      theme: Theme;
+      position: { x: number; y: number };
+      size: number;
+    }> = [];
+
+    // Calculate positions to maximize usage of vertical space
+    const rows = Math.ceil(Math.sqrt(themes.length));
+    const cols = Math.ceil(themes.length / rows);
+
+    bubbles.forEach((bubble, index) => {
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+
+      // Use full vertical space (15% to 85%)
+      const x = 15 + (70 / (cols - 1 || 1)) * col;
+      const y = 15 + (70 / (rows - 1 || 1)) * row;
+
+      // Add some organic randomness but keep good separation
+      const randomX = (Math.random() - 0.5) * 8;
+      const randomY = (Math.random() - 0.5) * 8;
+
+      positions.push({
+        theme: bubble.theme,
+        position: {
+          x: Math.max(15, Math.min(85, x + randomX)),
+          y: Math.max(15, Math.min(85, y + randomY)),
+        },
+        size: bubble.size,
+      });
     });
+
+    return positions;
   }, [themes]);
+
+  // Calculate displaced positions when a bubble is expanded
+  const adjustedPositions = useMemo(() => {
+    if (!expandedTheme) return bubblePositions;
+
+    const expandedIndex = bubblePositions.findIndex(
+      (bp) => bp.theme.id === expandedTheme
+    );
+    if (expandedIndex === -1) return bubblePositions;
+
+    const expanded = bubblePositions[expandedIndex];
+    const pushRadius = 35; // How far to push other bubbles away
+
+    return bubblePositions.map((bp, index) => {
+      if (index === expandedIndex) return bp; // Don't move the expanded bubble
+
+      const dx = bp.position.x - expanded.position.x;
+      const dy = bp.position.y - expanded.position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < pushRadius) {
+        // Push bubble away
+        const pushAngle = Math.atan2(dy, dx);
+        const newDistance = pushRadius + 5;
+        const newX = expanded.position.x + Math.cos(pushAngle) * newDistance;
+        const newY = expanded.position.y + Math.sin(pushAngle) * newDistance;
+
+        // Keep within bounds
+        const boundedX = Math.max(10, Math.min(90, newX));
+        const boundedY = Math.max(10, Math.min(90, newY));
+
+        return {
+          ...bp,
+          position: { x: boundedX, y: boundedY },
+        };
+      }
+
+      return bp;
+    });
+  }, [bubblePositions, expandedTheme]);
 
   const handleExpand = (themeId: string) => {
     setExpandedTheme(themeId);
@@ -104,7 +187,7 @@ export function ThemeBubbleContainer({
 
       {/* Theme bubbles */}
       <AnimatePresence>
-        {bubblePositions.map(({ theme, position, size }) => (
+        {adjustedPositions.map(({ theme, position, size }) => (
           <ThemeBubble
             key={theme.id}
             theme={theme}
@@ -117,41 +200,6 @@ export function ThemeBubbleContainer({
         ))}
       </AnimatePresence>
 
-      {/* Connection lines between bubbles (optional) */}
-      {bubblePositions.length > 1 && (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none">
-          {bubblePositions.map((bubble, index) => {
-            const nextBubble =
-              bubblePositions[(index + 1) % bubblePositions.length];
-            if (!nextBubble) return null;
-
-            // Use percentage positions directly for SVG
-            const x1 = bubble.position.x;
-            const y1 = bubble.position.y;
-            const x2 = nextBubble.position.x;
-            const y2 = nextBubble.position.y;
-
-            return (
-              <motion.line
-                key={`line-${index}`}
-                x1={`${x1}%`}
-                y1={`${y1}%`}
-                x2={`${x2}%`}
-                y2={`${y2}%`}
-                stroke="rgba(59, 130, 246, 0.2)"
-                strokeWidth="1"
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{
-                  duration: 1,
-                  delay: 0.5 + index * 0.2,
-                  ease: "easeOut",
-                }}
-              />
-            );
-          })}
-        </svg>
-      )}
 
       {/* Instructions overlay */}
       {themes.length > 0 && !expandedTheme && (
@@ -160,40 +208,9 @@ export function ThemeBubbleContainer({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1, duration: 0.5 }}
           className="absolute bottom-4 left-1/2 transform -translate-x-1/2"
-        >
-          <div className="text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border">
-            Tap bubbles to explore themes
-          </div>
-        </motion.div>
+        ></motion.div>
       )}
 
-      {/* Close button when expanded */}
-      <AnimatePresence>
-        {expandedTheme && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={handleCollapse}
-            className="absolute top-4 right-4 z-50 w-8 h-8 bg-background/90 backdrop-blur-sm border border-blue-200/30 rounded-full flex items-center justify-center text-blue-600 hover:bg-background transition-colors"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </motion.button>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
