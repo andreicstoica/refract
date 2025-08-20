@@ -2,6 +2,7 @@
 	"name": "refract",
 	"version": "0.1.0",
 	"private": true,
+	"packageManager": "bun@1.1.22",
 	"scripts": {
 		"dev": "next dev --turbopack --port=3001",
 		"build": "next build",

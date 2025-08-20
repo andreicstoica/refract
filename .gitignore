@@ -63,3 +63,8 @@ AGENTS.md
 CLAUDE.md
 .claude
 .cursor
+
+# Package manager lockfiles to avoid npm detection in Vercel
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
