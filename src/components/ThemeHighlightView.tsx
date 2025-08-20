@@ -94,35 +94,44 @@ function renderTextWithHighlights(
 
   const STAGGER_PER_CHUNK_S = 0.04; // 40ms per contiguous highlighted chunk
 
-  const fragments: React.ReactNode[] = segmentMeta.map(({ start, end, color }, i) => {
-    const str = text.slice(start, end);
-    const isActive = Boolean(color);
-    const delay = isActive && chunkIndex[i] >= 0 ? chunkIndex[i] * STAGGER_PER_CHUNK_S : 0;
-    return (
-      <motion.span
-        key={`${start}-${end}`}
-        className="inline"
-        style={{
-          WebkitBoxDecorationBreak: "clone",
-          boxDecorationBreak: "clone",
-          ["--hl-color" as any]: color ?? undefined,
-          backgroundImage: color
-            ? `linear-gradient(0deg, var(--hl-color), var(--hl-color))`
-            : undefined,
-          backgroundRepeat: "no-repeat",
-          display: "inline",
-        }}
-        initial={false}
-        animate={{
-          backgroundSize: isActive ? "100% 100%" : "0% 100%",
-          backgroundPosition: isActive ? "left top" : "right top",
-        }}
-        transition={{ duration: isActive ? 0.5 : 0, ease: [0.22, 1, 0.36, 1], delay }}
-      >
-        {str}
-      </motion.span>
-    );
-  });
+  const fragments: React.ReactNode[] = segmentMeta.map(
+    ({ start, end, color }, i) => {
+      const str = text.slice(start, end);
+      const isActive = Boolean(color);
+      const delay =
+        isActive && chunkIndex[i] >= 0
+          ? chunkIndex[i] * STAGGER_PER_CHUNK_S
+          : 0;
+      return (
+        <motion.span
+          key={`${start}-${end}`}
+          className="inline"
+          style={{
+            WebkitBoxDecorationBreak: "clone",
+            boxDecorationBreak: "clone",
+            ["--hl-color" as any]: color ?? undefined,
+            backgroundImage: color
+              ? `linear-gradient(0deg, var(--hl-color), var(--hl-color))`
+              : undefined,
+            backgroundRepeat: "no-repeat",
+            display: "inline",
+          }}
+          initial={false}
+          animate={{
+            backgroundSize: isActive ? "100% 100%" : "0% 100%",
+            backgroundPosition: isActive ? "left top" : "right top",
+          }}
+          transition={{
+            duration: isActive ? 0.5 : 0,
+            ease: [0.22, 1, 0.36, 1],
+            delay,
+          }}
+        >
+          {str}
+        </motion.span>
+      );
+    }
+  );
 
   return (
     <div
@@ -253,7 +262,7 @@ export function ThemeHighlightView({
 
           {/* Theme selection buttons */}
           <div className="shrink-0 pb-4 mb-4 pt-4">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
               {themes.map((theme) => {
                 const isSelected = selectedThemeIds.includes(theme.id);
                 const baseColor = theme.color ?? "#93c5fd";
@@ -267,7 +276,7 @@ export function ThemeHighlightView({
                     onClick={() => toggleTheme(theme.id)}
                     aria-pressed={isSelected}
                     className={cn(
-                      "flex items-center gap-2 max-w-[220px] border transition-colors",
+                      "flex items-center gap-2 border transition-colors whitespace-nowrap flex-shrink-0",
                       isSelected && "ring-1 ring-offset-0"
                     )}
                     style={{
@@ -276,7 +285,7 @@ export function ThemeHighlightView({
                       borderColor: `color-mix(in srgb, var(--chip-color) ${borderPct}%, transparent)`,
                     }}
                   >
-                    <span className="truncate">{theme.label}</span>
+                    <span>{theme.label}</span>
                   </Button>
                 );
               })}
