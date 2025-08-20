@@ -256,21 +256,26 @@ export function ThemeHighlightView({
             <div className="flex flex-wrap gap-2">
               {themes.map((theme) => {
                 const isSelected = selectedThemeIds.includes(theme.id);
+                const baseColor = theme.color ?? "#93c5fd";
+                const fillPct = isSelected ? 24 : 14; // background tint strength
+                const borderPct = isSelected ? 42 : 26; // border tint strength
                 return (
                   <Button
                     key={theme.id}
-                    variant={isSelected ? "default" : "outline"}
+                    variant="outline"
                     size="sm"
                     onClick={() => toggleTheme(theme.id)}
                     aria-pressed={isSelected}
-                    className="flex items-center gap-2 max-w-[200px]"
+                    className={cn(
+                      "flex items-center gap-2 max-w-[220px] border transition-colors",
+                      isSelected && "ring-1 ring-offset-0"
+                    )}
+                    style={{
+                      ["--chip-color" as any]: baseColor,
+                      background: `color-mix(in srgb, var(--chip-color) ${fillPct}%, transparent)`,
+                      borderColor: `color-mix(in srgb, var(--chip-color) ${borderPct}%, transparent)`,
+                    }}
                   >
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{
-                        backgroundColor: theme.color ?? "#93c5fd",
-                      }}
-                    />
                     <span className="truncate">{theme.label}</span>
                   </Button>
                 );
