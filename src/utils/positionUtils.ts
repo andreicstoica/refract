@@ -28,6 +28,11 @@ export function measureSentencePositions(
   mirror.style.padding = style.padding;
   mirror.style.width = style.width;
   mirror.style.lineHeight = style.lineHeight; // Add line height for accurate positioning
+  // Ensure wrapping and sizing behavior match the textarea exactly
+  mirror.style.whiteSpace = "pre-wrap"; // textarea-like wrapping for newlines
+  mirror.style.overflowWrap = (style as any).overflowWrap || (style as any)["overflow-wrap"] || "anywhere";
+  mirror.style.wordBreak = style.wordBreak; // align with computed style
+  mirror.style.boxSizing = style.boxSizing;
 
   // Ensure we have the correct line height from our constants
   console.log("🔧 Mirror styles:", {

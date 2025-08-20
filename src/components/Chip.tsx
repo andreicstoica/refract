@@ -71,7 +71,7 @@ export function Chip({
             }
           }}
           className={cn(
-            "absolute z-20 text-xs font-medium text-blue-600 dark:text-blue-400",
+            "absolute z-20 text-sm font-medium text-blue-600 dark:text-blue-400",
             "leading-tight cursor-pointer",
             shouldFade && "pointer-events-auto", // Enable clicks only when fading
             className
