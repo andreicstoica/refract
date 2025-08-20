@@ -34,6 +34,7 @@ export function useGenerateEmbeddings() {
             
             storage.setThemes(themes);
             storage.setText(fullText);
+            storage.setSentences(sentences);
 
             return themes;
         } catch (error) {

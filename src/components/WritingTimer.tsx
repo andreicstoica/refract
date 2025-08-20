@@ -29,12 +29,12 @@ export function WritingTimer({
   const initialTimeRef = useRef(initialMinutes * 60);
   const hasTriggeredComplete = useRef(false); // Prevent multiple onTimerComplete calls
   const onTimerCompleteRef = useRef(onTimerComplete);
-  
+
   // Keep the callback ref updated
   useEffect(() => {
     onTimerCompleteRef.current = onTimerComplete;
   }, [onTimerComplete]);
-  
+
   // Derived states
   const isCompleted = timeLeft <= 0;
 
@@ -200,7 +200,7 @@ export function WritingTimer({
               isProcessing ? (
                 "Analyzing…"
               ) : (
-                "Done"
+                "Analyze"
               )
             ) : (
               <>
