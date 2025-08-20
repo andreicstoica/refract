@@ -24,8 +24,7 @@ const EmbeddingsRequestSchema = z.object({
 
 const ComprehensiveThemeSchema = z.object({
   themes: z.array(z.object({
-    clusterId: z.string(),
-    label: z.string(),
+    theme: z.string(),
     description: z.string(),
     confidence: z.number(),
     color: z.string(),
@@ -142,7 +141,7 @@ export async function POST(req: Request) {
 }
 
 /**
- * Generate comprehensive theme data using AI with deduplication
+ * Generate comprehensive theme data using AI with improved prompt engineering
  */
 async function generateComprehensiveThemes(
   clusters: ClusterResult[],
@@ -170,51 +169,97 @@ async function generateComprehensiveThemes(
       fullTextLength: fullText?.length || 0
     });
 
+    // Construct the comprehensive system prompt
+    const systemPrompt = `You are an expert at analyzing personal writing and creating meaningful thematic categorizations. Your task is to generate distinct, emotionally resonant theme labels for clusters of personal writing segments.
+
+## Core Requirements
+
+**Uniqueness**: Each theme label must be completely unique - no duplicates or similar variations allowed.
+
+**Specificity**: Labels should be 2-4 words that capture the essence of what makes each cluster distinct from others. Avoid generic terms.
+
+**Emotional Resonance**: Choose labels that reflect the emotional tone and significance of the content, not just surface topics.
+
+## Technical Specifications
+
+**Colors**: Use these exact hex values only:
+- \`#3B82F6\` (Blue) - Daily life, routine, neutral reflection
+- \`#8B5CF6\` (Purple) - Creativity, dreams, aspirations  
+- \`#10B981\` (Green) - Growth, positive experiences, achievements
+- \`#F59E0B\` (Amber) - Important memories, significant moments
+- \`#EF4444\` (Red) - Stress, challenges, intense emotions
+- \`#EC4899\` (Pink) - Relationships, love, personal connections
+
+**Intensity Scale** (0.3-1.0):
+- 0.3-0.4: Light, routine, everyday moments
+- 0.5-0.6: Moderate significance, recurring themes
+- 0.7-0.8: High emotional weight, important experiences  
+- 0.9-1.0: Profound, life-changing, deeply meaningful
+
+**Confidence Scale** (0.1-1.0):
+- 0.7-1.0: Very clear theme with strong coherence
+- 0.5-0.7: Moderately clear theme with some variation
+- 0.3-0.5: Somewhat clear theme but more abstract
+- 0.1-0.3: Weak theme coherence, more exploratory
+
+## Analysis Process
+
+1. **Read the full context** to understand the writer's overall emotional landscape
+2. **Identify distinct themes** in each cluster - what makes it unique?
+3. **Consider emotional weight** - how significant is this theme to the writer?
+4. **Choose descriptive labels** that someone else could understand without context
+5. **Assign appropriate colors** based on the emotional tone and content type
+6. **Set intensity levels** that reflect the theme's importance and emotional impact
+7. **Set confidence levels** based on how coherent and well-defined the theme is
+
+Return valid JSON matching the required schema with thoughtful, distinct themes that capture the essence of each writing cluster.`;
+
+    // Construct the user prompt with the data
+    const userPrompt = `${fullText ? `### Full Writing Context
+${fullText.slice(0, 4000)}${fullText.length > 4000 ? '\n[Content truncated for brevity]' : ''}
+
+` : ''}### Clusters for Theme Generation
+
+${clusterSummaries.map((cluster) =>
+      `**Cluster ${cluster.index}** (${cluster.chunkCount} writing segments):
+${cluster.texts.map(text => `• ${text}`).join('\n')}
+`
+    ).join('\n')}
+
+## Your Task
+
+Generate a unique, meaningful theme for each cluster above. Consider:
+- What emotional journey or experience does this cluster represent?
+- How does it differ from the other clusters?  
+- What would best help the writer recognize and connect with this theme?
+- What color and intensity best reflect its emotional significance?
+- How confident are you that this theme accurately represents the cluster?
+
+Generate themes that are distinct, emotionally resonant, and help the writer understand their own patterns of thought and feeling.`;
+
     // Use a valid, fast JSON-capable model
     const result = await generateObject({
       model: openai("gpt-5-nano"),
-      system: `Create meaningful theme labels for personal writing clusters.
-
-REQUIREMENTS:
-1. Each theme must have a UNIQUE label - never duplicate
-2. Labels should be 2-4 words and specific to content  
-3. Use exact hex colors: #3B82F6 #8B5CF6 #10B981 #F59E0B #EF4444 #EC4899
-4. Set intensity 0.3 to 1.0 based on emotional weight
-5. Return valid JSON matching the schema
-
-EXAMPLES:
-- "Work Stress" #EF4444 intensity 0.8
-- "Creative Ideas" #8B5CF6 intensity 0.7  
-- "Family Time" #EC4899 intensity 0.6
-- "Daily Routine" #3B82F6 intensity 0.4
-
-Make each theme unique and meaningful based on the text content.`,
-
-      // Truncate fullText to reduce token pressure while keeping context
-      prompt: `${fullText ? `FULL WRITING CONTEXT:\n${fullText.slice(0, 4000)}\n\n` : ''}
-CLUSTERS TO ANALYZE:
-${clusterSummaries.map((cluster) =>
-        `Cluster ${cluster.index} (${cluster.chunkCount} segments):
-${cluster.texts.join('\n')}
-`
-      ).join('\n')}
-
-Generate unique, engaging themes for each cluster. Focus on what makes each cluster distinct. Choose appropriate colors and intensity levels based on the emotional content and importance of each theme.`,
-
+      system: systemPrompt,
+      prompt: userPrompt,
       schema: ComprehensiveThemeSchema,
     });
 
-    console.log("🎨 Generated comprehensive themes:", result.object.themes);
+    console.log("🎨 AI generated themes:", result.object);
 
-    // Map themes back to cluster IDs
-    return result.object.themes.map((theme, index) => ({
-      clusterId: clusters[index]?.id || `cluster-${index}`,
-      label: theme.label,
-      description: theme.description,
-      confidence: theme.confidence,
+    // Transform the AI response to match our expected return format
+    const themes = result.object.themes.map((theme: any, index: number) => ({
+      clusterId: clusterSummaries[index]?.id || `cluster-${index}`,
+      label: theme.theme,
+      description: theme.description || `Theme representing ${theme.theme.toLowerCase()}`,
+      confidence: theme.confidence || 0.8,
       color: theme.color,
-      intensity: theme.intensity,
+      intensity: theme.intensity
     }));
+
+    console.log("✅ Processed themes:", themes);
+
+    return themes;
 
   } catch (error) {
     console.error("❌ Theme generation failed - detailed error:", {
@@ -229,7 +274,7 @@ Generate unique, engaging themes for each cluster. Focus on what makes each clus
     const fallbackThemes = clusters.map((cluster, index) => ({
       clusterId: cluster.id,
       label: `Theme ${index + 1}`,
-      description: "A collection of related thoughts",
+      description: "A collection of related thoughts and experiences",
       confidence: 0.5,
       color: fallbackColors[index % fallbackColors.length],
       intensity: 0.6,
