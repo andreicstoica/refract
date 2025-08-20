@@ -30,6 +30,9 @@ function renderTextWithHighlights(
   currentRanges: HighlightRange[],
   allRanges: HighlightRange[]
 ) {
+  // Simpler stagger: animate contiguous highlighted chunks sequentially (top-down)
+  // We compute which segments are active, group contiguous active segments into chunks,
+  // and apply a small delay per chunk index. This avoids measuring layout and soft wraps.
   // Build stable cut points: 0, text.length, and every start/end from all ranges
   const cutSet = new Set<number>([0, text.length]);
   for (const r of allRanges) {
@@ -62,9 +65,8 @@ function renderTextWithHighlights(
     if (!themeOrder.has(r.themeId)) themeOrder.set(r.themeId, order++);
   }
 
-  const fragments: React.ReactNode[] = segments.map(({ start, end }) => {
-    const str = text.slice(start, end);
-    // Choose the active color by the highest theme order
+  // First pass: compute active color per segment using current ranges
+  const segmentMeta = segments.map(({ start, end }) => {
     let color: string | null = null;
     let bestPriority = -1;
     for (const r of currentRanges) {
@@ -76,9 +78,26 @@ function renderTextWithHighlights(
         }
       }
     }
-    const isActive = Boolean(color);
+    return { start, end, color };
+  });
 
-    // Use motion.span to animate CSS background fill without changing layout
+  // Second pass: assign a chunk index to contiguous active segments
+  const chunkIndex: number[] = new Array(segmentMeta.length).fill(-1);
+  let currentChunk = -1;
+  for (let i = 0; i < segmentMeta.length; i++) {
+    const isActive = Boolean(segmentMeta[i].color);
+    if (isActive) {
+      if (i === 0 || !segmentMeta[i - 1].color) currentChunk += 1;
+      chunkIndex[i] = currentChunk;
+    }
+  }
+
+  const STAGGER_PER_CHUNK_S = 0.04; // 40ms per contiguous highlighted chunk
+
+  const fragments: React.ReactNode[] = segmentMeta.map(({ start, end, color }, i) => {
+    const str = text.slice(start, end);
+    const isActive = Boolean(color);
+    const delay = isActive && chunkIndex[i] >= 0 ? chunkIndex[i] * STAGGER_PER_CHUNK_S : 0;
     return (
       <motion.span
         key={`${start}-${end}`}
@@ -86,14 +105,11 @@ function renderTextWithHighlights(
         style={{
           WebkitBoxDecorationBreak: "clone",
           boxDecorationBreak: "clone",
-          // Use a CSS custom property for color to support any color string (hex, rgb, hsl, var())
-          // and avoid invalid hex + alpha concatenations.
           ["--hl-color" as any]: color ?? undefined,
           backgroundImage: color
             ? `linear-gradient(0deg, var(--hl-color), var(--hl-color))`
             : undefined,
           backgroundRepeat: "no-repeat",
-          // Keep text layout stable across toggles
           display: "inline",
         }}
         initial={false}
@@ -101,7 +117,7 @@ function renderTextWithHighlights(
           backgroundSize: isActive ? "100% 100%" : "0% 100%",
           backgroundPosition: isActive ? "left top" : "right top",
         }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: isActive ? 0.5 : 0, ease: [0.22, 1, 0.36, 1], delay }}
       >
         {str}
       </motion.span>
