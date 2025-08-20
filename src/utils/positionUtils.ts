@@ -92,9 +92,11 @@ export function measureSentencePositions(
         return null;
       }
       const r = el.getBoundingClientRect();
+      // Adjust for textarea's vertical scroll so overlay chips track content
+      const scrollTop = textareaElement.scrollTop || 0;
       const position = {
         sentenceId: s.id,
-        top: r.top - taRect.top,
+        top: r.top - taRect.top - scrollTop,
         left: r.left - taRect.left,
         width: r.width,
         height: r.height,

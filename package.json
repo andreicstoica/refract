@@ -17,6 +17,7 @@
 		"@tanstack/react-form": "^1.12.3",
 		"@tanstack/react-query": "^5.80.5",
 		"ai": "^5.0.15",
+		"biome": "^0.3.3",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"compromise": "^14.14.4",
