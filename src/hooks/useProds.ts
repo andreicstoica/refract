@@ -5,6 +5,8 @@ import type { QueueItem, QueueState, QueueAction } from "@/types/queue";
 import { generateProd } from "@/services/prodClient";
 import { shouldProcessSentence } from "@/utils/shouldProcessSentence";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 function queueReducer(state: QueueState, action: QueueAction): QueueState {
     switch (action.type) {
         case 'ENQUEUE':
@@ -74,7 +76,7 @@ export function useProds() {
 
         try {
             queueDispatch({ type: 'START_PROCESSING', payload: id });
-            console.log("🤖 Processing sentence:", sentence.text);
+            if (isDev) console.log("🤖 Processing sentence:", sentence.text);
 
             // Rate limiting: wait before making API calls
             await waitForRateLimit(150);
@@ -85,11 +87,11 @@ export function useProds() {
                 fullText: fullText
             });
 
-            console.log("🎯 Smart API result:", data);
+            if (isDev) console.log("🎯 Smart API result:", data);
 
             // Check if AI decided to skip this sentence
             if (data?.shouldSkip === true) {
-                console.log("🙅 AI decided to skip this sentence:", sentence.text);
+                if (isDev) console.log("🙅 AI decided to skip this sentence:", sentence.text);
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
                 return; // Skip without creating a prod
             }
@@ -97,7 +99,7 @@ export function useProds() {
             // Ensure we have valid selected prod text
             const selectedProdText = data?.selectedProd;
             if (!selectedProdText || typeof selectedProdText !== 'string' || !selectedProdText.trim()) {
-                console.log("⚠️ No valid selected prod text");
+                if (isDev) console.log("⚠️ No valid selected prod text");
                 queueDispatch({ type: 'FAIL_PROCESSING', payload: id });
                 return;
             }
@@ -110,7 +112,7 @@ export function useProds() {
                 timestamp: Date.now(),
             };
 
-            console.log("💡 Final selected prod:", newProd);
+            if (isDev) console.log("💡 Final selected prod:", newProd);
             setProds((prev) => [...prev, newProd]);
             queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
 
@@ -124,23 +126,23 @@ export function useProds() {
     useEffect(() => {
         const processQueue = async () => {
             if (queueState.isProcessing) {
-                console.log("⏸️ Queue is already processing, skipping");
+                if (isDev) console.log("⏸️ Queue is already processing, skipping");
                 return;
             }
 
             const pendingItems = queueState.items.filter(item => item.status === 'pending');
             if (pendingItems.length === 0) {
-                console.log("📭 No pending items in queue");
+                if (isDev) console.log("📭 No pending items in queue");
                 return;
             }
 
-            console.log("🔄 Processing queue with", pendingItems.length, "pending items");
+            if (isDev) console.log("🔄 Processing queue with", pendingItems.length, "pending items");
 
             // Check throttling for the entire queue processing
             const now = Date.now();
             const timeSinceLastCall = now - lastApiCallRef.current;
             if (timeSinceLastCall < 500) {
-                console.log("⏰ Queue processing throttled – scheduling wake-up");
+                if (isDev) console.log("⏰ Queue processing throttled – scheduling wake-up");
                 // Schedule wake-up to prevent permanent stall
                 const wakeUpDelay = 500 - timeSinceLastCall + 100; // +100ms buffer
                 setTimeout(() => {
@@ -156,7 +158,7 @@ export function useProds() {
             const batchSize = 2;
             for (let i = 0; i < pendingItems.length; i += batchSize) {
                 const batch = pendingItems.slice(i, i + batchSize);
-                console.log("📦 Processing batch", Math.floor(i / batchSize) + 1, "with", batch.length, "items");
+                if (isDev) console.log("📦 Processing batch", Math.floor(i / batchSize) + 1, "with", batch.length, "items");
                 const promises = batch.map(item => processSingleItem(item));
                 await Promise.all(promises);
 

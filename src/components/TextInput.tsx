@@ -93,9 +93,12 @@ export function TextInput({
               style={{
                 fontFamily: "inherit",
                 caretColor: "currentColor",
-                overflow: "auto", // only textarea scrolls
+                overflowY: "auto",
+                overflowX: "hidden",
                 resize: "none",
                 lineHeight: "3.5rem",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
               }}
               autoComplete="off"
               autoCorrect="off"
