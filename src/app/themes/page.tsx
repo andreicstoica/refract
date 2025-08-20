@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ThemeBubbleContainer } from "@/components/ThemeBubbleContainer";
+import { ThemeHighlightView } from "@/components/ThemeHighlightView";
+import { Button } from "@/components/ui/button";
 
 import type { Theme } from "@/types/theme";
 import { storage } from "@/services/storage";
@@ -11,6 +13,7 @@ import { storage } from "@/services/storage";
 export default function ThemesPage() {
   const [themes, setThemes] = useState<Theme[]>([]);
   const [selectedText, setSelectedText] = useState<string>("");
+  const [view, setView] = useState<"bubbles" | "secondary">("bubbles");
 
   // Load themes from localStorage or recent session
   useEffect(() => {
@@ -84,6 +87,29 @@ export default function ThemesPage() {
 
       {/* Main Content */}
       <div className="p-4 pt-20 h-full">
+        {/* View toggle */}
+        {themes.length > 0 && (
+          <div className="mb-3 flex w-full items-center justify-center">
+            <div className="inline-flex items-center gap-1 rounded-full border bg-background/80 p-1 shadow-sm">
+              <Button
+                size="sm"
+                variant={view === "bubbles" ? "default" : "outline"}
+                onClick={() => setView("bubbles")}
+                className="rounded-full px-3"
+              >
+                Bubbles
+              </Button>
+              <Button
+                size="sm"
+                variant={view === "secondary" ? "default" : "outline"}
+                onClick={() => setView("secondary")}
+                className="rounded-full px-3"
+              >
+                Secondary
+              </Button>
+            </div>
+          </div>
+        )}
         {themes.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -91,13 +117,17 @@ export default function ThemesPage() {
             transition={{ duration: 0.5 }}
             className="w-full h-full"
           >
-            <ThemeBubbleContainer
-              themes={themes}
-              onThemeSelect={(themeId) => {
-                console.log("Selected theme:", themeId);
-              }}
-              className="w-full h-full"
-            />
+            {view === "bubbles" ? (
+              <ThemeBubbleContainer
+                themes={themes}
+                onThemeSelect={(themeId) => {
+                  console.log("Selected theme:", themeId);
+                }}
+                className="w-full h-full"
+              />
+            ) : (
+              <ThemeHighlightView className="w-full h-full" />
+            )}
           </motion.div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
