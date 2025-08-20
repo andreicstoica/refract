@@ -105,7 +105,7 @@ export default function ThemesPage() {
                 onClick={() => setView("secondary")}
                 className="rounded-full px-3"
               >
-                Secondary
+                Highlights
               </Button>
             </div>
           </div>
