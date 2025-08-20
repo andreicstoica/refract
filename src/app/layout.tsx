@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Edu_NSW_ACT_Foundation } from "next/font/google";
+import { Edu_NSW_ACT_Foundation, IBM_Plex_Sans } from "next/font/google";
 import "../index.css";
 import Providers from "@/components/layout/providers";
 
@@ -20,6 +20,13 @@ const eduCursive = Edu_NSW_ACT_Foundation({
   weight: ["400", "500", "600", "700"],
 });
 
+const ibmPlexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
+  subsets: ["latin"],
+  weight: ["100", "200", "300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
+});
+
 export const metadata: Metadata = {
   title: "Refract: reflections that write back",
   description: "Refract uses AI to write back to you",
@@ -33,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${eduCursive.variable} antialiased`}
+        className={`${ibmPlexSans.variable} ${geistSans.variable} ${geistMono.variable} ${eduCursive.variable} antialiased`}
       >
         <Providers>{children}</Providers>
       </body>
