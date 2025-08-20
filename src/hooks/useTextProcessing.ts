@@ -30,6 +30,7 @@ export function useTextProcessing({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const sentencesDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
     // New trigger state tracking
     const lastTriggerAtRef = useRef<number>(0);
@@ -96,87 +97,108 @@ export function useTextProcessing({
         setText(newText);
         onTextChange?.(newText);
 
-        // Update sentences using utility function
-        const newSentences = splitIntoSentences(newText);
-        setSentences(newSentences);
-
-        // Clear any existing debounce timer
-        if (debounceTimerRef.current) {
-            clearTimeout(debounceTimerRef.current);
+        // Clear any existing sentence split debounce
+        if (sentencesDebounceRef.current) {
+            clearTimeout(sentencesDebounceRef.current);
         }
 
-        if (newSentences.length === 0) return;
+        const runSplitAndTriggers = () => {
+            const currentText = textareaRef.current?.value ?? newText;
+            const newSentences = splitIntoSentences(currentText);
+            setSentences(newSentences);
 
-        const lastSentence = newSentences[newSentences.length - 1];
-        const trimmed = newText.trimEnd();
-        const hasPunctuation = /[.!?;:]$/.test(trimmed);
-        const charsSince = newText.length - lastTriggerCharPosRef.current;
+            if (newSentences.length === 0) return;
 
-        console.log("🔍 Trigger analysis:", {
-            sentenceText: lastSentence.text.substring(0, 50) + "...",
-            hasPunctuation,
-            charsSince,
-            sentenceLength: lastSentence.text.length,
-            shouldTrigger: shouldTriggerProd(newText, lastSentence)
-        });
+            const lastSentence = newSentences[newSentences.length - 1];
+            const trimmed = currentText.trimEnd();
+            const hasPunctuation = /[.!?;:]$/.test(trimmed);
+            const charsSince = currentText.length - lastTriggerCharPosRef.current;
 
-        // Trigger for sentence endings and natural pauses
-        if (shouldTriggerProd(newText, lastSentence)) {
-            if (hasPunctuation) {
-                console.log("⚙️ Punctuation trigger detected");
-                triggerProd(newText, lastSentence);
-            } else if (charsSince >= CHAR_TRIGGER) {
-                console.log("⚙️ Character threshold trigger detected");
-                triggerProd(newText, lastSentence);
-            } else {
-                // Set trailing debounce timer
-                console.log("⏳ Setting trailing debounce timer");
-                debounceTimerRef.current = setTimeout(() => {
-                    const currentText = textareaRef.current?.value || "";
-                    const currentSentences = splitIntoSentences(currentText);
-                    if (currentSentences.length > 0) {
-                        const lastSentence = currentSentences[currentSentences.length - 1];
-                        if (shouldTriggerProd(currentText, lastSentence)) {
-                            triggerProd(currentText, lastSentence);
+            if (process.env.NODE_ENV !== "production") {
+                console.log("🔍 Trigger analysis:", {
+                    sentenceText: lastSentence.text.substring(0, 50) + "...",
+                    hasPunctuation,
+                    charsSince,
+                    sentenceLength: lastSentence.text.length,
+                    shouldTrigger: shouldTriggerProd(currentText, lastSentence)
+                });
+            }
+
+            // Clear trailing debounce if any before setting a new one
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+
+            if (shouldTriggerProd(currentText, lastSentence)) {
+                if (hasPunctuation) {
+                    if (process.env.NODE_ENV !== "production") console.log("⚙️ Punctuation trigger detected");
+                    triggerProd(currentText, lastSentence);
+                } else if (charsSince >= CHAR_TRIGGER) {
+                    if (process.env.NODE_ENV !== "production") console.log("⚙️ Character threshold trigger detected");
+                    triggerProd(currentText, lastSentence);
+                } else {
+                    if (process.env.NODE_ENV !== "production") console.log("⏳ Setting trailing debounce timer");
+                    debounceTimerRef.current = setTimeout(() => {
+                        const latestText = textareaRef.current?.value || "";
+                        const currentSentences = splitIntoSentences(latestText);
+                        if (currentSentences.length > 0) {
+                            const lastSentence2 = currentSentences[currentSentences.length - 1];
+                            if (shouldTriggerProd(latestText, lastSentence2)) {
+                                triggerProd(latestText, lastSentence2);
+                            }
                         }
-                    }
-                }, TRAILING_DEBOUNCE_MS);
+                    }, TRAILING_DEBOUNCE_MS);
+                }
+            } else {
+                if (process.env.NODE_ENV !== "production") console.log("❌ Trigger conditions not met for:", lastSentence.text.substring(0, 30) + "...");
             }
+
+            // Delay position calculation to ensure accurate positioning after React paints
+            if (positionTimerRef.current) {
+                clearTimeout(positionTimerRef.current);
+            }
+            positionTimerRef.current = setTimeout(() => {
+                if (textareaRef.current && newSentences.length > 0) {
+                    const positions = measurePositions(newSentences, textareaRef.current);
+                    setSentencePositions(positions);
+                    if (process.env.NODE_ENV !== "production") console.log("📍 Updated sentence positions:", positions.length, "positions");
+                }
+            }, 100);
+        };
+
+        // If terminal punctuation, flush immediately; else debounce splitting
+        const trimmed = newText.trimEnd();
+        const endsWithPunct = /[.!?;:]$/.test(trimmed);
+        if (endsWithPunct) {
+            runSplitAndTriggers();
         } else {
-            console.log("❌ Trigger conditions not met for:", lastSentence.text.substring(0, 30) + "...");
+            sentencesDebounceRef.current = setTimeout(runSplitAndTriggers, 200);
         }
-
-        // Delay position calculation to ensure accurate positioning
-        if (positionTimerRef.current) {
-            clearTimeout(positionTimerRef.current);
-        }
-
-        positionTimerRef.current = setTimeout(() => {
-            if (textareaRef.current && newSentences.length > 0) {
-                const positions = measurePositions(newSentences, textareaRef.current);
-                setSentencePositions(positions);
-                console.log("📍 Updated sentence positions:", positions.length, "positions");
-            }
-        }, 100); // Back to reasonable delay
     };
 
     // Handle scroll and resize events to reposition chips
     useEffect(() => {
-        const handleReposition = () => {
-            if (textareaRef.current && sentences.length > 0) {
-                const positions = measurePositions(sentences, textareaRef.current);
-                setSentencePositions(positions);
-            }
+        let rafPending = false;
+        const handleRepositionRAF = () => {
+            if (rafPending) return;
+            rafPending = true;
+            requestAnimationFrame(() => {
+                rafPending = false;
+                if (textareaRef.current && sentences.length > 0) {
+                    const positions = measurePositions(sentences, textareaRef.current);
+                    setSentencePositions(positions);
+                }
+            });
         };
 
         const textarea = textareaRef.current;
         if (textarea) {
-            textarea.addEventListener("scroll", handleReposition);
-            window.addEventListener("resize", handleReposition);
+            textarea.addEventListener("scroll", handleRepositionRAF);
+            window.addEventListener("resize", handleRepositionRAF);
 
             return () => {
-                textarea.removeEventListener("scroll", handleReposition);
-                window.removeEventListener("resize", handleReposition);
+                textarea.removeEventListener("scroll", handleRepositionRAF);
+                window.removeEventListener("resize", handleRepositionRAF);
             };
         }
     }, [sentences, measurePositions]);

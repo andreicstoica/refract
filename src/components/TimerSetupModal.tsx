@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/utils/utils";
 import { Clock, Play, ChevronUp, ChevronDown } from "lucide-react";
@@ -17,6 +17,13 @@ export function TimerSetupModal({
   className,
 }: TimerSetupModalProps) {
   const [selectedMinutes, setSelectedMinutes] = useState(1);
+  const [inputBuffer, setInputBuffer] = useState("");
+  const bufferResetRef = useRef<number | null>(null);
+  const minutesRef = useRef(selectedMinutes);
+
+  useEffect(() => {
+    minutesRef.current = selectedMinutes;
+  }, [selectedMinutes]);
 
   const handleIncrement = () => {
     setSelectedMinutes((prev) => prev + 1);
@@ -29,6 +36,88 @@ export function TimerSetupModal({
   const handleStart = () => {
     onStart(selectedMinutes);
   };
+
+  // Keyboard handling when the modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const resetBufferSoon = () => {
+      if (bufferResetRef.current) {
+        window.clearTimeout(bufferResetRef.current);
+      }
+      bufferResetRef.current = window.setTimeout(() => {
+        setInputBuffer("");
+        bufferResetRef.current = null;
+      }, 1000);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      // Intercept only the keys we care about
+      const { key } = event;
+
+      // Arrow handling
+      if (key === "ArrowUp") {
+        event.preventDefault();
+        event.stopPropagation();
+        setSelectedMinutes((prev) => prev + 1);
+        return;
+      }
+      if (key === "ArrowDown") {
+        event.preventDefault();
+        event.stopPropagation();
+        setSelectedMinutes((prev) => Math.max(1, prev - 1));
+        return;
+      }
+
+      // Enter starts writing
+      if (key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        onStart(minutesRef.current);
+        return;
+      }
+
+      // Numeric entry to set minutes (supports multi-digit)
+      if (/^[0-9]$/.test(key)) {
+        event.preventDefault();
+        event.stopPropagation();
+        setInputBuffer((prev) => {
+          const next = (prev + key).replace(/^0+(\d)/, "$1");
+          const parsed = parseInt(next, 10);
+          setSelectedMinutes(Number.isNaN(parsed) ? 1 : Math.max(1, parsed));
+          return next;
+        });
+        resetBufferSoon();
+        return;
+      }
+
+      // Allow correcting numeric input with Backspace
+      if (key === "Backspace") {
+        if (inputBuffer.length > 0) {
+          event.preventDefault();
+          event.stopPropagation();
+          setInputBuffer((prev) => {
+            const next = prev.slice(0, -1);
+            const parsed = parseInt(next || "0", 10);
+            setSelectedMinutes(Math.max(1, parsed || 1));
+            return next;
+          });
+          resetBufferSoon();
+        }
+        return;
+      }
+    };
+
+    // Use capture to intercept before underlying textarea
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, true);
+      if (bufferResetRef.current) {
+        window.clearTimeout(bufferResetRef.current);
+        bufferResetRef.current = null;
+      }
+    };
+  }, [isOpen, inputBuffer, onStart]);
 
   return (
     <AnimatePresence>
@@ -49,6 +138,8 @@ export function TimerSetupModal({
               "shadow-xl backdrop-blur-sm",
               className
             )}
+            role="dialog"
+            aria-modal="true"
           >
             <div className="text-center space-y-8">
               {/* Header */}
