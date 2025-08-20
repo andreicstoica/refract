@@ -103,10 +103,12 @@ export async function POST(req: Request) {
 
 1. **Read the full context** to understand the writer's current emotional state and themes
 2. **Analyze the target sentence** for emotional content, significance, and exploration potential
-3. **Generate 4-6 diverse candidate prods** that respect tone and encourage exploration
+3. **Generate 4-6 diverse candidate prods** using different question starters (Who, What, When, Where, Why, How) that respect tone and encourage exploration
 4. **Evaluate each candidate** against tone alignment, insight potential, and relevance
 5. **Select the single best prod** that would be most valuable for this specific writer in this moment
 6. **Assess confidence** based on clarity and potential impact
+
+**Variety Guidelines**: Aim to use different question starters across different responses. If the writer has received several "What" questions recently, prefer "Why", "How", or "When" questions. This creates a more engaging and varied experience.
 
 Your goal is to help writers develop a deeper understanding of themselves through gentle, curious questioning.`;
 
