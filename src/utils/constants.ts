@@ -3,7 +3,7 @@ export const TEXT_STYLES = {
     // Line height used in textarea - affects chip positioning
     LINE_HEIGHT: "", // Will use inline style for better v3 compatibility
     // Font size and other text properties
-    FONT_SIZE: "text-lg",
+    FONT_SIZE: "text-xl",
     // Padding that affects positioning calculations
     PADDING: "px-4",
 } as const;

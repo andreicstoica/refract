@@ -87,11 +87,10 @@ export function TextInput({
               onChange={handleTextChange}
               placeholder={placeholder}
               className={cn(
-                `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING}`,
+                `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex`,
                 "py-6 h-full"
               )}
               style={{
-                fontFamily: "inherit",
                 caretColor: "currentColor",
                 overflowY: "auto",
                 overflowX: "hidden",

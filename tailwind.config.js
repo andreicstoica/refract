@@ -55,8 +55,15 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
+        // Default app sans: Geist/Inter → system
         sans: [
-          "Inter", "Geist", "ui-sans-serif", "system-ui", "sans-serif", 
+          "Inter", "Geist", "ui-sans-serif", "system-ui", "sans-serif",
+          "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"
+        ],
+        // Editor-only sans: IBM Plex Sans
+        plex: [
+          "var(--font-plex-sans)", "IBM Plex Sans",
+          "Inter", "Geist", "ui-sans-serif", "system-ui", "sans-serif",
           "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"
         ],
         cursive: ["Edu NSW ACT Foundation", "cursive"],
