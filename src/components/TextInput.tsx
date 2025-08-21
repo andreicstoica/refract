@@ -9,7 +9,6 @@ import { useTopicShiftDetection } from "@/hooks/useTopicShiftDetection";
 import { useTextProcessing } from "@/hooks/useTextProcessing";
 import { ChipOverlay } from "./ChipOverlay";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
-import { selectFirstProdPerSentence } from "@/lib/prodSelectors";
 import { TextInputDebug } from "./debug/TextInputDebug";
 
 interface TextInputProps {
@@ -167,7 +166,7 @@ export function TextInput({
 
             {/* Chip Overlay - positioned relative to textarea container */}
             <ChipOverlay
-              visibleProds={selectFirstProdPerSentence(prods)}
+              visibleProds={prods}
               sentencePositions={sentencePositions}
             />
           </div>
