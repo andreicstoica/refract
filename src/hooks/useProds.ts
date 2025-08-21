@@ -60,13 +60,13 @@ export function queueReducer(state: QueueState, action: QueueAction): QueueState
     }
 }
 
-interface UseProdsEnhancedOptions {
+interface UseProdsOptions {
     onTopicShift?: () => void;
     topicKeywords?: string[];
     topicVersion?: number;
 }
 
-export function useProdsEnhanced(options: UseProdsEnhancedOptions = {}) {
+export function useProds(options: UseProdsOptions = {}) {
     const [prods, setProds] = useState<Prod[]>([]);
     const [prodDurations, setProdDurations] = useState<number[]>([]);
     const [queueState, queueDispatch] = useReducer(queueReducer, {

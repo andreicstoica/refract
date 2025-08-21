@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/helpers";
 import type { Sentence } from "@/types/sentence";
 import type { SentencePosition } from "@/types/sentence";
-import { useProdsEnhanced } from "@/hooks/useProdsEnhanced";
+import { useProds } from "@/hooks/useProds";
 import { useTopicShiftDetection } from "@/hooks/useTopicShiftDetection";
 import { useTextProcessing } from "@/hooks/useTextProcessing";
 import { ChipOverlay } from "./ChipOverlay";
@@ -60,7 +60,7 @@ export function TextInput({
     queueState,
     filteredSentences,
     prodMetrics,
-  } = useProdsEnhanced({
+  } = useProds({
     onTopicShift: onProdTopicShift,
     topicKeywords: currentKeywordsRef.current,
     topicVersion,
