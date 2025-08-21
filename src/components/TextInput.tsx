@@ -31,18 +31,12 @@ export function TextInput({
     useProds();
 
   // Use text processing hook for all text-related logic
-  const {
-    text,
-    sentences,
-    sentencePositions,
-    textareaRef,
-    handleTextChange,
-    layout,
-  } = useTextProcessing({
-    onProdTrigger: callProdAPI,
-    onTextChange,
-    onTextUpdate,
-  });
+  const { text, sentences, sentencePositions, textareaRef, handleTextChange } =
+    useTextProcessing({
+      onProdTrigger: callProdAPI,
+      onTextChange,
+      onTextUpdate,
+    });
 
   // Debug panel toggle (off by default)
   const [showDebug, setShowDebug] = useState(false);
@@ -73,11 +67,11 @@ export function TextInput({
         />
       )}
 
-      {/* Static centered container, with top offset for timer */}
+      {/* Static centered container, with top offset for nav + timer */}
       <div className="mx-auto max-w-2xl w-full h-full px-4">
         <div className={cn("h-full overflow-hidden flex flex-col min-h-0")}>
-          {/* Reserve space for the timer overlay at the top */}
-          <div className="shrink-0 h-24" />
+          {/* Reserve space for the nav + timer overlay at the top */}
+          <div className="shrink-0 h-32" />
 
           {/* Scrollable writing area fills remaining height */}
           <div className="relative flex-1 min-h-0">

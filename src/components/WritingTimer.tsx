@@ -1,53 +1,37 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/utils/utils";
-import { Play, Pause, SkipForward } from "lucide-react";
+import { Play, Pause } from "lucide-react";
 
 interface WritingTimerProps {
   initialMinutes: number;
   onTimerComplete: () => void;
-  onFastForward: () => void;
-  onDone: () => void;
-  isProcessing?: boolean;
   className?: string;
 }
 
 export function WritingTimer({
   initialMinutes,
   onTimerComplete,
-  onFastForward,
-  onDone,
-  isProcessing = false,
   className,
 }: WritingTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(initialMinutes * 60); // Positive = countdown, negative = overtime
+  const [timeLeft, setTimeLeft] = useState(initialMinutes * 60);
   const [isRunning, setIsRunning] = useState(true);
-  const [showSkip, setShowSkip] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const initialTimeRef = useRef(initialMinutes * 60);
-  const hasTriggeredComplete = useRef(false); // Prevent multiple onTimerComplete calls
-  const onTimerCompleteRef = useRef(onTimerComplete);
+  const hasTriggeredComplete = useRef(false);
 
   // Keep the callback ref updated
   useEffect(() => {
     onTimerCompleteRef.current = onTimerComplete;
   }, [onTimerComplete]);
 
-  // Derived states
-  const isCompleted = timeLeft <= 0;
+  const onTimerCompleteRef = useRef(onTimerComplete);
 
   // Start timer immediately when component mounts
   useEffect(() => {
     setIsRunning(true);
-
-    // Show skip button after 20 seconds
-    const skipTimer = setTimeout(() => {
-      setShowSkip(true);
-    }, 20000);
-
-    return () => clearTimeout(skipTimer);
   }, []);
 
   // Simple timer logic
@@ -61,7 +45,7 @@ export function WritingTimer({
     }
 
     intervalRef.current = setInterval(() => {
-      setTimeLeft((prev) => prev - 1); // Just update the time, handle completion separately
+      setTimeLeft((prev) => prev - 1);
     }, 1000);
 
     return () => {
@@ -70,13 +54,12 @@ export function WritingTimer({
         intervalRef.current = null;
       }
     };
-  }, [isRunning]); // Only depend on isRunning to prevent interval recreation
+  }, [isRunning]);
 
   // Handle timer completion separately to avoid setState during render
   useEffect(() => {
     if (timeLeft <= 0 && !hasTriggeredComplete.current) {
       hasTriggeredComplete.current = true;
-      // Use setTimeout to ensure this runs after the current render cycle
       setTimeout(() => {
         onTimerCompleteRef.current();
       }, 0);
@@ -93,20 +76,6 @@ export function WritingTimer({
 
   const resumeTimer = () => {
     setIsRunning(true);
-  };
-
-  const handleSkip = () => {
-    if (isCompleted) {
-      onDone();
-    } else {
-      // Skip to done state: stop timer and set to 0 (no overtime counting)
-      setIsRunning(false);
-      setTimeLeft(0);
-      if (!hasTriggeredComplete.current) {
-        hasTriggeredComplete.current = true;
-        onTimerCompleteRef.current();
-      }
-    }
   };
 
   // Cleanup on unmount
@@ -132,9 +101,10 @@ export function WritingTimer({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const progressPercentage = isCompleted
-    ? 100 // Show full progress when completed
-    : ((initialTimeRef.current - timeLeft) / initialTimeRef.current) * 100;
+  const progressPercentage =
+    timeLeft <= 0
+      ? 100
+      : ((initialTimeRef.current - timeLeft) / initialTimeRef.current) * 100;
 
   return (
     <motion.div
@@ -176,41 +146,6 @@ export function WritingTimer({
           transition={{ duration: 0.5, ease: "easeOut" }}
         />
       </div>
-
-      {/* Skip/Done Button */}
-      <AnimatePresence>
-        {showSkip && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            onClick={handleSkip}
-            disabled={isProcessing}
-            className={cn(
-              "flex items-center gap-1 px-3 py-1 text-sm rounded-full transition-colors",
-              isCompleted
-                ? "border border-blue-400/30 bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                : "bg-blue-500/20 hover:bg-blue-500/30",
-              isProcessing
-                ? "opacity-60 cursor-not-allowed"
-                : "hover:bg-blue-500/20"
-            )}
-          >
-            {isCompleted ? (
-              isProcessing ? (
-                "Analyzing…"
-              ) : (
-                "Analyze"
-              )
-            ) : (
-              <>
-                <SkipForward className="w-3 h-3" />
-                Skip
-              </>
-            )}
-          </motion.button>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }

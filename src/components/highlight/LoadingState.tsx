@@ -1,18 +1,40 @@
 import { cn } from "@/utils/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type LoadingStateProps = {
   className?: string;
+  message?: string;
+  showSkeletons?: boolean;
 };
 
-export function LoadingState({ className }: LoadingStateProps) {
+export function LoadingState({
+  className,
+  message = "Loading...",
+  showSkeletons = false,
+}: LoadingStateProps) {
   return (
     <div
       className={cn(
-        "flex items-center justify-center h-64 text-muted-foreground",
+        "flex flex-col items-center justify-center h-full space-y-6",
         className
       )}
     >
-      <div className="text-sm">Checking for saved content...</div>
+      <div className="text-center space-y-4">
+        <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
+        <h2 className="text-lg font-medium text-foreground">{message}</h2>
+      </div>
+
+      {showSkeletons && (
+        <div className="w-full max-w-2xl space-y-4">
+          <Skeleton className="h-8 w-32 mx-auto" />
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
