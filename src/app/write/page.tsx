@@ -104,6 +104,7 @@ export default function WritePage() {
         active="write"
         onTabChange={handleTabChange}
         analyzeDisabled={analyzeDisabled}
+        isProcessing={isGenerating}
       />
 
       {/* Timer Setup Modal */}
