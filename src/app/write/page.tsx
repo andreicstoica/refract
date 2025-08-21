@@ -98,12 +98,13 @@ export default function WritePage() {
   }, []);
 
   return (
-    <div className="relative h-dvh bg-background text-foreground overflow-hidden">
+    <div className="flex flex-col h-dvh bg-background text-foreground overflow-hidden">
       {/* App Navigation */}
       <AppNav
         active="write"
         onTabChange={handleTabChange}
         analyzeDisabled={analyzeDisabled}
+        isProcessing={isGenerating}
       />
 
       {/* Timer Setup Modal */}
@@ -111,7 +112,7 @@ export default function WritePage() {
 
       {/* Timer Display */}
       {!showTimerSetup && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
+        <div className="flex justify-center pt-4">
           <WritingTimer
             initialMinutes={timerMinutes}
             onTimerComplete={handleTimerComplete}
@@ -120,11 +121,13 @@ export default function WritePage() {
       )}
 
       {/* Text Input */}
-      <TextInput
-        onTextChange={handleTextChange}
-        onTextUpdate={handleTextUpdate}
-        placeholder="What's on your mind?"
-      />
+      <div className="flex-1 min-h-0">
+        <TextInput
+          onTextChange={handleTextChange}
+          onTextUpdate={handleTextUpdate}
+          placeholder="What's on your mind?"
+        />
+      </div>
     </div>
   );
 }

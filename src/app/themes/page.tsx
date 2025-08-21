@@ -32,12 +32,14 @@ export default function ThemesPage() {
       const pollInterval = setInterval(() => {
         pollCount++;
         console.log(`🔄 Polling for themes... attempt ${pollCount}`);
-        
+
         const newThemes = storage.getThemes();
         const newText = storage.getText();
-        
+
         if (newThemes && newThemes.length > 0) {
-          console.log(`✅ Found ${newThemes.length} themes after ${pollCount} polls`);
+          console.log(
+            `✅ Found ${newThemes.length} themes after ${pollCount} polls`
+          );
           setThemes(newThemes);
           if (newText) {
             setSelectedText(newText);
@@ -53,7 +55,9 @@ export default function ThemesPage() {
         clearInterval(pollInterval);
         setIsLoading(false);
         localStorage.removeItem("refract-analysis");
-        console.error("❌ Analysis timeout after 60s - falling back to saved themes");
+        console.error(
+          "❌ Analysis timeout after 60s - falling back to saved themes"
+        );
 
         // Fallback to any existing themes
         const fallbackThemes = storage.getThemes();
@@ -96,7 +100,7 @@ export default function ThemesPage() {
       <div className="relative h-dvh overflow-hidden bg-background text-foreground">
         <AppNav active="reflect" onTabChange={handleTabChange} />
 
-        <div className="p-4 pt-20 h-full">
+        <div className="p-4 pt-8 h-full">
           <LoadingState
             message="Analyzing your writing..."
             showSkeletons={true}
@@ -111,7 +115,7 @@ export default function ThemesPage() {
       <AppNav active="reflect" onTabChange={handleTabChange} />
 
       {/* Main Content */}
-      <div className="p-4 pt-20 h-full">
+      <div className="p-4 pt-8 h-full">
         {/* View toggle */}
         {themes.length > 0 && (
           <div className="mb-3 flex w-full items-center justify-center">
