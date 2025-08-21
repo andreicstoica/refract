@@ -46,8 +46,8 @@ export function HighlightedText({
           ? chunkIndex[i] * STAGGER_PER_CHUNK_S
           : 0;
       
-      // Map intensity (0-1) to opacity range (0.15-0.75) for more visible differences
-      const opacity = intensity ? Math.max(0.15, Math.min(0.75, 0.15 + (intensity * 0.6))) : 0.75;
+      // Map intensity (0-1) to opacity range (0.2-0.7) for balanced contrast
+      const opacity = intensity ? Math.max(0.2, Math.min(0.7, 0.2 + (intensity * 0.5))) : 0.7;
 
       return (
         <motion.span

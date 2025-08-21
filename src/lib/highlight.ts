@@ -3,6 +3,9 @@ import type { Sentence } from "@/types/sentence";
 import type { HighlightRange, SegmentMeta } from "@/types/highlight";
 
 export const STAGGER_PER_CHUNK_S = 0.04; // 40ms per contiguous highlighted chunk
+// Minimum cosine similarity a chunk must have to its cluster centroid
+// to be included in the returned theme chunks
+export const MIN_CHUNK_CORRELATION = 0.55;
 
 export function rangesFromThemes(
 	themeList: Theme[] | null,
@@ -18,11 +21,41 @@ export function rangesFromThemes(
 		if (!theme.chunks) continue;
 
 		const color = theme.color ?? "#93c5fd";
-		const intensity = theme.intensity ?? theme.confidence ?? 0.5;
+
+		// Precompute per-theme normalized correlations to enhance contrast if needed
+		const norms: number[] = theme.chunks
+			.map((c) => {
+				const corr = (c as any).correlation as number | undefined;
+				if (typeof corr === "number" && !Number.isNaN(corr)) {
+					return Math.max(0, Math.min(1, (corr + 1) / 2));
+				}
+				return undefined;
+			})
+			.filter((v): v is number => typeof v === "number");
+
+		const hasCorr = norms.length > 0;
+		const minNorm = hasCorr ? Math.min(...norms) : 0.5;
+		const maxNorm = hasCorr ? Math.max(...norms) : 0.5;
+		const spread = maxNorm - minNorm;
+		const useStretch = hasCorr && spread < 0.15; // stretch only when very bunched
 
 		for (const chunk of theme.chunks) {
 			const sentence = sentenceMap.get(chunk.sentenceId);
 			if (sentence) {
+				// If we have per-chunk correlation (cosine similarity), normalize it to [0,1]
+				// and optionally stretch contrast within the theme for clearer variation.
+				const corr = (chunk as any).correlation as number | undefined;
+				let intensity = 0.5;
+				if (typeof corr === "number" && !Number.isNaN(corr)) {
+					const normalized = Math.max(0, Math.min(1, (corr + 1) / 2));
+					if (useStretch) {
+						const stretched = spread > 0 ? (normalized - minNorm) / spread : 0.5;
+						// map to a softer range [0.3, 0.9] for gentler contrast
+						intensity = 0.3 + 0.6 * Math.max(0, Math.min(1, stretched));
+					} else {
+						intensity = normalized;
+					}
+				}
 				ranges.push({
 					start: sentence.startIndex,
 					end: sentence.endIndex,
@@ -95,4 +128,3 @@ export function assignChunkIndices(segmentMeta: SegmentMeta[]): number[] {
 
 	return chunkIndex;
 }
-

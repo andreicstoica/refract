@@ -5,6 +5,7 @@ export interface TextChunk {
     text: string;
     sentenceId: string;
     embedding?: number[];
+    correlation?: number;
 }
 
 export interface EmbeddingResult {

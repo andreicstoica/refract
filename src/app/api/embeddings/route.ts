@@ -2,6 +2,7 @@ import { openai } from "@ai-sdk/openai";
 import { cosineSimilarity } from "ai";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { MIN_CHUNK_CORRELATION } from "@/lib/highlight";
 import { generateEmbeddingVectors } from "@/services/embeddingsClient";
 import {
   clusterEmbeddings,
@@ -28,7 +29,6 @@ const ComprehensiveThemeSchema = z.object({
     description: z.string(),
     confidence: z.number(),
     color: z.string(),
-    intensity: z.number(),
   })),
 });
 
@@ -76,7 +76,6 @@ export async function POST(req: Request) {
         description: theme?.description || "",
         confidence: Math.min(cluster.confidence, theme?.confidence || 0.5),
         color: theme?.color || "#3b82f6",
-        intensity: theme?.intensity || 0.5,
       };
     });
 
@@ -85,31 +84,22 @@ export async function POST(req: Request) {
       .sort((a, b) => (b.confidence * b.chunks.length) - (a.confidence * a.chunks.length))
       .slice(0, 3); // Return top 3 themes
 
-    // For each cluster, pick the most representative clips (top 5 by similarity to centroid)
-    const THEMES_TOP_CLIPS = 5;
-
     return Response.json({
       clusters: sortedClusters,
       themes: sortedClusters.map(c => {
-        const withSimilarity = c.chunks
-          .filter(ch => Array.isArray(ch.embedding) && ch.embedding.length && Array.isArray(c.centroid) && c.centroid.length)
-          .map(ch => ({ ch, sim: cosineSimilarity(ch.embedding!, c.centroid) }))
-          .sort((a, b) => b.sim - a.sim)
-          .map(x => x.ch);
-
-        const chosen = (withSimilarity.length ? withSimilarity : c.chunks).slice(0, THEMES_TOP_CLIPS);
-
+        const filtered = c.chunks.filter(ch => typeof ch.correlation === "number" && ch.correlation! >= MIN_CHUNK_CORRELATION);
         return {
           id: c.id,
           label: c.label,
           description: c.description || "",
           confidence: c.confidence,
-          chunkCount: c.chunks.length,
+          chunkCount: filtered.length,
           color: c.color,
-          intensity: c.intensity,
-          chunks: chosen.map(chunk => ({
-            text: chunk.text,
-            sentenceId: chunk.sentenceId,
+          // Use correlation computed during clustering, filtered by threshold
+          chunks: filtered.map(ch => ({
+            text: ch.text,
+            sentenceId: ch.sentenceId,
+            correlation: ch.correlation as number,
           })),
         };
       }),
@@ -142,7 +132,7 @@ export async function POST(req: Request) {
 async function generateComprehensiveThemes(
   clusters: ClusterResult[],
   fullText?: string
-): Promise<Array<{ clusterId: string; label: string; description: string; confidence: number; color: string; intensity: number }>> {
+): Promise<Array<{ clusterId: string; label: string; description: string; confidence: number; color: string }>> {
   if (clusters.length === 0) return [];
 
   try {
@@ -186,12 +176,6 @@ async function generateComprehensiveThemes(
 - \`#EF4444\` (Red) - Stress, challenges, intense emotions
 - \`#EC4899\` (Pink) - Relationships, love, personal connections
 
-**Intensity Scale** (0.3-1.0):
-- 0.3-0.4: Light, routine, everyday moments
-- 0.5-0.6: Moderate significance, recurring themes
-- 0.7-0.8: High emotional weight, important experiences  
-- 0.9-1.0: Profound, life-changing, deeply meaningful
-
 **Confidence Scale** (0.1-1.0):
 - 0.7-1.0: Very clear theme with strong coherence
 - 0.5-0.7: Moderately clear theme with some variation
@@ -205,8 +189,7 @@ async function generateComprehensiveThemes(
 3. **Consider emotional weight** - how significant is this theme to the writer?
 4. **Choose descriptive labels** that someone else could understand without context
 5. **Assign appropriate colors** based on the emotional tone and content type
-6. **Set intensity levels** that reflect the theme's importance and emotional impact
-7. **Set confidence levels** based on how coherent and well-defined the theme is
+6. **Set confidence levels** based on how coherent and well-defined the theme is
 
 Return valid JSON matching the required schema with thoughtful, distinct themes that capture the essence of each writing cluster.`;
 
@@ -228,7 +211,7 @@ Generate a unique, meaningful theme for each cluster above. Consider:
 - What emotional journey or experience does this cluster represent?
 - How does it differ from the other clusters?  
 - What would best help the writer recognize and connect with this theme?
-- What color and intensity best reflect its emotional significance?
+- What color best reflects its emotional significance?
 - How confident are you that this theme accurately represents the cluster?
 
 Generate themes that are distinct, emotionally resonant, and help the writer understand their own patterns of thought and feeling.`;
@@ -250,7 +233,6 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
       description: theme.description || `Theme representing ${theme.theme.toLowerCase()}`,
       confidence: theme.confidence || 0.8,
       color: theme.color,
-      intensity: theme.intensity
     }));
 
     console.log("✅ Processed themes:", themes);
@@ -273,7 +255,6 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
       description: "A collection of related thoughts and experiences",
       confidence: 0.5,
       color: fallbackColors[index % fallbackColors.length],
-      intensity: 0.6,
     }));
 
     console.log("🔄 Using fallback themes:", fallbackThemes);
