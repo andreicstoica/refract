@@ -5,7 +5,7 @@ import type { Theme } from "@/types/theme";
 import type { Sentence } from "@/types/sentence";
 import type { HighlightRange } from "@/types/highlight";
 import { storage } from "@/services/storage";
-import { rangesFromThemes } from "@/utils/highlightUtils";
+import { rangesFromThemes } from "@/lib/highlight";
 
 type UseThemeHighlightDataProps = {
     propThemes?: Theme[];

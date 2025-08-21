@@ -2,7 +2,7 @@
 
 import { PencilLine, Binoculars } from "lucide-react";
 import { motion } from "framer-motion";
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 

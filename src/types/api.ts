@@ -4,6 +4,8 @@ import type { Theme } from "./theme";
 export interface ProdRequest {
     lastParagraph: string;
     fullText: string;
+    recentProds?: string[];
+    topicKeywords?: string[];
 }
 
 export interface ProdResponse {

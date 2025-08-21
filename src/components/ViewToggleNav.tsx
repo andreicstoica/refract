@@ -1,4 +1,4 @@
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ViewToggleNavProps {

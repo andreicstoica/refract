@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useMemo, useRef, useLayoutEffect } from "react";
 import { ThemeBubble } from "./ThemeBubble";
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 
 import type { Theme } from "@/types/theme";
 

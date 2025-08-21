@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 import { useState, useEffect } from "react";
 import { AnimatedText } from "./ui/AnimatedText";
 

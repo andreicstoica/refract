@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 import type { Theme } from "@/types/theme";
 import { useThemeHighlightData } from "@/hooks/useThemeHighlightData";
 import {

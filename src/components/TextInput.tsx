@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { cn } from "@/utils/utils";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { cn } from "@/lib/helpers";
 import type { Sentence } from "@/types/sentence";
 import type { SentencePosition } from "@/types/sentence";
-import { useProds } from "@/hooks/useProds";
+import { useProdsEnhanced } from "@/hooks/useProdsEnhanced";
+import { useTopicShiftDetection } from "@/hooks/useTopicShiftDetection";
 import { useTextProcessing } from "@/hooks/useTextProcessing";
 import { ChipOverlay } from "./ChipOverlay";
-import { TEXTAREA_CLASSES } from "@/utils/constants";
-import { selectFirstProdPerSentence } from "@/utils/prodSelectors";
+import { TEXTAREA_CLASSES } from "@/lib/constants";
+import { selectFirstProdPerSentence } from "@/lib/prodSelectors";
 import { TextInputDebug } from "./debug/TextInputDebug";
 
 interface TextInputProps {
@@ -26,17 +27,56 @@ export function TextInput({
   placeholder = "What's on your mind?",
   onTextUpdate,
 }: TextInputProps) {
-  // Use our custom hook for prod management
-  const { prods, callProdAPI, clearQueue, queueState, filteredSentences } =
-    useProds();
+  // State for managing text and topic detection
+  const [currentText, setCurrentText] = useState("");
+  const currentKeywordsRef = useRef<string[]>([]);
 
-  // Use text processing hook for all text-related logic
+  // Topic shift detection (needs to be first to get keywords for prod system)
+  const { hasTopicShift, currentKeywords, topicVersion } = useTopicShiftDetection({
+    text: currentText,
+    onTopicShift: () => {
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🌟 Topic shift detected in TextInput");
+      }
+    }
+  });
+
+  // Update keywords ref when they change
+  useEffect(() => {
+    currentKeywordsRef.current = currentKeywords;
+  }, [currentKeywords]);
+
+  // Enhanced prod management with topic shift integration
+  const onProdTopicShift = useCallback(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("🎯 Topic shift handled by prod system");
+    }
+  }, []);
+
+  const { prods, callProdAPI, clearQueue, handleTopicShift, queueState, filteredSentences, prodMetrics } =
+    useProdsEnhanced({
+      onTopicShift: onProdTopicShift,
+      topicKeywords: currentKeywordsRef.current,
+      topicVersion,
+    });
+
+  // Text processing with prod triggering
   const { text, sentences, sentencePositions, textareaRef, handleTextChange } =
     useTextProcessing({
       onProdTrigger: callProdAPI,
-      onTextChange,
+      onTextChange: (newText) => {
+        setCurrentText(newText);
+        onTextChange?.(newText);
+      },
       onTextUpdate,
     });
+
+  // Connect topic shift to prod cancellation (avoid calling during render)
+  useEffect(() => {
+    if (hasTopicShift) {
+      handleTopicShift();
+    }
+  }, [hasTopicShift, handleTopicShift]);
 
   // Debug panel toggle (off by default)
   const [showDebug, setShowDebug] = useState(false);
@@ -64,6 +104,7 @@ export function TextInput({
           queueState={queueState}
           sentencePositions={sentencePositions}
           onClearQueue={clearQueue}
+          prodMetrics={prodMetrics}
         />
       )}
 

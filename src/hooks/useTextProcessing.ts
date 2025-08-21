@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { splitIntoSentences } from "@/utils/sentenceUtils";
+import { splitIntoSentences } from "@/lib/sentences";
 import type { Sentence } from "@/types/sentence";
-import { measureSentencePositions } from "@/utils/positionUtils";
+import { measureSentencePositions } from "@/lib/position";
 import type { SentencePosition } from "@/types/sentence";
 
 interface UseTextProcessingOptions {

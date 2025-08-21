@@ -269,3 +269,4 @@ export function mergeClustersByTheme(
   // Sort by confidence and chunk count
   return mergedClusters.sort((a, b) => (b.confidence * b.chunks.length) - (a.confidence * a.chunks.length));
 }
+
