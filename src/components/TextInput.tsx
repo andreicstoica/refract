@@ -67,12 +67,9 @@ export function TextInput({
         />
       )}
 
-      {/* Static centered container, with top offset for nav + timer */}
+      {/* Static centered container */}
       <div className="mx-auto max-w-2xl w-full h-full px-4">
         <div className={cn("h-full overflow-hidden flex flex-col min-h-0")}>
-          {/* Reserve space for the nav + timer overlay at the top */}
-          <div className="shrink-0 h-16" />
-
           {/* Scrollable writing area fills remaining height */}
           <div className="relative flex-1 min-h-0">
             <textarea

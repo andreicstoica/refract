@@ -49,7 +49,7 @@ export function AppNav({
   return (
     <div
       className={cn(
-        "sticky top-0 z-50 w-full",
+        "w-full",
         "bg-background/80 backdrop-blur-sm border-b border-border/50",
         "px-4 py-3",
         className
