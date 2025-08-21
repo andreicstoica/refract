@@ -1,21 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { AppNav } from "@/components/AppNav";
-import { ViewToggleNav } from "@/components/ViewToggleNav";
-import { ThemeBubbleContainer } from "@/components/ThemeBubbleContainer";
-import { ThemeHighlightView } from "@/components/ThemeHighlightView";
-import { LoadingState } from "@/components/highlight/LoadingState";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-import type { Theme } from "@/types/theme";
+import { AppNav } from "@/components/AppNav";
+import { LoadingState } from "@/components/highlight/LoadingState";
+import { ThemeHighlightView } from "@/components/ThemeHighlightView";
 import { storage } from "@/services/storage";
+import type { Theme } from "@/types/theme";
 
 export default function ThemesPage() {
   const router = useRouter();
   const [themes, setThemes] = useState<Theme[]>([]);
-  const [selectedText, setSelectedText] = useState<string>("");
-  const [view, setView] = useState<"bubbles" | "highlights">("bubbles");
+  const [fullText, setFullText] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Load themes from localStorage or handle fresh analysis
@@ -27,23 +23,16 @@ export default function ThemesPage() {
       setThemes([]);
       setIsLoading(true);
 
-      // Poll for new themes with better logging
+      // Poll for new themes
       let pollCount = 0;
       const pollInterval = setInterval(() => {
         pollCount++;
-        console.log(`🔄 Polling for themes... attempt ${pollCount}`);
-
         const newThemes = storage.getThemes();
         const newText = storage.getText();
 
         if (newThemes && newThemes.length > 0) {
-          console.log(
-            `✅ Found ${newThemes.length} themes after ${pollCount} polls`
-          );
           setThemes(newThemes);
-          if (newText) {
-            setSelectedText(newText);
-          }
+          if (newText) setFullText(newText);
           setIsLoading(false);
           localStorage.removeItem("refract-analysis");
           clearInterval(pollInterval);
@@ -55,18 +44,12 @@ export default function ThemesPage() {
         clearInterval(pollInterval);
         setIsLoading(false);
         localStorage.removeItem("refract-analysis");
-        console.error(
-          "❌ Analysis timeout after 60s - falling back to saved themes"
-        );
 
         // Fallback to any existing themes
         const fallbackThemes = storage.getThemes();
-        if (fallbackThemes) {
-          setThemes(fallbackThemes);
-        } else {
-          // If no fallback themes, show an error message
-          console.error("❌ No themes available for fallback");
-        }
+        if (fallbackThemes) setThemes(fallbackThemes);
+        const savedText = storage.getText();
+        if (savedText) setFullText(savedText);
       }, 60000);
 
       return () => {
@@ -77,34 +60,21 @@ export default function ThemesPage() {
       // No fresh analysis - load existing themes
       const savedThemes = storage.getThemes();
       const savedText = storage.getText();
-
-      if (savedThemes) {
-        setThemes(savedThemes);
-      }
-
-      if (savedText) {
-        setSelectedText(savedText);
-      }
+      if (savedThemes) setThemes(savedThemes);
+      if (savedText) setFullText(savedText);
     }
   }, []);
 
   const handleTabChange = (tab: "write" | "reflect") => {
-    if (tab === "write") {
-      router.push("/write");
-    }
+    if (tab === "write") router.push("/write");
   };
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="relative h-dvh overflow-hidden bg-background text-foreground">
         <AppNav active="reflect" onTabChange={handleTabChange} />
-
         <div className="p-4 pt-8 h-full">
-          <LoadingState
-            message="Analyzing your writing..."
-            showSkeletons={true}
-          />
+          <LoadingState message="Analyzing your writing..." showSkeletons={true} />
         </div>
       </div>
     );
@@ -113,21 +83,9 @@ export default function ThemesPage() {
   return (
     <div className="relative h-dvh overflow-hidden bg-background text-foreground">
       <AppNav active="reflect" onTabChange={handleTabChange} />
-
-      {/* View Toggle Nav */}
-      {themes.length > 0 && (
-        <ViewToggleNav active={view} onViewChange={setView} />
-      )}
-
-      {/* Main Content */}
       <div className="p-4 pt-8 h-full">
-        {/* Content */}
         <div className="h-full">
-          {view === "bubbles" ? (
-            <ThemeBubbleContainer themes={themes} />
-          ) : (
-            <ThemeHighlightView themes={themes} />
-          )}
+          <ThemeHighlightView themes={themes} fullText={fullText} />
         </div>
       </div>
     </div>

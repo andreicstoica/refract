@@ -12,11 +12,13 @@ import {
 type ThemeHighlightViewProps = {
   className?: string;
   themes?: Theme[];
+  fullText?: string;
 };
 
 export function ThemeHighlightView({
   className,
   themes: propThemes,
+  fullText: propFullText,
 }: ThemeHighlightViewProps) {
   const {
     themes,
@@ -26,7 +28,7 @@ export function ThemeHighlightView({
     allHighlightableRanges,
     toggleTheme,
     isLoading,
-  } = useThemeHighlightData({ propThemes });
+  } = useThemeHighlightData({ propThemes, propFullText });
 
   if (isLoading) {
     return <LoadingState className={className} />;

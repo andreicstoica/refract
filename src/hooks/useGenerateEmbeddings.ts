@@ -27,14 +27,17 @@ export function useGenerateEmbeddings() {
 
             // Save to localStorage for themes page
             const themes = data.themes || [];
-            
+
             // Verify we got AI-generated themes (not fallbacks)
             const hasRealThemes = themes.some(theme => !theme.label.includes("Theme ") && !theme.label.includes("Cluster "));
             console.log("🎨 AI themes generated:", hasRealThemes, themes.map(t => t.label));
-            
+
             storage.setThemes(themes);
             storage.setText(fullText);
             storage.setSentences(sentences);
+
+            // Clear the analysis flag to signal completion
+            localStorage.removeItem("refract-analysis");
 
             return themes;
         } catch (error) {
