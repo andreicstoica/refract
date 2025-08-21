@@ -18,6 +18,7 @@ export function rangesFromThemes(
 		if (!theme.chunks) continue;
 
 		const color = theme.color ?? "#93c5fd";
+		const intensity = theme.intensity ?? theme.confidence ?? 0.5;
 
 		for (const chunk of theme.chunks) {
 			const sentence = sentenceMap.get(chunk.sentenceId);
@@ -27,6 +28,7 @@ export function rangesFromThemes(
 					end: sentence.endIndex,
 					color,
 					themeId: theme.id,
+					intensity,
 				});
 			}
 		}
@@ -58,37 +60,24 @@ export function createSegments(cuts: number[]): Array<{ start: number; end: numb
 	return segments;
 }
 
-export function buildThemeOrder(currentRanges: HighlightRange[]): Map<string, number> {
-	const themeOrder = new Map<string, number>();
-	let order = 0;
-
-	for (const r of currentRanges) {
-		if (!themeOrder.has(r.themeId)) themeOrder.set(r.themeId, order++);
-	}
-
-	return themeOrder;
-}
 
 export function computeSegmentMeta(
 	segments: Array<{ start: number; end: number }>,
-	currentRanges: HighlightRange[],
-	themeOrder: Map<string, number>
+	currentRanges: HighlightRange[]
 ): SegmentMeta[] {
 	return segments.map(({ start, end }) => {
 		let color: string | null = null;
-		let bestPriority = -1;
+		let intensity: number | null = null;
 
 		for (const r of currentRanges) {
 			if (r.start <= start && r.end >= end) {
-				const p = themeOrder.get(r.themeId) ?? -1;
-				if (p > bestPriority) {
-					bestPriority = p;
-					color = r.color;
-				}
+				color = r.color;
+				intensity = r.intensity;
+				break; // Take first match since we don't need priority
 			}
 		}
 
-		return { start, end, color };
+		return { start, end, color, intensity };
 	});
 }
 
