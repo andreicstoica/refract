@@ -59,7 +59,7 @@ export function HighlightedText({
             boxDecorationBreak: "clone",
             ["--hl-color" as any]: color ?? undefined,
             backgroundImage: color
-              ? `linear-gradient(0deg, var(--hl-color), var(--hl-color))`
+              ? `linear-gradient(0deg, color-mix(in srgb, var(--hl-color) 60%, transparent), color-mix(in srgb, var(--hl-color) 60%, transparent))`
               : undefined,
             backgroundRepeat: "no-repeat",
             display: "inline",
