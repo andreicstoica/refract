@@ -1,0 +1,200 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/utils/utils";
+import { ChevronUp, ChevronDown, CornerDownLeft } from "lucide-react";
+
+interface IntroModalProps {
+  isOpen: boolean;
+  onStart: (minutes: number) => void;
+  className?: string;
+}
+
+export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
+  const [selectedMinutes, setSelectedMinutes] = useState(1);
+  const [inputBuffer, setInputBuffer] = useState("");
+  const bufferResetRef = useRef<number | null>(null);
+  const minutesRef = useRef(selectedMinutes);
+
+  useEffect(() => {
+    minutesRef.current = selectedMinutes;
+  }, [selectedMinutes]);
+
+  const handleIncrement = () => {
+    setSelectedMinutes((prev) => prev + 1);
+  };
+
+  const handleDecrement = () => {
+    setSelectedMinutes((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleStart = () => {
+    onStart(selectedMinutes);
+  };
+
+  // Keyboard handling when the modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const resetBufferSoon = () => {
+      if (bufferResetRef.current) {
+        window.clearTimeout(bufferResetRef.current);
+      }
+      bufferResetRef.current = window.setTimeout(() => {
+        setInputBuffer("");
+        bufferResetRef.current = null;
+      }, 1000);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      // Intercept only the keys we care about
+      const { key } = event;
+
+      // Arrow handling
+      if (key === "ArrowUp") {
+        event.preventDefault();
+        event.stopPropagation();
+        setSelectedMinutes((prev) => prev + 1);
+        return;
+      }
+      if (key === "ArrowDown") {
+        event.preventDefault();
+        event.stopPropagation();
+        setSelectedMinutes((prev) => Math.max(1, prev - 1));
+        return;
+      }
+
+      // Enter starts writing
+      if (key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        onStart(minutesRef.current);
+        return;
+      }
+
+      // Numeric entry to set minutes (supports multi-digit)
+      if (/^[0-9]$/.test(key)) {
+        event.preventDefault();
+        event.stopPropagation();
+        setInputBuffer((prev) => {
+          const next = (prev + key).replace(/^0+(\d)/, "$1");
+          const parsed = parseInt(next, 10);
+          setSelectedMinutes(Number.isNaN(parsed) ? 1 : Math.max(1, parsed));
+          return next;
+        });
+        resetBufferSoon();
+        return;
+      }
+
+      // Allow correcting numeric input with Backspace
+      if (key === "Backspace") {
+        if (inputBuffer.length > 0) {
+          event.preventDefault();
+          event.stopPropagation();
+          setInputBuffer((prev) => {
+            const next = prev.slice(0, -1);
+            const parsed = parseInt(next || "0", 10);
+            setSelectedMinutes(Math.max(1, parsed || 1));
+            return next;
+          });
+          resetBufferSoon();
+        }
+        return;
+      }
+    };
+
+    // Use capture to intercept before underlying textarea
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, true);
+      if (bufferResetRef.current) {
+        window.clearTimeout(bufferResetRef.current);
+        bufferResetRef.current = null;
+      }
+    };
+  }, [isOpen, inputBuffer, onStart]);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className={cn(
+              "bg-background/95 dark:bg-background/85 backdrop-blur-sm border border-border/50 dark:border-border rounded-md p-8 max-w-sm w-full",
+              "shadow-xl dark:shadow-2xl dark:shadow-black/50",
+              className
+            )}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="text-center space-y-8">
+              {/* Header */}
+              <div className="flex flex-col items-center justify-center gap-2">
+                <div className="text-muted-foreground text-md">
+                  How long would you like to write?
+                </div>
+                {/* Info */}
+                <p className="text-xs text-muted-foreground">
+                  You can pause, resume, or skip the timer at any time
+                </p>
+              </div>
+
+              {/* Clock Display */}
+              <div className="flex items-center justify-center gap-6">
+                {/* Minutes */}
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    onClick={handleIncrement}
+                    className="p-2 hover:bg-muted/70 rounded-full transition-colors"
+                  >
+                    <ChevronUp className="w-5 h-5 text-foreground" />
+                  </button>
+
+                  <div className="text-4xl font-mono tabular-nums text-foreground">
+                    {selectedMinutes.toString().padStart(2, "0")}
+                  </div>
+
+                  <button
+                    onClick={handleDecrement}
+                    disabled={selectedMinutes <= 1}
+                    className={cn(
+                      "p-2 rounded-full transition-colors",
+                      selectedMinutes <= 1
+                        ? "opacity-30 cursor-not-allowed"
+                        : "hover:bg-muted/70"
+                    )}
+                  >
+                    <ChevronDown className="w-5 h-5 text-foreground" />
+                  </button>
+
+                  <div className="text-xs text-muted-foreground">
+                    {selectedMinutes === 1 ? "minute" : "minutes"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Start Button */}
+              <button
+                onClick={handleStart}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors"
+              >
+                Start Writing
+                <CornerDownLeft className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

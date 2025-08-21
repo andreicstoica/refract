@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import type { Theme } from "@/types/theme";
 import type { Sentence } from "@/types/sentence";
 import type { HighlightRange } from "@/types/highlight";
@@ -10,35 +9,69 @@ import { rangesFromThemes } from "@/utils/highlightUtils";
 
 type UseThemeHighlightDataProps = {
     propThemes?: Theme[];
+    propFullText?: string;
+    propSentences?: Sentence[];
 };
 
-export function useThemeHighlightData({ propThemes }: UseThemeHighlightDataProps) {
-    const router = useRouter();
+export function useThemeHighlightData({ propThemes, propFullText, propSentences }: UseThemeHighlightDataProps) {
     const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
     const [themes, setThemes] = useState<Theme[] | null>(null);
     const [fullText, setFullText] = useState<string>("");
     const [sentences, setSentences] = useState<Sentence[] | null>(null);
-    // Track initial loading state for data check and potential redirect
-    const [isInitializing, setIsInitializing] = useState(true);
 
-    // Load data from storage on mount
+    // Load data from props first, then fall back to storage
     useEffect(() => {
         const storedThemes = propThemes || storage.getThemes();
-        const storedText = storage.getText();
-        const storedSentences = storage.getSentences();
+        const storedText = propFullText ?? storage.getText() ?? "";
+        const storedSentences = propSentences || storage.getSentences();
 
-        if (!storedText || !storedThemes?.length) {
-            // Redirect to write page if no data
-            // Note: We don't set isInitializing to false here since we're redirecting
-            router.push("/write");
-            return;
-        }
+        if (storedThemes && storedThemes.length) setThemes(storedThemes);
+        if (storedText) setFullText(storedText);
+        if (storedSentences && storedSentences.length) setSentences(storedSentences);
+    }, [propThemes, propFullText, propSentences]);
 
-        setThemes(storedThemes);
-        setFullText(storedText);
-        setSentences(storedSentences);
-        setIsInitializing(false);
-    }, [propThemes, router]);
+    // Poll storage briefly if data isn't ready yet (e.g., during fresh analysis)
+    useEffect(() => {
+        if (themes && fullText) return;
+
+        let attempts = 0;
+        const interval = setInterval(() => {
+            let updated = false;
+
+            if (!themes) {
+                const nextThemes = storage.getThemes();
+                if (nextThemes && nextThemes.length) {
+                    setThemes(nextThemes);
+                    updated = true;
+                }
+            }
+
+            if (!fullText) {
+                const nextText = storage.getText();
+                if (nextText && nextText.length) {
+                    setFullText(nextText);
+                    updated = true;
+                }
+            }
+
+            if ((themes && fullText) || updated) {
+                // If either got updated, and both now exist, clear interval
+                if ((themes || updated) && (fullText || storage.getText())) {
+                    if ((themes || storage.getThemes()) && (fullText || storage.getText())) {
+                        clearInterval(interval);
+                    }
+                }
+            }
+
+            attempts++;
+            if (attempts >= 120) {
+                // ~60s timeout at 500ms interval
+                clearInterval(interval);
+            }
+        }, 500);
+
+        return () => clearInterval(interval);
+    }, [themes, fullText]);
 
     // Build sentence lookup map once
     const sentenceMap = useMemo(() => {
@@ -78,6 +111,6 @@ export function useThemeHighlightData({ propThemes }: UseThemeHighlightDataProps
         highlightRanges,
         allHighlightableRanges,
         toggleTheme,
-        isLoading: isInitializing || !themes || !fullText,
+        isLoading: !themes || !fullText,
     };
 }
