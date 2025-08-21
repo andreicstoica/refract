@@ -5,7 +5,7 @@ import { measureSentencePositions } from "@/lib/position";
 import type { SentencePosition } from "@/types/sentence";
 
 interface UseTextProcessingOptions {
-    onProdTrigger: (fullText: string, lastSentence: Sentence) => void;
+    onProdTrigger: (fullText: string, lastSentence: Sentence, opts?: { force?: boolean }) => void;
     onTextChange?: (text: string) => void;
     onTextUpdate?: (
         text: string,
@@ -14,9 +14,9 @@ interface UseTextProcessingOptions {
     ) => void;
 }
 
-const COOLDOWN_MS = 1200;
-const CHAR_TRIGGER = 60;
-const TRAILING_DEBOUNCE_MS = 1500;
+const COOLDOWN_MS = 900;
+const CHAR_TRIGGER = 45;
+const TRAILING_DEBOUNCE_MS = 900;
 
 export function useTextProcessing({
     onProdTrigger,
@@ -31,12 +31,16 @@ export function useTextProcessing({
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
     const sentencesDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const watchdogTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const lastWatchdogFireRef = useRef<number>(0);
 
     // New trigger state tracking
     const lastTriggerAtRef = useRef<number>(0);
     const lastTriggerCharPosRef = useRef<number>(0);
     const lastTriggerSentenceIdRef = useRef<string | null>(null);
     const lastTriggerSentenceTextRef = useRef<string | null>(null);
+    const lastInputAtRef = useRef<number>(Date.now());
+    const watchdogArmedRef = useRef<boolean>(true);
 
     // Position measurement with memoization
     const measurePositions = useCallback(
@@ -83,9 +87,9 @@ export function useTextProcessing({
     }, []);
 
     // Helper to trigger prod and update tracking state
-    const triggerProd = useCallback((currentText: string, lastSentence: Sentence) => {
+    const triggerProd = useCallback((currentText: string, lastSentence: Sentence, opts?: { force?: boolean }) => {
         console.log("🚀 Triggering prod for sentence:", lastSentence.text);
-        onProdTrigger(currentText, lastSentence);
+        onProdTrigger(currentText, lastSentence, opts);
         lastTriggerAtRef.current = Date.now();
         lastTriggerCharPosRef.current = currentText.length;
         lastTriggerSentenceIdRef.current = lastSentence.id;
@@ -94,6 +98,8 @@ export function useTextProcessing({
 
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const newText = e.target.value;
+        lastInputAtRef.current = Date.now();
+        watchdogArmedRef.current = true; // re-arm watchdog on user input
         setText(newText);
         onTextChange?.(newText);
 
@@ -212,8 +218,40 @@ export function useTextProcessing({
             if (positionTimerRef.current) {
                 clearTimeout(positionTimerRef.current);
             }
+            if (watchdogTimerRef.current) {
+                clearTimeout(watchdogTimerRef.current);
+            }
         };
     }, []);
+
+    // Watchdog: if user is idle for ~8s, nudge with a forced prod
+    useEffect(() => {
+        if (watchdogTimerRef.current) {
+            clearInterval(watchdogTimerRef.current as unknown as number);
+        }
+        watchdogTimerRef.current = setInterval(() => {
+            const now = Date.now();
+            const idleMs = now - lastInputAtRef.current;
+
+            if (idleMs >= 8000 && watchdogArmedRef.current) {
+                const latestText = textareaRef.current?.value || text;
+                const currentSentences = sentences.length > 0 ? sentences : splitIntoSentences(latestText);
+                if (currentSentences.length > 0) {
+                    const lastSentence = currentSentences[currentSentences.length - 1];
+                    // Force a prod even if normal filters would skip
+                    triggerProd(latestText, lastSentence, { force: true });
+                    watchdogArmedRef.current = false; // fire once until user types again
+                    lastWatchdogFireRef.current = now;
+                }
+            }
+        }, 1000);
+
+        return () => {
+            if (watchdogTimerRef.current) {
+                clearInterval(watchdogTimerRef.current as unknown as number);
+            }
+        };
+    }, [text, sentences, triggerProd]);
 
     // Notify parent of text updates
     useEffect(() => {

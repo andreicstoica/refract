@@ -17,11 +17,14 @@ interface OngoingRequest {
 
 function queueReducer(state: QueueState, action: QueueAction): QueueState {
     switch (action.type) {
-        case 'ENQUEUE':
+        case 'ENQUEUE': {
+            // Keep only non-pending items (e.g., processing) and append the newest pending item
+            const kept = state.items.filter(item => item.status !== 'pending');
             return {
                 ...state,
-                items: [...state.items, { ...action.payload, status: 'pending' }]
+                items: [...kept, { ...action.payload, status: 'pending' }]
             };
+        }
         case 'START_PROCESSING':
             return {
                 ...state,
@@ -72,7 +75,6 @@ export function useProdsEnhanced(options: UseProdsEnhancedOptions = {}) {
     });
     const [filteredSentences, setFilteredSentences] = useState<Sentence[]>([]);
 
-    const lastApiCallRef = useRef<number>(0);
     const nextAvailableAtRef = useRef<number>(0);
     const ongoingRequestsRef = useRef<Map<string, OngoingRequest>>(new Map());
     const latestTopicVersionRef = useRef<number>(options.topicVersion ?? 0);
@@ -94,23 +96,7 @@ export function useProdsEnhanced(options: UseProdsEnhancedOptions = {}) {
         nextAvailableAtRef.current = Date.now() + delayMs;
     }, []);
 
-    // Cancel requests for specific sentence IDs
-    const cancelRequestsForSentences = useCallback((sentenceIds: string[]) => {
-        let cancelled = 0;
-        sentenceIds.forEach(sentenceId => {
-            ongoingRequestsRef.current.forEach((request, requestId) => {
-                if (request.sentenceId === sentenceId) {
-                    if (isDev) console.log("🛑 Cancelling request for sentence:", sentenceId);
-                    request.controller.abort();
-                    ongoingRequestsRef.current.delete(requestId);
-                    cancelled++;
-                }
-            });
-        });
-        if (cancelled > 0 && isDev) {
-            console.log(`✅ Cancelled ${cancelled} ongoing requests`);
-        }
-    }, []);
+    // (Removed) cancelRequestsForSentences was unused; we cancel wholesale on topic shifts for simplicity
 
     // Cancel all ongoing requests
     const cancelAllRequests = useCallback(() => {
@@ -124,25 +110,7 @@ export function useProdsEnhanced(options: UseProdsEnhancedOptions = {}) {
         }
     }, []);
 
-    // Stale guard: drop requests >5s old when new ones are enqueued
-    const applyStaleGuard = useCallback(() => {
-        const now = Date.now();
-        let dropped = 0;
-
-        ongoingRequestsRef.current.forEach((request, requestId) => {
-            const age = now - request.startTime;
-            if (age > 5000) { // 5 seconds
-                if (isDev) console.log(`🗑️ Dropping stale request (${Math.round(age)}ms old)`);
-                request.controller.abort();
-                ongoingRequestsRef.current.delete(requestId);
-                dropped++;
-            }
-        });
-
-        if (dropped > 0 && isDev) {
-            console.log(`🗑️ Applied stale guard: dropped ${dropped} requests >5s old`);
-        }
-    }, []);
+    // (Removed) stale guard is unnecessary with single-flight + pending-prune
 
     // Process a single queue item with cancellation support
     const processSingleItem = useCallback(async (item: QueueItem) => {
@@ -169,7 +137,7 @@ export function useProdsEnhanced(options: UseProdsEnhancedOptions = {}) {
             }
 
             // Rate limiting: wait before making API calls
-            await waitForRateLimit(150);
+            await waitForRateLimit(75);
 
             // Enhanced API call with timeout and cancellation
             const apiStart = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
@@ -265,53 +233,24 @@ export function useProdsEnhanced(options: UseProdsEnhancedOptions = {}) {
                 return;
             }
 
-            if (isDev) console.log("🔄 Processing queue with", pendingItems.length, "pending items");
-
-            // Apply stale guard when starting new queue processing
-            applyStaleGuard();
-
-            // Check throttling for the entire queue processing
-            const now = Date.now();
-            const timeSinceLastCall = now - lastApiCallRef.current;
-            if (timeSinceLastCall < 500) {
-                if (isDev) console.log("⏰ Queue processing throttled – scheduling wake-up");
-                // Schedule wake-up to prevent permanent stall
-                const wakeUpDelay = 500 - timeSinceLastCall + 100; // +100ms buffer
-                setTimeout(() => {
-                    queueDispatch({ type: 'SET_PROCESSING', payload: false }); // Trigger re-run
-                }, wakeUpDelay);
-                return;
-            }
-
+            if (isDev) console.log("🔄 Processing next pending item");
             queueDispatch({ type: 'SET_PROCESSING', payload: true });
-            lastApiCallRef.current = now;
-
-            // Process items in parallel batches (2-3 at a time) for better performance
-            const batchSize = 2;
-            for (let i = 0; i < pendingItems.length; i += batchSize) {
-                const batch = pendingItems.slice(i, i + batchSize);
-                if (isDev) console.log("📦 Processing batch", Math.floor(i / batchSize) + 1, "with", batch.length, "items", "| remaining:", pendingItems.length - i);
-                const promises = batch.map(item => processSingleItem(item));
-                await Promise.all(promises);
-
-                // Small delay between batches to avoid overwhelming the server
-                if (i + batchSize < pendingItems.length) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-            }
+            // Process only the most recent pending item
+            const nextItem = pendingItems[0];
+            await processSingleItem(nextItem);
 
             queueDispatch({ type: 'SET_PROCESSING', payload: false });
         };
 
         processQueue();
-    }, [queueState.items, queueState.isProcessing, processSingleItem, applyStaleGuard]);
+    }, [queueState.items, queueState.isProcessing, processSingleItem]);
 
     // Public API to add sentences to queue
-    const callProdAPI = useCallback((fullText: string, sentence: Sentence) => {
+    const callProdAPI = useCallback((fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
         console.log("📝 callProdAPI called for sentence:", sentence.text.substring(0, 50) + "...");
 
         // Pre-filter sentences to skip obvious non-candidates
-        if (!shouldProcessSentence(sentence)) {
+        if (!opts?.force && !shouldProcessSentence(sentence)) {
             console.log("⏭️ Skipping sentence:", sentence.text);
             return;
         }

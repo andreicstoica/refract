@@ -8,11 +8,11 @@ const isDev = process.env.NODE_ENV !== "production";
 export function shouldProcessSentence(sentence: Sentence): boolean {
 	const text = sentence.text.trim();
 
-	// Skip very short sentences
-	if (text.length < 25) {
-		if (isDev) console.log("❌ Sentence too short:", text.substring(0, 30) + "...");
-		return false;
-	}
+    // Skip very short sentences
+    if (text.length < 20) {
+        if (isDev) console.log("❌ Sentence too short:", text.substring(0, 30) + "...");
+        return false;
+    }
 
 	// Skip sentences that are just punctuation or filler
 	if (/^[.,!?;:\s-]+$/.test(text)) {
@@ -41,4 +41,3 @@ export function shouldProcessSentence(sentence: Sentence): boolean {
 	if (isDev) console.log("✅ Sentence passed filters:", text.substring(0, 50) + "...");
 	return true;
 }
-
