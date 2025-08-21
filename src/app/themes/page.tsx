@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { AppNav } from "@/components/AppNav";
+import { ViewToggleNav } from "@/components/ViewToggleNav";
 import { ThemeBubbleContainer } from "@/components/ThemeBubbleContainer";
 import { ThemeHighlightView } from "@/components/ThemeHighlightView";
-import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/highlight/LoadingState";
 import { useRouter } from "next/navigation";
 
@@ -15,7 +15,7 @@ export default function ThemesPage() {
   const router = useRouter();
   const [themes, setThemes] = useState<Theme[]>([]);
   const [selectedText, setSelectedText] = useState<string>("");
-  const [view, setView] = useState<"bubbles" | "secondary">("bubbles");
+  const [view, setView] = useState<"bubbles" | "highlights">("bubbles");
   const [isLoading, setIsLoading] = useState(false);
 
   // Load themes from localStorage or handle fresh analysis
@@ -114,32 +114,13 @@ export default function ThemesPage() {
     <div className="relative h-dvh overflow-hidden bg-background text-foreground">
       <AppNav active="reflect" onTabChange={handleTabChange} />
 
+      {/* View Toggle Nav */}
+      {themes.length > 0 && (
+        <ViewToggleNav active={view} onViewChange={setView} />
+      )}
+
       {/* Main Content */}
       <div className="p-4 pt-8 h-full">
-        {/* View toggle */}
-        {themes.length > 0 && (
-          <div className="mb-3 flex w-full items-center justify-center">
-            <div className="inline-flex items-center gap-1 rounded-full border bg-background/80 p-1 shadow-sm">
-              <Button
-                size="sm"
-                variant={view === "bubbles" ? "default" : "outline"}
-                onClick={() => setView("bubbles")}
-                className="rounded-full px-3"
-              >
-                Bubbles
-              </Button>
-              <Button
-                size="sm"
-                variant={view === "secondary" ? "default" : "outline"}
-                onClick={() => setView("secondary")}
-                className="rounded-full px-3"
-              >
-                Highlights
-              </Button>
-            </div>
-          </div>
-        )}
-
         {/* Content */}
         <div className="h-full">
           {view === "bubbles" ? (

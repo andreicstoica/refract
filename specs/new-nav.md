@@ -10,7 +10,7 @@
 ## Why (Current → Proposed)
 
 - Current
-  - `WritingNav` owns `TimerSetupModal` and floats `WritingTimer` with an inline Skip/Analyze/Analyzing control.
+  - `WritingNav` owns `IntroModal` and floats `WritingTimer` with an inline Skip/Analyze/Analyzing control.
   - Reflect action currently awaits embeddings then navigates to `/themes`.
   - Reflect lacks a first-class “loading while analyzing” state.
 - Proposed
@@ -52,7 +52,7 @@
 - Keep: play/pause, display, progress, `onTimerComplete`.
 - No navigation responsibility; write page owns threshold/analysis state.
 
-### TimerSetupModal (unchanged)
+### IntroModal (renamed from TimerSetupModal)
 
 - Continues to collect minutes and start the session.
 
@@ -107,7 +107,7 @@
 1. Add `AppNav.tsx` with tabs, icons, badges, and contextual action.
 2. Refactor `WritingTimer.tsx`: remove Skip/Analyze UI and props; keep timer core.
 3. Update `src/app/write/page.tsx`:
-   - Remove `WritingNav`; show `AppNav` at top and render `TimerSetupModal` + `WritingTimer` below
+   - Remove `WritingNav`; show `AppNav` at top and render `IntroModal` + `WritingTimer` below
    - Manage `thresholdReached` via `setTimeout` after timer start (20s)
    - Derive `contextAction` from states
    - Implement `onReflect` to set `refract-analysis`, kick off embeddings (no await), and navigate to `/themes`

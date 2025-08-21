@@ -265,42 +265,32 @@ export function ThemeBubbleContainer({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className={cn(
-        "relative w-full h-full min-h-[400px]",
-        "bg-gradient-to-br from-blue-50/30 to-purple-50/30 dark:from-blue-950/20 dark:to-purple-950/20",
-        "rounded-2xl border border-blue-200/20",
-        "overflow-visible",
-        className
-      )}
+      className={cn("relative w-full h-full", "overflow-visible", className)}
       ref={containerRef}
     >
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(59,130,246,0.1)_1px,transparent_0)] bg-[length:20px_20px]" />
-      </div>
-
-      {/* Floating particles in background */}
-      {[...Array(8)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-1 h-1 bg-blue-300/40 rounded-full"
-          animate={{
-            x: [0, 100, 0],
-            y: [0, -50, 0],
-            opacity: [0.2, 0.8, 0.2],
-          }}
-          transition={{
-            duration: 8 + i * 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: i * 0.5,
-          }}
-          style={{
-            left: `${10 + i * 10}%`,
-            top: `${20 + i * 8}%`,
-          }}
-        />
-      ))}
+      {/* Subtle bubble color tints in bottom corners */}
+      {themes.length > 0 && (
+        <>
+          <div
+            className="absolute bottom-0 left-0 w-96 h-96 opacity-40 pointer-events-none"
+            style={{
+              background: `radial-gradient(circle at bottom left, ${
+                themes[0]?.color || "#3b82f6"
+              }40, transparent 50%)`,
+            }}
+          />
+          {themes[1] && (
+            <div
+              className="absolute bottom-0 right-0 w-96 h-96 opacity-40 pointer-events-none"
+              style={{
+                background: `radial-gradient(circle at bottom right, ${
+                  themes[1]?.color || "#8b5cf6"
+                }40, transparent 50%)`,
+              }}
+            />
+          )}
+        </>
+      )}
 
       {/* Theme bubbles */}
       <AnimatePresence>

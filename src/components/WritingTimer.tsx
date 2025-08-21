@@ -107,8 +107,8 @@ export function WritingTimer({
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={cn(
         "flex items-center justify-center gap-3 px-3 py-1.5",
-        // Neutral pill similar to TabsList styling
-        "bg-muted/50 backdrop-blur-sm border border-border/50 rounded-full shadow-sm",
+        // Neutral styling consistent with other components
+        "bg-muted/50 backdrop-blur-sm border border-border/50 rounded-md shadow-sm",
         "text-foreground/90 font-medium",
         className
       )}
@@ -118,15 +118,19 @@ export function WritingTimer({
         <div className="text-base sm:text-lg font-mono tabular-nums">
           {formatTime(timeLeft)}
         </div>
-
-        {/* Play/Pause Button */}
-        <button
-          onClick={isRunning ? pauseTimer : resumeTimer}
-          className="p-1.5 hover:bg-muted/70 rounded-full transition-colors"
-        >
-          {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-        </button>
       </div>
+
+      {/* Play/Pause Button */}
+      <button
+        onClick={isRunning ? pauseTimer : resumeTimer}
+        className="p-1.5 hover:bg-muted/70 rounded-sm transition-colors"
+      >
+        {isRunning ? (
+          <Pause className="w-4 h-4" />
+        ) : (
+          <Play className="w-4 h-4" />
+        )}
+      </button>
     </motion.div>
   );
 }

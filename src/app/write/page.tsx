@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { TextInput } from "@/components/TextInput";
 import { AppNav } from "@/components/AppNav";
 import { WritingTimer } from "@/components/WritingTimer";
-import { TimerSetupModal } from "@/components/TimerSetupModal";
+import { IntroModal } from "@/components/IntroModal";
 import { useGenerateEmbeddings } from "@/hooks/useGenerateEmbeddings";
 import { storage } from "@/services/storage";
 import type { Sentence } from "@/types/sentence";
@@ -108,7 +108,7 @@ export default function WritePage() {
       />
 
       {/* Timer Setup Modal */}
-      <TimerSetupModal isOpen={showTimerSetup} onStart={handleTimerStart} />
+      <IntroModal isOpen={showTimerSetup} onStart={handleTimerStart} />
 
       {/* Timer Display */}
       {!showTimerSetup && (

@@ -15,12 +15,12 @@ export function LoadingState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center h-full space-y-6",
+        "flex flex-col items-center h-full space-y-6 pt-8",
         className
       )}
     >
       <div className="text-center space-y-4">
-        <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="w-8 h-8 border-2 border-border border-t-transparent rounded-full animate-spin mx-auto" />
         <h2 className="text-lg font-medium text-foreground">{message}</h2>
       </div>
 
