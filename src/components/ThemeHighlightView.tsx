@@ -48,7 +48,7 @@ export function ThemeHighlightView({
 
           {/* Scrollable text area fills remaining height */}
           <div className="relative flex-1 min-h-0">
-            <div className="h-full overflow-y-auto overflow-x-hidden py-6">
+            <div className="h-full overflow-y-auto overflow-x-hidden">
               <HighlightedText
                 text={fullText}
                 currentRanges={highlightRanges}
