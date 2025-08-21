@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/utils/utils";
-import { Clock, Play, ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, CornerDownLeft } from "lucide-react";
 
 interface TimerSetupModalProps {
   isOpen: boolean;
@@ -192,8 +192,8 @@ export function TimerSetupModal({
                 onClick={handleStart}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
               >
-                <Play className="w-4 h-4" />
                 Start Writing
+                <CornerDownLeft className="w-4 h-4" />
               </button>
             </div>
           </motion.div>
