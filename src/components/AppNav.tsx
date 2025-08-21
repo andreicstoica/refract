@@ -82,9 +82,7 @@ export function AppNav({
                 <Binoculars
                   className={cn(
                     "w-4 h-4 transition-colors",
-                    shouldDisable
-                      ? "text-muted-foreground/50"
-                      : "text-foreground"
+                    shouldDisable ? "text-muted-foreground/50" : "text-current"
                   )}
                 />
                 {shouldExpand && (
@@ -93,7 +91,7 @@ export function AppNav({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.1 }}
-                    className="ml-2 transition-colors"
+                    className="ml-2 transition-colors text-current"
                   >
                     Analyze
                   </motion.span>
