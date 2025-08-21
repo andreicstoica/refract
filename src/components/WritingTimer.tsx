@@ -19,7 +19,6 @@ export function WritingTimer({
   const [timeLeft, setTimeLeft] = useState(initialMinutes * 60);
   const [isRunning, setIsRunning] = useState(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const initialTimeRef = useRef(initialMinutes * 60);
   const hasTriggeredComplete = useRef(false);
 
   // Keep the callback ref updated
@@ -101,50 +100,32 @@ export function WritingTimer({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const progressPercentage =
-    timeLeft <= 0
-      ? 100
-      : ((initialTimeRef.current - timeLeft) / initialTimeRef.current) * 100;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={cn(
-        "flex items-center justify-center gap-4 p-4",
-        "bg-background/80 backdrop-blur-sm border border-blue-200/30 rounded-full",
-        "text-blue-700 dark:text-blue-300 font-medium",
+        "flex items-center justify-center gap-3 px-3 py-1.5",
+        // Neutral pill similar to TabsList styling
+        "bg-muted/50 backdrop-blur-sm border border-border/50 rounded-full shadow-sm",
+        "text-foreground/90 font-medium",
         className
       )}
     >
       {/* Timer Display */}
       <div className="flex items-center gap-2">
-        <div className="text-2xl font-mono tabular-nums">
+        <div className="text-base sm:text-lg font-mono tabular-nums">
           {formatTime(timeLeft)}
         </div>
 
         {/* Play/Pause Button */}
         <button
           onClick={isRunning ? pauseTimer : resumeTimer}
-          className="p-1 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
+          className="p-1.5 hover:bg-muted/70 rounded-full transition-colors"
         >
-          {isRunning ? (
-            <Pause className="w-4 h-4" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
+          {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
         </button>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="w-24 h-1 bg-blue-200/30 rounded-full overflow-hidden">
-        <motion.div
-          className="h-full bg-blue-500 rounded-full"
-          initial={{ width: 0 }}
-          animate={{ width: `${progressPercentage}%` }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-        />
       </div>
     </motion.div>
   );
