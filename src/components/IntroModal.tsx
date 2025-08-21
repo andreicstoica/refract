@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 import { ChevronUp, ChevronDown, CornerDownLeft } from "lucide-react";
 
 interface IntroModalProps {

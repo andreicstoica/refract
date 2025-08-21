@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 import { Play, Pause } from "lucide-react";
 
 interface WritingTimerProps {

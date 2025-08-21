@@ -1,13 +1,11 @@
 "use client";
 
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 import type { Theme } from "@/types/theme";
 import { useThemeHighlightData } from "@/hooks/useThemeHighlightData";
-import {
-  ThemeSelector,
-  HighlightedText,
-  LoadingState,
-} from "@/components/highlight";
+import { ThemeSelector } from "@/components/highlight/ThemeSelector";
+import { HighlightedText } from "@/components/highlight/HighlightedText";
+import { LoadingState } from "@/components/highlight/LoadingState";
 
 type ThemeHighlightViewProps = {
   className?: string;
@@ -48,7 +46,7 @@ export function ThemeHighlightView({
 
           {/* Scrollable text area fills remaining height */}
           <div className="relative flex-1 min-h-0">
-            <div className="h-full overflow-y-auto overflow-x-hidden">
+            <div className="h-full overflow-y-auto overflow-x-hidden pb-4">
               <HighlightedText
                 text={fullText}
                 currentRanges={highlightRanges}

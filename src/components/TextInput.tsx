@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { cn } from "@/utils/utils";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { cn } from "@/lib/helpers";
 import type { Sentence } from "@/types/sentence";
 import type { SentencePosition } from "@/types/sentence";
-import { useProds } from "@/hooks/useProds";
+import { useProdsEnhanced } from "@/hooks/useProdsEnhanced";
+import { useTopicShiftDetection } from "@/hooks/useTopicShiftDetection";
 import { useTextProcessing } from "@/hooks/useTextProcessing";
 import { ChipOverlay } from "./ChipOverlay";
-import { TEXTAREA_CLASSES } from "@/utils/constants";
-import { selectFirstProdPerSentence } from "@/utils/prodSelectors";
-import { TextInputDebug } from "./debug/TextInputDebug";
+import { TEXTAREA_CLASSES } from "@/lib/constants";
 
 interface TextInputProps {
   onTextChange?: (text: string) => void;
@@ -26,47 +25,67 @@ export function TextInput({
   placeholder = "What's on your mind?",
   onTextUpdate,
 }: TextInputProps) {
-  // Use our custom hook for prod management
-  const { prods, callProdAPI, clearQueue, queueState, filteredSentences } =
-    useProds();
+  // State for managing text and topic detection
+  const [currentText, setCurrentText] = useState("");
+  const currentKeywordsRef = useRef<string[]>([]);
 
-  // Use text processing hook for all text-related logic
+  // Topic shift detection (needs to be first to get keywords for prod system)
+  const { hasTopicShift, currentKeywords, topicVersion } =
+    useTopicShiftDetection({
+      text: currentText,
+      onTopicShift: () => {
+        if (process.env.NODE_ENV !== "production") {
+          console.log("🌟 Topic shift detected in TextInput");
+        }
+      },
+    });
+
+  // Update keywords ref when they change
+  useEffect(() => {
+    currentKeywordsRef.current = currentKeywords;
+  }, [currentKeywords]);
+
+  // Enhanced prod management with topic shift integration
+  const onProdTopicShift = useCallback(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("🎯 Topic shift handled by prod system");
+    }
+  }, []);
+
+  const {
+    prods,
+    callProdAPI,
+    clearQueue,
+    handleTopicShift,
+    queueState,
+    filteredSentences,
+    prodMetrics,
+  } = useProdsEnhanced({
+    onTopicShift: onProdTopicShift,
+    topicKeywords: currentKeywordsRef.current,
+    topicVersion,
+  });
+
+  // Text processing with prod triggering
   const { text, sentences, sentencePositions, textareaRef, handleTextChange } =
     useTextProcessing({
       onProdTrigger: callProdAPI,
-      onTextChange,
+      onTextChange: (newText) => {
+        setCurrentText(newText);
+        onTextChange?.(newText);
+      },
       onTextUpdate,
     });
 
-  // Debug panel toggle (off by default)
-  const [showDebug, setShowDebug] = useState(false);
+  // Connect topic shift to prod cancellation (avoid calling during render)
+  useEffect(() => {
+    if (hasTopicShift) {
+      handleTopicShift();
+    }
+  }, [hasTopicShift, handleTopicShift]);
 
   return (
     <div className="relative h-full w-full">
-      {/* Debug toggle button */}
-      {process.env.NODE_ENV !== "production" && (
-        <button
-          type="button"
-          aria-label="Toggle debug"
-          className="absolute z-50 bottom-3 right-3 bg-transparent text-lg leading-none"
-          onClick={() => setShowDebug((v) => !v)}
-        >
-          {showDebug ? "🔴" : "🔴"}
-        </button>
-      )}
-
-      {/* Debug HUD (hidden by default) */}
-      {showDebug && (
-        <TextInputDebug
-          text={text}
-          filteredSentences={filteredSentences}
-          prods={prods}
-          queueState={queueState}
-          sentencePositions={sentencePositions}
-          onClearQueue={clearQueue}
-        />
-      )}
-
       {/* Static centered container */}
       <div className="mx-auto max-w-2xl w-full h-full px-4">
         <div className={cn("h-full overflow-hidden flex flex-col min-h-0")}>
@@ -124,9 +143,12 @@ export function TextInput({
               }}
             />
 
+            {/* Top gradient overlay for smooth transition from timer */}
+            <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none z-10" />
+
             {/* Chip Overlay - positioned relative to textarea container */}
             <ChipOverlay
-              visibleProds={selectFirstProdPerSentence(prods)}
+              visibleProds={prods}
               sentencePositions={sentencePositions}
             />
           </div>

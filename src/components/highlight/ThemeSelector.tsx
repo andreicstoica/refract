@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import type { Theme } from "@/types/theme";
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 
 type ThemeSelectorProps = {
   themes: Theme[];

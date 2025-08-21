@@ -52,3 +52,4 @@ export function splitIntoSentences(inputText: string): Sentence[] {
 
   return sentences;
 }
+

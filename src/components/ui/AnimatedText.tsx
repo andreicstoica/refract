@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 
 interface AnimatedTextProps {
   text: string;

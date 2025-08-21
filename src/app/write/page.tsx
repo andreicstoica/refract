@@ -20,7 +20,6 @@ export default function WritePage() {
   const [showTimerSetup, setShowTimerSetup] = useState(true);
   const [timerMinutes, setTimerMinutes] = useState(1);
   const [timerStarted, setTimerStarted] = useState(false);
-  const [timerCompleted, setTimerCompleted] = useState(false);
   const [analyzeEnabled, setAnalyzeEnabled] = useState(false);
   const [currentText, setCurrentText] = useState("");
   const [currentSentences, setCurrentSentences] = useState<Sentence[]>([]);
@@ -57,7 +56,6 @@ export default function WritePage() {
   };
 
   const handleTimerComplete = () => {
-    setTimerCompleted(true);
     setAnalyzeEnabled(true); // Ensure analyze is enabled when timer completes
   };
 

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { HighlightRange } from "@/types/highlight";
-import { TEXT_DISPLAY_STYLES } from "@/utils/constants";
+import { TEXT_DISPLAY_STYLES } from "@/lib/constants";
 import {
   buildCutPoints,
   createSegments,
@@ -10,7 +10,7 @@ import {
   computeSegmentMeta,
   assignChunkIndices,
   STAGGER_PER_CHUNK_S,
-} from "@/utils/highlightUtils";
+} from "@/lib/highlight";
 
 type HighlightedTextProps = {
   text: string;

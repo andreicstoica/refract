@@ -6,7 +6,7 @@ import { generateEmbeddingVectors } from "@/services/embeddingsClient";
 import {
   clusterEmbeddings,
   sentencesToChunks,
-} from "@/utils/embeddingUtils";
+} from "@/lib/embeddings";
 import type { Sentence } from "@/types/sentence";
 import type { TextChunk, ClusterResult } from "@/types/embedding";
 
@@ -114,11 +114,7 @@ export async function POST(req: Request) {
         };
       }),
       usage: embeddingResult.usage,
-      debug: {
-        totalSentences: sentences.length,
-        totalClusters: clusters.length,
-        finalClusters: sortedClusters.length,
-      },
+
     });
 
   } catch (error) {

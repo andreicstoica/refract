@@ -1,4 +1,4 @@
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type LoadingStateProps = {

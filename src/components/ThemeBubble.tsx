@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { RefObject } from "react";
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/helpers";
 
 import type { Theme } from "@/types/theme";
 const MotionDiv = motion.div;
