@@ -1,5 +1,6 @@
 import type { Sentence } from "./sentence";
 import type { Theme } from "./theme";
+import type { ClusterResult } from "./embedding";
 
 export interface ProdRequest {
     lastParagraph: string;
@@ -20,7 +21,7 @@ export interface EmbeddingsRequest {
 }
 
 export interface EmbeddingsResponse {
-    clusters: any[];
+    clusters: ClusterResult[];
     themes: Theme[];
     usage: {
         tokens: number;
