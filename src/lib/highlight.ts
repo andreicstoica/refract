@@ -2,7 +2,7 @@ import type { Theme } from "@/types/theme";
 import type { Sentence } from "@/types/sentence";
 import type { HighlightRange, SegmentMeta } from "@/types/highlight";
 
-export const STAGGER_PER_CHUNK_S = 0.035; // 35ms per contiguous highlighted chunk
+export const STAGGER_PER_CHUNK = 0.03; // 30ms per contiguous highlighted chunk
 // Minimum cosine similarity a chunk must have to its cluster centroid
 // to be included in the returned theme chunks
 export const MIN_CHUNK_CORRELATION = 0.55;
