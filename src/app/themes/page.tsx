@@ -71,9 +71,9 @@ export default function ThemesPage() {
 
   if (isLoading) {
     return (
-      <div className="relative h-dvh overflow-hidden bg-background text-foreground">
+      <div className="relative h-dvh overflow-hidden bg-background text-foreground flex flex-col">
         <AppNav active="reflect" onTabChange={handleTabChange} />
-        <div className="p-4 pt-8 h-full">
+        <div className="flex-1 min-h-0 p-4 pt-8">
           <LoadingState message="Analyzing your writing..." showSkeletons={true} />
         </div>
       </div>
@@ -81,12 +81,10 @@ export default function ThemesPage() {
   }
 
   return (
-    <div className="relative h-dvh overflow-hidden bg-background text-foreground">
+    <div className="relative h-dvh overflow-hidden bg-background text-foreground flex flex-col">
       <AppNav active="reflect" onTabChange={handleTabChange} />
-      <div className="p-4 pt-8 h-full">
-        <div className="h-full">
-          <ThemeHighlightView themes={themes} fullText={fullText} />
-        </div>
+      <div className="flex-1 min-h-0 p-4 pt-8">
+        <ThemeHighlightView themes={themes} fullText={fullText} />
       </div>
     </div>
   );

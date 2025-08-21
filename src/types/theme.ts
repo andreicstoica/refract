@@ -5,6 +5,6 @@ export interface Theme {
     confidence: number;
     chunkCount: number;
     color?: string;
-    intensity?: number;
-    chunks?: Array<{ text: string; sentenceId: string }>;
+    // Per-chunk correlation (cosine similarity to assigned cluster centroid)
+    chunks?: Array<{ text: string; sentenceId: string; correlation: number }>;
 }

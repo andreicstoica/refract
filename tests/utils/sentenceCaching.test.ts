@@ -1,30 +1,9 @@
 import { describe, test, expect } from "bun:test";
 import type { Sentence } from "@/types/sentence";
+import { shouldProcessSentence } from "@/lib/shouldProcessSentence";
 
 describe("Sentence Caching Logic", () => {
-  // Test the core caching logic that's used in useProds
-  const shouldProcessSentence = (sentence: Sentence): boolean => {
-    const text = sentence.text.trim();
-    
-    // Skip very short sentences
-    if (text.length < 25) return false;
-    
-    // Skip sentences that are just punctuation or filler
-    if (/^[.,!?;:\s-]+$/.test(text)) return false;
-    
-    // Skip sentences that are just numbers, dates, or simple greetings
-    if (/^(\d+|hello|hi|hey|thanks|ok|okay)\.?$/i.test(text)) return false;
-    
-    // Skip sentences that are just URLs, file paths, or email addresses
-    if (/^(https?:\/\/|\/[\w\/]+|[\w.-]+@[\w.-]+)/.test(text)) return false;
-    
-    // Skip sentences that are mostly formatting or whitespace
-    if (text.replace(/[\s\n\r\t]/g, '').length < 15) return false;
-    
-    return true;
-  };
-
-  // Simulate the caching logic from useProds
+  // Simulate the caching logic from useProdsEnhanced (unique by sentence.id)
   const addToCache = (cache: Sentence[], sentence: Sentence): Sentence[] => {
     // Check if sentence already exists to avoid duplicates
     const exists = cache.some(s => s.id === sentence.id);
@@ -36,9 +15,9 @@ describe("Sentence Caching Logic", () => {
   test("filters out short sentences", () => {
     const shortSentence: Sentence = {
       id: "short",
-      text: "Hi.",
+      text: "Too short to pass.",
       startIndex: 0,
-      endIndex: 3,
+      endIndex: 19,
     };
 
     expect(shouldProcessSentence(shortSentence)).toBe(false);
@@ -152,7 +131,7 @@ describe("Sentence Caching Logic", () => {
     let cache: Sentence[] = [];
     
     const mixedSentences: Sentence[] = [
-      { id: "short", text: "Hi.", startIndex: 0, endIndex: 3 },
+      { id: "short", text: "Quick one-liner.", startIndex: 0, endIndex: 15 },
       { id: "meaningful-1", text: "I've been reflecting on my personal growth journey.", startIndex: 4, endIndex: 55 },
       { id: "punct", text: "...", startIndex: 56, endIndex: 59 },
       { id: "meaningful-2", text: "Today's meeting really challenged my perspective.", startIndex: 60, endIndex: 108 },

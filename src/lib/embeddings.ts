@@ -133,14 +133,21 @@ export function clusterEmbeddings(
   // Step 4: Build final clusters and filter out empty ones
   const clusters: ClusterResult[] = [];
   for (let cluster = 0; cluster < k; cluster++) {
-    const clusterChunks = chunks.filter((_, i) => assignments[i] === cluster);
+    // Build cluster chunks and compute per-chunk correlation to the centroid
+    const clusterChunks: TextChunk[] = [];
+    const clusterSims: number[] = [];
+
+    for (let i = 0; i < n; i++) {
+      if (assignments[i] !== cluster) continue;
+      const sim = cosineSimilarity(embeddings[i], centroids[cluster]);
+      clusterSims.push(sim);
+      clusterChunks.push({ ...chunks[i], correlation: sim });
+    }
 
     if (clusterChunks.length === 0) continue;
 
     // Calculate confidence as average similarity to centroid
-    const clusterEmbeddings = embeddings.filter((_, i) => assignments[i] === cluster);
-    const avgSimilarity = clusterEmbeddings.reduce((sum, embedding) =>
-      sum + cosineSimilarity(embedding, centroids[cluster]), 0) / clusterEmbeddings.length;
+    const avgSimilarity = clusterSims.reduce((sum, s) => sum + s, 0) / clusterSims.length;
 
     clusters.push({
       id: `cluster-${cluster}`,
@@ -178,5 +185,4 @@ function calculateCentroid(embeddings: number[][]): number[] {
 
   return centroid;
 }
-
 

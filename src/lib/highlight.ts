@@ -3,6 +3,9 @@ import type { Sentence } from "@/types/sentence";
 import type { HighlightRange, SegmentMeta } from "@/types/highlight";
 
 export const STAGGER_PER_CHUNK_S = 0.04; // 40ms per contiguous highlighted chunk
+// Minimum cosine similarity a chunk must have to its cluster centroid
+// to be included in the returned theme chunks
+export const MIN_CHUNK_CORRELATION = 0.55;
 
 export function rangesFromThemes(
 	themeList: Theme[] | null,
@@ -19,14 +22,46 @@ export function rangesFromThemes(
 
 		const color = theme.color ?? "#93c5fd";
 
+		// Precompute per-theme normalized correlations to enhance contrast if needed
+		const norms: number[] = theme.chunks
+			.map((c) => {
+				const corr = (c as any).correlation as number | undefined;
+				if (typeof corr === "number" && !Number.isNaN(corr)) {
+					return Math.max(0, Math.min(1, (corr + 1) / 2));
+				}
+				return undefined;
+			})
+			.filter((v): v is number => typeof v === "number");
+
+		const hasCorr = norms.length > 0;
+		const minNorm = hasCorr ? Math.min(...norms) : 0.5;
+		const maxNorm = hasCorr ? Math.max(...norms) : 0.5;
+		const spread = maxNorm - minNorm;
+		const useStretch = hasCorr && spread < 0.15; // stretch only when very bunched
+
 		for (const chunk of theme.chunks) {
 			const sentence = sentenceMap.get(chunk.sentenceId);
 			if (sentence) {
+				// If we have per-chunk correlation (cosine similarity), normalize it to [0,1]
+				// and optionally stretch contrast within the theme for clearer variation.
+				const corr = (chunk as any).correlation as number | undefined;
+				let intensity = 0.5;
+				if (typeof corr === "number" && !Number.isNaN(corr)) {
+					const normalized = Math.max(0, Math.min(1, (corr + 1) / 2));
+					if (useStretch) {
+						const stretched = spread > 0 ? (normalized - minNorm) / spread : 0.5;
+						// map to a softer range [0.3, 0.9] for gentler contrast
+						intensity = 0.3 + 0.6 * Math.max(0, Math.min(1, stretched));
+					} else {
+						intensity = normalized;
+					}
+				}
 				ranges.push({
 					start: sentence.startIndex,
 					end: sentence.endIndex,
 					color,
 					themeId: theme.id,
+					intensity,
 				});
 			}
 		}
@@ -58,37 +93,24 @@ export function createSegments(cuts: number[]): Array<{ start: number; end: numb
 	return segments;
 }
 
-export function buildThemeOrder(currentRanges: HighlightRange[]): Map<string, number> {
-	const themeOrder = new Map<string, number>();
-	let order = 0;
-
-	for (const r of currentRanges) {
-		if (!themeOrder.has(r.themeId)) themeOrder.set(r.themeId, order++);
-	}
-
-	return themeOrder;
-}
 
 export function computeSegmentMeta(
 	segments: Array<{ start: number; end: number }>,
-	currentRanges: HighlightRange[],
-	themeOrder: Map<string, number>
+	currentRanges: HighlightRange[]
 ): SegmentMeta[] {
 	return segments.map(({ start, end }) => {
 		let color: string | null = null;
-		let bestPriority = -1;
+		let intensity: number | null = null;
 
 		for (const r of currentRanges) {
 			if (r.start <= start && r.end >= end) {
-				const p = themeOrder.get(r.themeId) ?? -1;
-				if (p > bestPriority) {
-					bestPriority = p;
-					color = r.color;
-				}
+				color = r.color;
+				intensity = r.intensity;
+				break; // Take first match since we don't need priority
 			}
 		}
 
-		return { start, end, color };
+		return { start, end, color, intensity };
 	});
 }
 
@@ -106,4 +128,3 @@ export function assignChunkIndices(segmentMeta: SegmentMeta[]): number[] {
 
 	return chunkIndex;
 }
-
