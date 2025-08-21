@@ -17,7 +17,7 @@ export const TEXT_DISPLAY_STYLES = {
         overflowWrap: "anywhere" as const,
     },
     // Base classes for text display (match textarea padding/flow)
-    CLASSES: `whitespace-pre-wrap font-plex ${TEXT_STYLES.FONT_SIZE} w-full bg-transparent outline-none border-none box-border ${TEXT_STYLES.PADDING} py-6`,
+    CLASSES: `whitespace-pre-wrap font-plex ${TEXT_STYLES.FONT_SIZE} w-full bg-transparent outline-none border-none box-border ${TEXT_STYLES.PADDING}`,
 } as const;
 
 // CSS classes that should be consistent across components
