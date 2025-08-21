@@ -9,7 +9,6 @@ import { useTopicShiftDetection } from "@/hooks/useTopicShiftDetection";
 import { useTextProcessing } from "@/hooks/useTextProcessing";
 import { ChipOverlay } from "./ChipOverlay";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
-import { TextInputDebug } from "./debug/TextInputDebug";
 
 interface TextInputProps {
   onTextChange?: (text: string) => void;
@@ -31,14 +30,15 @@ export function TextInput({
   const currentKeywordsRef = useRef<string[]>([]);
 
   // Topic shift detection (needs to be first to get keywords for prod system)
-  const { hasTopicShift, currentKeywords, topicVersion } = useTopicShiftDetection({
-    text: currentText,
-    onTopicShift: () => {
-      if (process.env.NODE_ENV !== "production") {
-        console.log("🌟 Topic shift detected in TextInput");
-      }
-    }
-  });
+  const { hasTopicShift, currentKeywords, topicVersion } =
+    useTopicShiftDetection({
+      text: currentText,
+      onTopicShift: () => {
+        if (process.env.NODE_ENV !== "production") {
+          console.log("🌟 Topic shift detected in TextInput");
+        }
+      },
+    });
 
   // Update keywords ref when they change
   useEffect(() => {
@@ -52,12 +52,19 @@ export function TextInput({
     }
   }, []);
 
-  const { prods, callProdAPI, clearQueue, handleTopicShift, queueState, filteredSentences, prodMetrics } =
-    useProdsEnhanced({
-      onTopicShift: onProdTopicShift,
-      topicKeywords: currentKeywordsRef.current,
-      topicVersion,
-    });
+  const {
+    prods,
+    callProdAPI,
+    clearQueue,
+    handleTopicShift,
+    queueState,
+    filteredSentences,
+    prodMetrics,
+  } = useProdsEnhanced({
+    onTopicShift: onProdTopicShift,
+    topicKeywords: currentKeywordsRef.current,
+    topicVersion,
+  });
 
   // Text processing with prod triggering
   const { text, sentences, sentencePositions, textareaRef, handleTextChange } =
@@ -77,36 +84,8 @@ export function TextInput({
     }
   }, [hasTopicShift, handleTopicShift]);
 
-  // Debug panel toggle (off by default)
-  const [showDebug, setShowDebug] = useState(false);
-
   return (
     <div className="relative h-full w-full">
-      {/* Debug toggle button */}
-      {process.env.NODE_ENV !== "production" && (
-        <button
-          type="button"
-          aria-label="Toggle debug"
-          className="absolute z-50 bottom-3 right-3 bg-transparent text-lg leading-none"
-          onClick={() => setShowDebug((v) => !v)}
-        >
-          {showDebug ? "🔴" : "🔴"}
-        </button>
-      )}
-
-      {/* Debug HUD (hidden by default) */}
-      {showDebug && (
-        <TextInputDebug
-          text={text}
-          filteredSentences={filteredSentences}
-          prods={prods}
-          queueState={queueState}
-          sentencePositions={sentencePositions}
-          onClearQueue={clearQueue}
-          prodMetrics={prodMetrics}
-        />
-      )}
-
       {/* Static centered container */}
       <div className="mx-auto max-w-2xl w-full h-full px-4">
         <div className={cn("h-full overflow-hidden flex flex-col min-h-0")}>
@@ -163,6 +142,9 @@ export function TextInput({
                 }
               }}
             />
+
+            {/* Top gradient overlay for smooth transition from timer */}
+            <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none z-10" />
 
             {/* Chip Overlay - positioned relative to textarea container */}
             <ChipOverlay

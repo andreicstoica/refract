@@ -114,11 +114,7 @@ export async function POST(req: Request) {
         };
       }),
       usage: embeddingResult.usage,
-      debug: {
-        totalSentences: sentences.length,
-        totalClusters: clusters.length,
-        finalClusters: sortedClusters.length,
-      },
+
     });
 
   } catch (error) {

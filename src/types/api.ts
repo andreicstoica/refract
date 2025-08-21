@@ -27,9 +27,5 @@ export interface EmbeddingsResponse {
         tokens: number;
         cost?: number;
     };
-    debug?: {
-        totalSentences: number;
-        totalClusters: number;
-        finalClusters: number;
-    };
+
 }
