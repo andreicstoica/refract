@@ -15,7 +15,7 @@ interface OngoingRequest {
     topicVersion: number;
 }
 
-function queueReducer(state: QueueState, action: QueueAction): QueueState {
+export function queueReducer(state: QueueState, action: QueueAction): QueueState {
     switch (action.type) {
         case 'ENQUEUE': {
             // Keep only non-pending items (e.g., processing) and append the newest pending item

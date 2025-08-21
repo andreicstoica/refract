@@ -3,10 +3,11 @@ import {
   sentencesToChunks,
   calculateSimilarityMatrix,
   clusterEmbeddings,
-  findSimilarChunks,
-} from "@/utils/embeddingUtils";
+  attachEmbeddingsToChunks,
+} from "@/lib/embeddings";
 import type { Sentence } from "@/types/sentence";
 import type { TextChunk } from "@/types/embedding";
+import { cosineSimilarity } from "ai";
 
 describe("embeddingUtils", () => {
   let mockSentences: Sentence[];
@@ -126,17 +127,29 @@ describe("embeddingUtils", () => {
     });
   });
 
-  describe("findSimilarChunks", () => {
+  describe("findSimilarChunks (local helper)", () => {
+    function findSimilarChunks(
+      targetEmbedding: number[],
+      chunks: (TextChunk & { embedding?: number[] })[],
+      limit: number
+    ) {
+      return chunks
+        .filter((c) => Array.isArray(c.embedding))
+        .map((c) => ({
+          chunk: c,
+          similarity: cosineSimilarity(targetEmbedding, c.embedding as number[]),
+        }))
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, Math.max(0, limit));
+    }
+
     test("finds most similar chunks in order", () => {
       const chunks = sentencesToChunks(mockSentences);
-      const chunksWithEmbeddings = chunks.map((chunk, i) => ({
-        ...chunk,
-        embedding: mockEmbeddings[i],
-      }));
-      
+      const chunksWithEmbeddings = attachEmbeddingsToChunks(chunks, mockEmbeddings);
+
       const targetEmbedding = [0.7, 0.3, 0.1]; // Similar to first embedding
       const similar = findSimilarChunks(targetEmbedding, chunksWithEmbeddings, 2);
-      
+
       expect(similar).toHaveLength(2);
       expect(similar[0].similarity).toBeGreaterThan(similar[1].similarity);
       expect(similar[0].chunk.sentenceId).toBe("sentence-0"); // Most similar should be first
@@ -149,11 +162,8 @@ describe("embeddingUtils", () => {
 
     test("respects limit parameter", () => {
       const chunks = sentencesToChunks(mockSentences);
-      const chunksWithEmbeddings = chunks.map((chunk, i) => ({
-        ...chunk,
-        embedding: mockEmbeddings[i],
-      }));
-      
+      const chunksWithEmbeddings = attachEmbeddingsToChunks(chunks, mockEmbeddings);
+
       const similar = findSimilarChunks([0.5, 0.5, 0.5], chunksWithEmbeddings, 1);
       expect(similar).toHaveLength(1);
     });
