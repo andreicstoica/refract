@@ -33,27 +33,23 @@ export function ThemeHighlightView({
   }
 
   return (
-    <div className={cn("relative h-full w-full", className)}>
+    <div className={cn("h-full w-full flex flex-col", className)}>
       {/* Static centered container matching write page */}
-      <div className="mx-auto max-w-2xl w-full h-full px-4">
-        <div className="h-full overflow-hidden flex flex-col min-h-0">
-          {/* Theme selection buttons */}
-          <ThemeSelector
-            themes={themes!}
-            selectedThemeIds={selectedThemeIds}
-            onThemeToggle={toggleTheme}
-          />
+      <div className="mx-auto max-w-2xl w-full h-full px-4 flex flex-col min-h-0">
+        {/* Theme selection buttons */}
+        <ThemeSelector
+          themes={themes!}
+          selectedThemeIds={selectedThemeIds}
+          onThemeToggle={toggleTheme}
+        />
 
-          {/* Scrollable text area fills remaining height */}
-          <div className="relative flex-1 min-h-0">
-            <div className="h-full overflow-y-auto overflow-x-hidden pb-4">
-              <HighlightedText
-                text={fullText}
-                currentRanges={highlightRanges}
-                allRanges={allHighlightableRanges}
-              />
-            </div>
-          </div>
+        {/* Scrollable text area fills remaining height */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-4">
+          <HighlightedText
+            text={fullText}
+            currentRanges={highlightRanges}
+            allRanges={allHighlightableRanges}
+          />
         </div>
       </div>
     </div>
