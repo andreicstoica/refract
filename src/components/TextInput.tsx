@@ -18,12 +18,16 @@ interface TextInputProps {
     sentences: Sentence[],
     positions: SentencePosition[]
   ) => void;
+  onTextareaRef?: (el: HTMLTextAreaElement | null) => void;
+  children?: React.ReactNode;
 }
 
 export function TextInput({
   onTextChange,
   placeholder = "What's on your mind?",
   onTextUpdate,
+  onTextareaRef,
+  children,
 }: TextInputProps) {
   // State for managing text and topic detection
   const [currentText, setCurrentText] = useState("");
@@ -77,6 +81,14 @@ export function TextInput({
       onTextUpdate,
     });
 
+  // Expose textarea ref to parent once and on handler change
+  useEffect(() => {
+    onTextareaRef?.(textareaRef.current);
+    return () => {
+      onTextareaRef?.(null);
+    };
+  }, [onTextareaRef]);
+
   // Connect topic shift to prod cancellation (avoid calling during render)
   useEffect(() => {
     if (hasTopicShift) {
@@ -97,7 +109,7 @@ export function TextInput({
               onChange={handleTextChange}
               placeholder={placeholder}
               className={cn(
-                `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex`,
+                `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex relative z-10`,
                 "py-6 h-full"
               )}
               style={{
@@ -142,6 +154,9 @@ export function TextInput({
                 }
               }}
             />
+
+            {/* Inline overlay slot (e.g., highlights), positioned within container */}
+            {children}
 
             {/* Top gradient overlay for smooth transition from timer */}
             <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none z-10" />

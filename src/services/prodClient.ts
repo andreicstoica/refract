@@ -1,6 +1,6 @@
 import type { ProdRequest, ProdResponse } from "@/types/api";
 
-const REQUEST_TIMEOUT_MS = 9000; // 9 seconds
+const REQUEST_TIMEOUT_MS = 10000; // 10 seconds (2s less than server timeout)
 
 /**
  * Generate a prod suggestion with built-in timeout and cancellation support
