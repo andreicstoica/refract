@@ -130,31 +130,44 @@ export function WritingTimer({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={cn(
-        "flex items-center justify-center gap-3 px-3 py-1.5",
+        "group relative flex items-center justify-center gap-3 px-3 py-1.5",
         // Neutral styling consistent with other components
         "bg-muted/50 backdrop-blur-sm border border-border/50 rounded-md shadow-sm",
-        "text-foreground/90 font-medium",
+        "text-foreground/90 font-medium cursor-pointer",
         className
       )}
     >
       {/* Timer Display */}
-      <div className="flex items-center gap-2">
+      <div
+        className={cn(
+          "flex items-center gap-2 transition-all duration-200",
+          // Blur when paused or on hover
+          !isRunning ? "blur-sm" : "group-hover:blur-sm"
+        )}
+      >
         <div className="text-base sm:text-lg font-mono tabular-nums">
           {formatTime(timeLeft)}
         </div>
       </div>
 
-      {/* Play/Pause Button */}
-      <button
-        onClick={isRunning ? pauseTimer : resumeTimer}
-        className="p-1.5 hover:bg-muted/70 rounded-sm transition-colors"
-      >
-        {isRunning ? (
-          <Pause className="w-4 h-4" />
-        ) : (
-          <Play className="w-4 h-4" />
+      {/* Hover/Paused Overlay with Pause Button */}
+      <div
+        className={cn(
+          "absolute inset-0 flex items-center justify-center transition-all duration-200",
+          // Show on hover when running, or always when paused
+          isRunning
+            ? "opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto"
+            : "opacity-100 pointer-events-auto"
         )}
-      </button>
+      >
+        <button onClick={isRunning ? pauseTimer : resumeTimer} className="p-2">
+          {isRunning ? (
+            <Pause className="w-4 h-4" />
+          ) : (
+            <Play className="w-4 h-4" />
+          )}
+        </button>
+      </div>
     </motion.div>
   );
 }
