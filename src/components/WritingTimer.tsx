@@ -133,7 +133,7 @@ export function WritingTimer({
         "group relative flex items-center justify-center gap-3 px-3 py-1.5",
         // Neutral styling consistent with other components
         "bg-muted/50 backdrop-blur-sm border border-border/50 rounded-md shadow-sm",
-        "text-foreground/90 font-medium cursor-pointer",
+        "font-medium cursor-pointer",
         className
       )}
     >
@@ -145,7 +145,15 @@ export function WritingTimer({
           !isRunning ? "blur-sm" : "group-hover:blur-sm"
         )}
       >
-        <div className="text-base sm:text-lg font-mono tabular-nums">
+        <div
+          className={cn(
+            "text-base sm:text-lg font-mono tabular-nums transition-colors duration-200",
+            // Mute text when paused or on hover for better contrast with overlay buttons
+            !isRunning
+              ? "text-muted-foreground"
+              : "group-hover:text-muted-foreground"
+          )}
+        >
           {formatTime(timeLeft)}
         </div>
       </div>
