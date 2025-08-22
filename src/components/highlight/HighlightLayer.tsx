@@ -133,7 +133,7 @@ export function HighlightLayer({
       ref={(node) => {
         containerRef.current = node;
         if (ref) {
-          if (typeof ref === 'function') {
+          if (typeof ref === "function") {
             ref(node);
           } else {
             ref.current = node;

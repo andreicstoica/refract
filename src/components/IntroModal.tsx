@@ -304,9 +304,9 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
               </div>
 
               {/* Start Button */}
-              <button className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-md font-medium">
+              <button className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors">
                 Start Writing
-                <CornerDownLeft className="w-4 h-4" />
+                <CornerDownLeft className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
               </button>
             </div>
 
@@ -333,10 +333,10 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
                   {/* Next Button */}
                   <button
                     onClick={handleNext}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors"
+                    className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors"
                   >
                     Get Started
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                   </button>
                 </>
               )}
@@ -394,10 +394,10 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
                   {/* Start Button */}
                   <button
                     onClick={handleStart}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors"
+                    className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors"
                   >
                     Start Writing
-                    <CornerDownLeft className="w-4 h-4" />
+                    <CornerDownLeft className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
                   </button>
                 </div>
               )}
