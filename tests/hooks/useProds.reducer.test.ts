@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { queueReducer } from "@/hooks/useProdsEnhanced";
-import type { QueueState, QueueItem } from "@/types/queue";
+import { queueReducer } from "@/hooks/useProds";
+import type { QueueState } from "@/types/queue";
 import type { Sentence } from "@/types/sentence";
 
 function makeSentence(id: string, text: string): Sentence {
@@ -81,4 +81,3 @@ describe("queueReducer", () => {
 		expect(s.isProcessing).toBe(false);
 	});
 });
-
