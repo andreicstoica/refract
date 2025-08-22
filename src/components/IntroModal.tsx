@@ -22,6 +22,7 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedMinutes, setSelectedMinutes] = useState(1);
   const [inputBuffer, setInputBuffer] = useState("");
+  const [isEnterPressed, setIsEnterPressed] = useState(false);
   const bufferResetRef = useRef<number | null>(null);
   const minutesRef = useRef(selectedMinutes);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -190,7 +191,11 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
         if (key === "Enter") {
           event.preventDefault();
           event.stopPropagation();
-          onStart(minutesRef.current);
+          setIsEnterPressed(true);
+          setTimeout(() => {
+            onStart(minutesRef.current);
+            setIsEnterPressed(false);
+          }, 200);
           return;
         }
       } else if (currentPage === 0) {
@@ -198,7 +203,11 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
         if (key === "Enter") {
           event.preventDefault();
           event.stopPropagation();
-          handleNext();
+          setIsEnterPressed(true);
+          setTimeout(() => {
+            handleNext();
+            setIsEnterPressed(false);
+          }, 200);
           return;
         }
       }
@@ -333,10 +342,16 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
                   {/* Next Button */}
                   <button
                     onClick={handleNext}
-                    className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors"
+                    className={cn(
+                      "group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-all duration-150",
+                      isEnterPressed && "bg-primary/80 scale-95 shadow-inner"
+                    )}
                   >
                     Get Started
-                    <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    <ChevronRight className={cn(
+                      "w-4 h-4 transition-transform group-hover:translate-x-0.5",
+                      isEnterPressed && "translate-x-0.5"
+                    )} />
                   </button>
                 </>
               )}
@@ -394,10 +409,16 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
                   {/* Start Button */}
                   <button
                     onClick={handleStart}
-                    className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors"
+                    className={cn(
+                      "group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-all duration-150",
+                      isEnterPressed && "bg-primary/80 scale-95 shadow-inner"
+                    )}
                   >
                     Start Writing
-                    <CornerDownLeft className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
+                    <CornerDownLeft className={cn(
+                      "w-4 h-4 transition-transform group-hover:translate-y-0.5",
+                      isEnterPressed && "translate-y-0.5"
+                    )} />
                   </button>
                 </div>
               )}
