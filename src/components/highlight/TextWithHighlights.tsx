@@ -12,7 +12,7 @@ import {
   STAGGER_PER_CHUNK,
 } from "@/lib/highlight";
 
-type HighlightedTextProps = {
+type TextWithHighlightsProps = {
   text: string;
   currentRanges: HighlightRange[];
   allRanges: HighlightRange[];
@@ -23,11 +23,11 @@ type HighlightedTextProps = {
  * We precompute cut points using all potential ranges, then animate background fill
  * per segment based on whether it's currently highlighted.
  */
-export function HighlightedText({
+export function TextWithHighlights({
   text,
   currentRanges,
   allRanges,
-}: HighlightedTextProps) {
+}: TextWithHighlightsProps) {
   // Duration for the highlight sweep (left->right or right->left)
   const HIGHLIGHT_ANIM_TIME = 0.2;
   // Build stable cut points: 0, text.length, and every start/end from all ranges

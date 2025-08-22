@@ -4,17 +4,17 @@ import { useRef } from "react";
 import type { Theme } from "@/types/theme";
 import { cn } from "@/lib/helpers";
 
-type ThemeSelectorProps = {
+type ThemeToggleButtonsProps = {
   themes: Theme[];
   selectedThemeIds: string[];
   onThemeToggle: (themeId: string) => void;
 };
 
-export function ThemeSelector({
+export function ThemeToggleButtons({
   themes,
   selectedThemeIds,
   onThemeToggle,
-}: ThemeSelectorProps) {
+}: ThemeToggleButtonsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   return (
