@@ -27,8 +27,7 @@ export function ThemeSelector({
           {themes.map((theme) => {
             const isSelected = selectedThemeIds.includes(theme.id);
             const baseColor = theme.color ?? "#93c5fd";
-            const fillPct = isSelected ? 32 : 20; // background tint strength - stronger than before
-            const borderPct = isSelected ? 50 : 35; // border tint strength
+            const fillPct = isSelected ? 90 : 55; // more vibrant for both states
 
             return (
               <button
@@ -36,31 +35,25 @@ export function ThemeSelector({
                 onClick={() => onThemeToggle(theme.id)}
                 aria-pressed={isSelected}
                 className={cn(
-                  // Base shadcn button styling with smoother state transitions
-                  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,box-shadow,background-color,border-color,transform] duration-150 ease-out disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-                  // Outline variant styling from shadcn
-                  "border shadow-xs",
-                  // Size sm from shadcn
+                  // Base button styling matching app style
+                  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-200 ease-out disabled:pointer-events-none disabled:opacity-50",
+                  // No border, solid background
                   "h-8 px-3 text-xs",
-                  // Proper active/pressed state styling
-                  "active:scale-95 active:shadow-none"
+                  // Subtle active state
+                  "active:scale-95",
+                  // Text color based on selection
+                  isSelected ? "text-white" : "text-foreground/80"
                 )}
                 style={{
                   ["--chip-color" as any]: baseColor,
-                  ["--fill-pct" as any]: fillPct,
-                  ["--border-pct" as any]: borderPct,
-                  background: `color-mix(in srgb, var(--chip-color) ${fillPct}%, transparent)`,
-                  borderColor: `color-mix(in srgb, var(--chip-color) ${borderPct}%, transparent)`,
+                  background: `color-mix(in srgb, var(--chip-color) ${fillPct}%, ${isSelected ? 'white' : 'transparent'})`,
                 }}
                 onMouseEnter={(e) => {
-                  const hoverFillPct = isSelected ? 40 : 28; // Darker on hover
-                  const hoverBorderPct = isSelected ? 58 : 43;
-                  e.currentTarget.style.background = `color-mix(in srgb, var(--chip-color) ${hoverFillPct}%, transparent)`;
-                  e.currentTarget.style.borderColor = `color-mix(in srgb, var(--chip-color) ${hoverBorderPct}%, transparent)`;
+                  const hoverFillPct = isSelected ? 95 : 70; // More vibrant hover for inactive too
+                  e.currentTarget.style.background = `color-mix(in srgb, var(--chip-color) ${hoverFillPct}%, ${isSelected ? 'white' : 'transparent'})`;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = `color-mix(in srgb, var(--chip-color) ${fillPct}%, transparent)`;
-                  e.currentTarget.style.borderColor = `color-mix(in srgb, var(--chip-color) ${borderPct}%, transparent)`;
+                  e.currentTarget.style.background = `color-mix(in srgb, var(--chip-color) ${fillPct}%, ${isSelected ? 'white' : 'transparent'})`;
                 }}
               >
                 {theme.label}
