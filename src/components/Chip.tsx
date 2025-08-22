@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/helpers";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { AnimatedText } from "./ui/AnimatedText";
 import { Pin } from "lucide-react";
 
@@ -33,6 +33,15 @@ export function Chip({
   const [pinned, setPinned] = useState(false);
   const fadeTimerRef = useRef<number | null>(null);
 
+  // Memoize position calculations to avoid recalculation on every render
+  // Position is relative to textarea content area, chip overlay is relative to textarea container
+  // Position chip right under the sentence with minimal spacing
+  const chipTop = useMemo(
+    () => position.top + 48, // Appear right under the sentence
+    [position.top]
+  );
+  const chipLeft = useMemo(() => position.left + 16, [position.left]); // Add textarea's px-4 padding (16px)
+
   // Start fade after 8 seconds
   useEffect(() => {
     // Skip scheduling fade if pinned
@@ -59,9 +68,16 @@ export function Chip({
     onKeepChip?.();
   };
 
-  // Position chip using consistent line height offset
-  const chipTop = position.top + position.height + offsetY;
-  const chipLeft = position.left;
+  // Debug positioning in development
+  if (process.env.NODE_ENV !== "production") {
+    console.log("🎯 Chip positioning:", {
+      text: text.substring(0, 30) + "...",
+      position,
+      offsetY,
+      chipTop,
+      chipLeft,
+    });
+  }
 
   return (
     <AnimatePresence>
@@ -110,7 +126,7 @@ export function Chip({
               "transition-all duration-200 ease-out",
               pinned
                 ? "opacity-100 translate-y-0 scale-100"
-                : "opacity-0 translate-y-0.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100",
+                : "opacity-0 translate-y-0.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100"
             )}
             aria-hidden="true"
           />

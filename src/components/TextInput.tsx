@@ -95,7 +95,12 @@ export function TextInput({
       const cs = window.getComputedStyle(el);
       const lh = cs.lineHeight;
       const px = lh.endsWith("px") ? parseFloat(lh) : NaN;
-      if (!Number.isNaN(px)) setLineHeightPx(px);
+      if (!Number.isNaN(px)) {
+        setLineHeightPx(px);
+        if (process.env.NODE_ENV !== "production") {
+          console.log("📏 Computed line height:", px, "px");
+        }
+      }
     };
     compute();
     // Update on resize in case of responsive root font size changes

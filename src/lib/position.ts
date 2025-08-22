@@ -3,121 +3,181 @@ import { TEXT_STYLES } from "./constants";
 
 const isDev = process.env.NODE_ENV !== "production";
 
+// Cache for mirror element and computed styles
+let mirrorElement: HTMLDivElement | null = null;
+let cachedStyles: {
+  font: string;
+  padding: string;
+  width: string;
+  lineHeight: string;
+  overflowWrap: string;
+  wordBreak: string;
+  boxSizing: string;
+  paddingTop: number;
+  paddingLeft: number;
+} | null = null;
+
+// Memoization cache for position calculations
+const positionCache = new Map<string, SentencePosition[]>();
+const CACHE_SIZE_LIMIT = 50; // Prevent memory leaks
+
 export function measureSentencePositions(
   sentences: Sentence[],
   textareaElement: HTMLTextAreaElement
 ): SentencePosition[] {
   if (!textareaElement) return [];
 
-  // Create hidden mirror div if needed
-  let mirror = document.getElementById(
-    "textarea-mirror-measure"
-  ) as HTMLDivElement | null;
-  if (!mirror) {
-    mirror = document.createElement("div");
-    mirror.id = "textarea-mirror-measure";
-    mirror.style.position = "absolute";
-    mirror.style.visibility = "hidden";
-    mirror.style.whiteSpace = "pre-wrap";
-    mirror.style.wordBreak = "break-word";
-    mirror.style.pointerEvents = "none";
-    document.body.appendChild(mirror);
+  // Create cache key based on textarea content and sentences
+  const textContent = textareaElement.value;
+  const sentencesKey = sentences.map(s => `${s.id}:${s.text.length}`).join('|') || '';
+  const cacheKey = `${textContent.length}:${sentencesKey}`;
+
+  // Check cache first
+  if (positionCache.has(cacheKey)) {
+    return positionCache.get(cacheKey)!;
   }
 
-  // Copy textarea styles (just the essentials)
-  const style = window.getComputedStyle(textareaElement);
-  mirror.style.font = style.font;
-  mirror.style.padding = style.padding;
-  mirror.style.width = style.width;
-  mirror.style.lineHeight = style.lineHeight; // Add line height for accurate positioning
-  // Ensure wrapping and sizing behavior match the textarea exactly
-  mirror.style.whiteSpace = "pre-wrap"; // textarea-like wrapping for newlines
-  mirror.style.overflowWrap = (style as any).overflowWrap || (style as any)["overflow-wrap"] || "anywhere";
-  mirror.style.wordBreak = style.wordBreak; // align with computed style
-  mirror.style.boxSizing = style.boxSizing;
+  // Create or reuse mirror element
+  if (!mirrorElement) {
+    mirrorElement = document.createElement("div");
+    mirrorElement.id = "textarea-mirror-measure";
+    mirrorElement.style.position = "absolute";
+    mirrorElement.style.visibility = "hidden";
+    mirrorElement.style.whiteSpace = "pre-wrap";
+    mirrorElement.style.wordBreak = "break-word";
+    mirrorElement.style.pointerEvents = "none";
+    document.body.appendChild(mirrorElement);
+  }
 
-  // Ensure we have the correct line height from our constants
+  // Cache computed styles to avoid repeated getComputedStyle calls
+  if (!cachedStyles) {
+    const style = window.getComputedStyle(textareaElement);
+    cachedStyles = {
+      font: style.font,
+      padding: style.padding,
+      width: style.width,
+      lineHeight: style.lineHeight,
+      overflowWrap: (style as any).overflowWrap || (style as any)["overflow-wrap"] || "anywhere",
+      wordBreak: style.wordBreak,
+      boxSizing: style.boxSizing,
+      paddingTop: parseFloat(style.paddingTop) || 0,
+      paddingLeft: parseFloat(style.paddingLeft) || 0,
+    };
+  }
+
+  // Apply cached styles to mirror
+  mirrorElement.style.font = cachedStyles.font;
+  mirrorElement.style.padding = cachedStyles.padding;
+  mirrorElement.style.width = cachedStyles.width;
+  mirrorElement.style.lineHeight = cachedStyles.lineHeight;
+  mirrorElement.style.whiteSpace = "pre-wrap";
+  mirrorElement.style.overflowWrap = cachedStyles.overflowWrap;
+  mirrorElement.style.wordBreak = cachedStyles.wordBreak;
+  mirrorElement.style.boxSizing = cachedStyles.boxSizing;
+
   if (isDev) {
-    console.log("🔧 Mirror styles:", {
-      font: mirror.style.font,
-      padding: mirror.style.padding,
-      width: mirror.style.width,
-      lineHeight: mirror.style.lineHeight,
-      expectedLineHeight: TEXT_STYLES.LINE_HEIGHT
-    });
+    console.log("🔧 Using cached styles:", cachedStyles);
   }
 
-  // Build mirror HTML with <span> for each sentence
-  let cursor = 0;
+  // Optimized HTML building with pre-allocated array
   const text = textareaElement.value;
-  let html = "";
-  for (const s of sentences) {
-    const idx = text.indexOf(s.text, cursor);
+  const htmlParts: string[] = [];
+  let cursor = 0;
+
+  // Pre-calculate sentence positions in text for faster lookup
+  const sentencePositions = new Map<string, number>();
+  for (const sentence of sentences) {
+    const idx = text.indexOf(sentence.text, cursor);
+    if (idx !== -1) {
+      sentencePositions.set(sentence.id, idx);
+      cursor = idx + sentence.text.length;
+    }
+  }
+
+  // Build HTML more efficiently
+  cursor = 0;
+  for (const sentence of sentences) {
+    const idx = sentencePositions.get(sentence.id);
+    if (idx === undefined) continue;
+
     if (idx > cursor) {
-      html += text
+      htmlParts.push(text
         .slice(cursor, idx)
         .replace(/ /g, "&nbsp;")
-        .replace(/\n/g, "<br/>");
+        .replace(/\n/g, "<br/>"));
     }
-    if (idx !== -1) {
-      // Don't include line breaks in the sentence span - they should be outside
-      const sentenceText = s.text.replace(/\n/g, ""); // Remove line breaks from sentence text
-      html += `<span id="mirror-sent-${s.id}">${sentenceText
-        .replace(/ /g, "&nbsp;")}</span>`;
 
-      // Add line break after sentence if it ends with one
-      if (s.text.endsWith('\n')) {
-        html += "<br/>";
-      }
+    const sentenceText = sentence.text.replace(/\n/g, "");
+    htmlParts.push(`<span id="mirror-sent-${sentence.id}">${sentenceText
+      .replace(/ /g, "&nbsp;")}</span>`);
 
-      cursor = idx + s.text.length;
+    if (sentence.text.endsWith('\n')) {
+      htmlParts.push("<br/>");
     }
+
+    cursor = idx + sentence.text.length;
   }
+
   if (cursor < text.length) {
-    html += text
+    htmlParts.push(text
       .slice(cursor)
       .replace(/ /g, "&nbsp;")
-      .replace(/\n/g, "<br/>");
+      .replace(/\n/g, "<br/>"));
   }
-  mirror.innerHTML = html;
+
+  mirrorElement.innerHTML = htmlParts.join('');
 
   if (isDev) {
-    console.log("🔍 Mirror HTML:", html);
-    console.log("🔍 Textarea value:", text);
-    console.log("🔍 Sentences:", sentences.map(s => ({ id: s.id, text: s.text })));
+    console.log("🔍 Built HTML efficiently with", htmlParts.length, "parts");
   }
 
   // Align mirror with textarea
   const taRect = textareaElement.getBoundingClientRect();
-  mirror.style.left = `${taRect.left + window.scrollX}px`;
-  mirror.style.top = `${taRect.top + window.scrollY}px`;
+  mirrorElement.style.left = `${taRect.left + window.scrollX}px`;
+  mirrorElement.style.top = `${taRect.top + window.scrollY}px`;
 
-  if (isDev) console.log("🔍 Textarea rect:", taRect);
+  // Measure positions efficiently
+  const results: SentencePosition[] = [];
+  const scrollTop = textareaElement.scrollTop || 0;
 
-  // Measure
-  const results = sentences
-    .map((s) => {
-      const el = document.getElementById(`mirror-sent-${s.id}`);
-      if (!el) {
-        if (isDev) console.log("❌ Mirror element not found for sentence:", s.id);
-        return null;
-      }
-      const r = el.getBoundingClientRect();
-      // Adjust for textarea's vertical scroll so overlay chips track content
-      const scrollTop = textareaElement.scrollTop || 0;
-      const position = {
-        sentenceId: s.id,
-        top: r.top - taRect.top - scrollTop,
-        left: r.left - taRect.left,
-        width: r.width,
-        height: r.height,
-      };
-      if (isDev) console.log("📍 Measured position for sentence:", s.text, position);
-      return position;
-    })
-    .filter(Boolean) as SentencePosition[];
+  for (const sentence of sentences) {
+    const el = document.getElementById(`mirror-sent-${sentence.id}`);
+    if (!el) {
+      if (isDev) console.log("❌ Mirror element not found for sentence:", sentence.id);
+      continue;
+    }
 
-  if (isDev) console.log("🎯 Final position results:", results);
+    const r = el.getBoundingClientRect();
+    const position = {
+      sentenceId: sentence.id,
+      // Position relative to textarea content area (accounting for padding and scroll)
+      top: r.top - taRect.top - cachedStyles.paddingTop + scrollTop,
+      left: r.left - taRect.left - cachedStyles.paddingLeft,
+      width: r.width,
+      // Use line height instead of measured height to prevent overlap
+      height: cachedStyles.lineHeight ? parseFloat(cachedStyles.lineHeight.replace('px', '') || '56') : r.height,
+    };
+
+    results.push(position);
+    if (isDev) console.log("📍 Measured position for sentence:", sentence.text.substring(0, 30), position);
+  }
+
+  // Cache results and manage cache size
+  positionCache.set(cacheKey, results);
+  if (positionCache.size > CACHE_SIZE_LIMIT) {
+    const firstKey = positionCache.keys().next().value;
+    if (firstKey) {
+      positionCache.delete(firstKey);
+    }
+  }
+
+  if (isDev) console.log("🎯 Final position results:", results.length, "positions");
   return results;
+}
+
+// Clear cache when needed (e.g., on window resize)
+export function clearPositionCache() {
+  positionCache.clear();
+  cachedStyles = null;
 }
 

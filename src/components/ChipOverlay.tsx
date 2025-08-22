@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Chip } from "./Chip";
 import type { Prod } from "@/types/prod";
 import type { SentencePosition } from "@/types/sentence";
@@ -21,33 +22,42 @@ export function ChipOverlay({
   onChipKeep,
   lineHeightPx,
 }: ChipOverlayProps) {
-  // Create a map for quick sentence position lookup
-  const positionMap = new Map(
-    sentencePositions.map((pos) => [pos.sentenceId, pos])
+  // Memoize position map to avoid recreating on every render
+  const positionMap = useMemo(
+    () => new Map(sentencePositions.map((pos) => [pos.sentenceId, pos])),
+    [sentencePositions]
   );
 
-  // Collision avoidance using consistent line height
-  // Use the actual computed textarea line-height when available
-  const LINE_HEIGHT_PX = Math.max(1, Math.round(lineHeightPx || 56));
-  const CHIP_HEIGHT_PX = LINE_HEIGHT_PX; // Use same line height as text
-  const STACK_GAP_PX = 0; // No gap needed with proper line height
+  // Memoize line height calculation
+  const LINE_HEIGHT_PX = useMemo(
+    () => Math.max(1, Math.round(lineHeightPx || 56)),
+    [lineHeightPx]
+  );
+  const CHIP_HEIGHT_PX = LINE_HEIGHT_PX;
+  const STACK_GAP_PX = 2;
 
-  // Prepare list with positions and sort by top/left for stable stacking
-  const prodsWithPos = visibleProds
-    .map((p) => ({ prod: p, pos: positionMap.get(p.sentenceId) }))
-    .filter((x): x is { prod: typeof visibleProds[number]; pos: SentencePosition } => Boolean(x.pos))
-    .sort((a, b) => (a.pos.top - b.pos.top) || (a.pos.left - b.pos.left));
+  // Memoize prod positioning calculations - no stacking, just one chip per sentence
+  const { prodsWithPos, yOffsetByProdId } = useMemo(() => {
+    const prodsWithPos = visibleProds
+      .map((p) => ({ prod: p, pos: positionMap.get(p.sentenceId) }))
+      .filter(
+        (
+          x
+        ): x is {
+          prod: (typeof visibleProds)[number];
+          pos: SentencePosition;
+        } => Boolean(x.pos)
+      )
+      .sort((a, b) => a.pos.top - b.pos.top || a.pos.left - b.pos.left);
 
-  const lineStackCounts = new Map<number, number>();
-  const yOffsetByProdId = new Map<string, number>();
+    // No stacking - just one chip per sentence
+    const yOffsetByProdId = new Map<string, number>();
+    for (const { prod } of prodsWithPos) {
+      yOffsetByProdId.set(prod.id, 0); // No offset, chips appear directly under sentences
+    }
 
-  for (const { prod, pos } of prodsWithPos) {
-    const lineIndex = Math.round(pos.top / LINE_HEIGHT_PX);
-    const currentStack = lineStackCounts.get(lineIndex) ?? 0;
-    const extraY = currentStack * (CHIP_HEIGHT_PX + STACK_GAP_PX);
-    yOffsetByProdId.set(prod.id, extraY);
-    lineStackCounts.set(lineIndex, currentStack + 1);
-  }
+    return { prodsWithPos, yOffsetByProdId };
+  }, [visibleProds, positionMap]);
 
   return (
     <div

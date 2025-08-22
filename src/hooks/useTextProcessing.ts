@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { splitIntoSentences } from "@/lib/sentences";
 import type { Sentence } from "@/types/sentence";
-import { measureSentencePositions } from "@/lib/position";
+import { measureSentencePositions, clearPositionCache } from "@/lib/position";
 import type { SentencePosition } from "@/types/sentence";
 
 interface UseTextProcessingOptions {
@@ -54,6 +54,23 @@ export function useTextProcessing({
             return measureSentencePositions(sentences, textarea) as SentencePosition[];
         },
         []
+    );
+
+    // Debounced position measurement to avoid excessive calculations
+    const debouncedMeasurePositions = useCallback(
+        (sentences: Sentence[], textarea: HTMLTextAreaElement) => {
+            if (positionTimerRef.current) {
+                clearTimeout(positionTimerRef.current);
+            }
+            positionTimerRef.current = setTimeout(() => {
+                if (textarea && sentences.length > 0) {
+                    const positions = measurePositions(sentences, textarea);
+                    setSentencePositions(positions);
+                    if (process.env.NODE_ENV !== "production") console.log("📍 Updated sentence positions:", positions.length, "positions");
+                }
+            }, 50);
+        },
+        [measurePositions]
     );
 
     // Focus on mount and auto-scroll to cursor
@@ -173,17 +190,10 @@ export function useTextProcessing({
                 if (process.env.NODE_ENV !== "production") console.log("❌ Trigger conditions not met for:", lastSentence.text.substring(0, 30) + "...");
             }
 
-            // Delay position calculation to ensure accurate positioning after React paints
-            if (positionTimerRef.current) {
-                clearTimeout(positionTimerRef.current);
+            // Use debounced position measurement
+            if (textareaRef.current && newSentences.length > 0) {
+                debouncedMeasurePositions(newSentences, textareaRef.current);
             }
-            positionTimerRef.current = setTimeout(() => {
-                if (textareaRef.current && newSentences.length > 0) {
-                    const positions = measurePositions(newSentences, textareaRef.current);
-                    setSentencePositions(positions);
-                    if (process.env.NODE_ENV !== "production") console.log("📍 Updated sentence positions:", positions.length, "positions");
-                }
-            }, 100);
         };
 
         // If terminal punctuation, flush immediately; else debounce splitting
@@ -205,16 +215,19 @@ export function useTextProcessing({
             requestAnimationFrame(() => {
                 rafPending = false;
                 if (textareaRef.current && sentences.length > 0) {
+                    // Clear cache on resize to force recalculation
+                    clearPositionCache();
                     const positions = measurePositions(sentences, textareaRef.current);
                     setSentencePositions(positions);
+                    if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after scroll/resize");
                 }
             });
         };
 
         const textarea = textareaRef.current;
         if (textarea) {
-            textarea.addEventListener("scroll", handleRepositionRAF);
-            window.addEventListener("resize", handleRepositionRAF);
+            textarea.addEventListener("scroll", handleRepositionRAF, { passive: true });
+            window.addEventListener("resize", handleRepositionRAF, { passive: true });
 
             return () => {
                 textarea.removeEventListener("scroll", handleRepositionRAF);
