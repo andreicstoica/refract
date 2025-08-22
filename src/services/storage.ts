@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
     THEMES: "refract-themes",
     TEXT: "refract-text",
     SENTENCES: "refract-sentences",
+    HAS_SEEN_INTRO: "refract-has-seen-intro",
 } as const;
 
 /**
@@ -54,6 +55,14 @@ export const storage = {
 
     setSentences(sentences: Sentence[]): void {
         localStorage.setItem(STORAGE_KEYS.SENTENCES, JSON.stringify(sentences));
+    },
+
+    getHasSeenIntro(): boolean {
+        return localStorage.getItem(STORAGE_KEYS.HAS_SEEN_INTRO) === "true";
+    },
+
+    setHasSeenIntro(hasSeen: boolean): void {
+        localStorage.setItem(STORAGE_KEYS.HAS_SEEN_INTRO, hasSeen.toString());
     },
 
     clear(): void {
