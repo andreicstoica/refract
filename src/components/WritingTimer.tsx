@@ -9,17 +9,22 @@ interface WritingTimerProps {
   initialMinutes: number;
   onTimerComplete: () => void;
   className?: string;
+  onThreshold?: (secondsLeft: number) => void;
+  thresholdSeconds?: number;
 }
 
 export function WritingTimer({
   initialMinutes,
   onTimerComplete,
   className,
+  onThreshold,
+  thresholdSeconds = 20,
 }: WritingTimerProps) {
   const [timeLeft, setTimeLeft] = useState(initialMinutes * 60);
   const [isRunning, setIsRunning] = useState(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasTriggeredComplete = useRef(false);
+  const hasFiredThreshold = useRef(false);
 
   // Keep the callback ref updated
   useEffect(() => {
@@ -27,6 +32,11 @@ export function WritingTimer({
   }, [onTimerComplete]);
 
   const onTimerCompleteRef = useRef(onTimerComplete);
+  const onThresholdRef = useRef(onThreshold);
+
+  useEffect(() => {
+    onThresholdRef.current = onThreshold;
+  }, [onThreshold]);
 
   // Start timer immediately when component mounts
   useEffect(() => {
@@ -64,6 +74,20 @@ export function WritingTimer({
       }, 0);
     }
   }, [timeLeft]);
+
+  // Fire threshold callback once when timeLeft crosses or equals threshold
+  useEffect(() => {
+    if (
+      typeof thresholdSeconds === "number" &&
+      !hasFiredThreshold.current &&
+      timeLeft <= thresholdSeconds
+    ) {
+      hasFiredThreshold.current = true;
+      // Defer to avoid calling during render cycle
+      const cb = onThresholdRef.current;
+      if (cb) setTimeout(() => cb(timeLeft), 0);
+    }
+  }, [timeLeft, thresholdSeconds]);
 
   const pauseTimer = () => {
     if (intervalRef.current) {

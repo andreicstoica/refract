@@ -11,16 +11,25 @@ type UseThemeHighlightDataProps = {
     propThemes?: Theme[];
     propFullText?: string;
     propSentences?: Sentence[];
+    disableStorageFallback?: boolean;
 };
 
-export function useThemeHighlightData({ propThemes, propFullText, propSentences }: UseThemeHighlightDataProps) {
+export function useThemeHighlightData({ propThemes, propFullText, propSentences, disableStorageFallback }: UseThemeHighlightDataProps) {
     const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
     const [themes, setThemes] = useState<Theme[] | null>(null);
     const [fullText, setFullText] = useState<string>("");
     const [sentences, setSentences] = useState<Sentence[] | null>(null);
 
-    // Load data from props first, then fall back to storage
+    // Load data from props first; optionally skip any storage fallback (for combined page)
     useEffect(() => {
+        if (disableStorageFallback) {
+            // Only adopt provided props; do not read storage
+            if (propThemes !== undefined) setThemes(propThemes);
+            if (typeof propFullText === "string") setFullText(propFullText);
+            if (propSentences !== undefined) setSentences(propSentences);
+            return;
+        }
+
         const storedThemes = propThemes || storage.getThemes();
         const storedText = propFullText ?? storage.getText() ?? "";
         const storedSentences = propSentences || storage.getSentences();
@@ -28,10 +37,11 @@ export function useThemeHighlightData({ propThemes, propFullText, propSentences 
         if (storedThemes && storedThemes.length) setThemes(storedThemes);
         if (storedText) setFullText(storedText);
         if (storedSentences && storedSentences.length) setSentences(storedSentences);
-    }, [propThemes, propFullText, propSentences]);
+    }, [propThemes, propFullText, propSentences, disableStorageFallback]);
 
     // Poll storage briefly if data isn't ready yet (e.g., during fresh analysis)
     useEffect(() => {
+        if (disableStorageFallback) return;
         if (themes && fullText) return;
 
         let attempts = 0;
@@ -71,7 +81,7 @@ export function useThemeHighlightData({ propThemes, propFullText, propSentences 
         }, 500);
 
         return () => clearInterval(interval);
-    }, [themes, fullText]);
+    }, [themes, fullText, disableStorageFallback]);
 
     // Build sentence lookup map once
     const sentenceMap = useMemo(() => {

@@ -12,6 +12,7 @@ interface UseTextProcessingOptions {
         sentences: Sentence[],
         positions: SentencePosition[]
     ) => void;
+    prodsEnabled?: boolean;
 }
 
 const COOLDOWN_MS = 900;
@@ -26,6 +27,7 @@ export function useTextProcessing({
     onProdTrigger,
     onTextChange,
     onTextUpdate,
+    prodsEnabled = true,
 }: UseTextProcessingOptions) {
     const [text, setText] = useState("");
     const [sentences, setSentences] = useState<Sentence[]>([]);
@@ -93,12 +95,16 @@ export function useTextProcessing({
     // Helper to trigger prod and update tracking state
     const triggerProd = useCallback((currentText: string, lastSentence: Sentence, opts?: { force?: boolean }) => {
         console.log("🚀 Triggering prod for sentence:", lastSentence.text);
-        onProdTrigger(currentText, lastSentence, opts);
+        if (prodsEnabled) {
+            onProdTrigger(currentText, lastSentence, opts);
+        } else {
+            if (process.env.NODE_ENV !== "production") console.log("⏸️ Prods disabled; skipping trigger");
+        }
         lastTriggerAtRef.current = Date.now();
         lastTriggerCharPosRef.current = currentText.length;
         lastTriggerSentenceIdRef.current = lastSentence.id;
         lastTriggerSentenceTextRef.current = lastSentence.text;
-    }, [onProdTrigger]);
+    }, [onProdTrigger, prodsEnabled]);
 
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const newText = e.target.value;

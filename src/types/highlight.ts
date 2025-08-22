@@ -11,4 +11,5 @@ export type SegmentMeta = {
     end: number;
     color: string | null;
     intensity: number | null;
+    themeId: string | null;
 };

@@ -3,7 +3,7 @@ import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 
-export const maxDuration = 15;
+export const maxDuration = 12;
 
 const ProdResponseSchema = z.object({
 	selectedProd: z.string().optional().describe("Best single prod or empty if skipping"),

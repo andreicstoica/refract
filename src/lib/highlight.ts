@@ -101,16 +101,18 @@ export function computeSegmentMeta(
 	return segments.map(({ start, end }) => {
 		let color: string | null = null;
 		let intensity: number | null = null;
+		let themeId: string | null = null;
 
 		for (const r of currentRanges) {
 			if (r.start <= start && r.end >= end) {
 				color = r.color;
 				intensity = r.intensity;
+				themeId = r.themeId;
 				break; // Take first match since we don't need priority
 			}
 		}
 
-		return { start, end, color, intensity };
+		return { start, end, color, intensity, themeId };
 	});
 }
 
