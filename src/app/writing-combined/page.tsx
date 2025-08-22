@@ -193,10 +193,10 @@ export default function WritingCombinedPage() {
           gsap.set(timerContainer, { x: centerOffset });
         }
       })
-        // Phase 2: Smoothly animate timer from center to left over 2 seconds
+        // Phase 2: Smoothly animate timer from center to left over 1 second
         .to(timerContainer, {
           x: 0, // Move to natural left position
-          duration: 2,
+          duration: 1,
           ease: "power2.out",
         })
         // Phase 3: Slide in theme buttons from right (overlapping with timer movement)
@@ -204,7 +204,7 @@ export default function WritingCombinedPage() {
           chipsRef.current,
           { opacity: 0, x: 40 },
           { opacity: 1, x: 0, duration: 1, ease: "power2.out" },
-          ">-1.5" // Start 0.5s after timer starts moving
+          ">-0.25" // Start 0.75s after timer starts moving
         );
     }
   }, [hasThemes]);
