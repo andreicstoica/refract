@@ -86,6 +86,23 @@ export function TextInput({
       prodsEnabled,
     });
 
+  // Compute and pass actual line height of the textarea for chip stacking
+  const [lineHeightPx, setLineHeightPx] = useState<number | null>(null);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const compute = () => {
+      const cs = window.getComputedStyle(el);
+      const lh = cs.lineHeight;
+      const px = lh.endsWith("px") ? parseFloat(lh) : NaN;
+      if (!Number.isNaN(px)) setLineHeightPx(px);
+    };
+    compute();
+    // Update on resize in case of responsive root font size changes
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, [textareaRef]);
+
   // Expose textarea ref to parent once and on handler change
   useEffect(() => {
     onTextareaRef?.(textareaRef.current);
@@ -172,6 +189,7 @@ export function TextInput({
             <ChipOverlay
               visibleProds={prods}
               sentencePositions={sentencePositions}
+              lineHeightPx={lineHeightPx ?? undefined}
             />
           </div>
         </div>

@@ -31,7 +31,9 @@ export default function WritingCombinedPage() {
   const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
 
   // Overlay scroll sync - direct DOM manipulation to avoid React re-renders
-  const [textareaEl, setTextareaEl] = useState<HTMLTextAreaElement | null>(null);
+  const [textareaEl, setTextareaEl] = useState<HTMLTextAreaElement | null>(
+    null
+  );
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const prevHasThemesRef = useRef(false);
@@ -128,16 +130,18 @@ export default function WritingCombinedPage() {
   // Direct DOM scroll sync without React state updates
   useEffect(() => {
     if (!textareaEl || !highlightLayerRef.current) return;
-    
+
     const highlightLayer = highlightLayerRef.current;
     let rafId: number;
-    
+
     const handleScroll = () => {
       if (rafId) cancelAnimationFrame(rafId);
-      
+
       rafId = requestAnimationFrame(() => {
         const scrollTop = Math.round(textareaEl.scrollTop);
-        const content = highlightLayer.querySelector('[data-highlight-content]') as HTMLElement;
+        const content = highlightLayer.querySelector(
+          "[data-highlight-content]"
+        ) as HTMLElement;
         if (content) {
           content.style.transform = `translate3d(0, ${-scrollTop}px, 0)`;
         }
@@ -146,7 +150,7 @@ export default function WritingCombinedPage() {
 
     // Initialize position
     handleScroll();
-    
+
     textareaEl.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
       textareaEl.removeEventListener("scroll", handleScroll);
@@ -157,42 +161,51 @@ export default function WritingCombinedPage() {
   // Whether we have themes to reveal
   const hasThemes = Boolean(themes && themes.length > 0);
 
-  // Animate header transition: timer moves left, then theme buttons slide in from right
+  // Animate header transition: smooth layout change from center to space-between
   useEffect(() => {
     if (!hasThemes || prevHasThemesRef.current) return;
     prevHasThemesRef.current = true;
-    const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const prefersReduced =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    const headerContainer = document.querySelector('[data-header-container]');
-    const timerContainer = headerContainer?.querySelector('[data-timer-container]');
-    
+    const headerContainer = document.querySelector(
+      "[data-header-container]"
+    ) as HTMLElement;
+    const timerContainer = headerContainer?.querySelector(
+      "[data-timer-container]"
+    ) as HTMLElement;
+
     if (headerContainer && timerContainer && chipsRef.current) {
-      // Create GSAP timeline for coordinated animation
+      // Create GSAP timeline for smooth layout transition
       const tl = gsap.timeline();
-      
-      // Phase 1: Gently move timer to make space (smaller movement)
-      tl.to(timerContainer, {
-        x: -60, // Much smaller movement, just making space
-        duration: 0.4,
-        ease: "power2.out"
-      })
-      // Phase 2: Slide in theme buttons from right
-      .fromTo(chipsRef.current, 
-        { opacity: 0, x: 30 },
-        { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" },
-        ">-0.1"
-      )
-      // Phase 3: Update layout and reset positions
-      .call(() => {
-        // Update header to use space-between layout
+
+      // Phase 1: Switch to space-between layout immediately but keep timer centered with transforms
+      tl.call(() => {
         if (headerContainer) {
-          headerContainer.classList.remove('justify-center');
-          headerContainer.classList.add('justify-between');
+          headerContainer.classList.remove("justify-center");
+          headerContainer.classList.add("justify-between");
+          // Calculate how much to move timer to keep it centered initially
+          const containerWidth = headerContainer.offsetWidth;
+          const timerWidth = timerContainer.offsetWidth;
+          const centerOffset = containerWidth / 2 - timerWidth / 2;
+          gsap.set(timerContainer, { x: centerOffset });
         }
-        // Reset timer transform now that CSS handles positioning
-        gsap.set(timerContainer, { x: 0 });
-      });
+      })
+        // Phase 2: Smoothly animate timer from center to left over 2 seconds
+        .to(timerContainer, {
+          x: 0, // Move to natural left position
+          duration: 2,
+          ease: "power2.out",
+        })
+        // Phase 3: Slide in theme buttons from right (overlapping with timer movement)
+        .fromTo(
+          chipsRef.current,
+          { opacity: 0, x: 40 },
+          { opacity: 1, x: 0, duration: 1, ease: "power2.out" },
+          ">-1.5" // Start 0.5s after timer starts moving
+        );
     }
   }, [hasThemes]);
 
@@ -203,9 +216,13 @@ export default function WritingCombinedPage() {
 
       {/* Header with Timer + Theme Controls */}
       {!showTimerSetup && (
-        <div 
+        <div
           data-header-container
-          className={`flex items-center pt-4 w-full mx-auto ${hasThemes ? 'justify-between max-w-2xl px-8' : 'justify-center max-w-6xl px-8'}`}
+          className={`flex items-center pt-4 w-full mx-auto ${
+            hasThemes
+              ? "justify-between max-w-2xl px-8"
+              : "justify-center max-w-6xl px-8"
+          }`}
         >
           <div data-timer-container className="flex items-baseline">
             <WritingTimer
