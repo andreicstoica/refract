@@ -3,9 +3,9 @@
 import { cn } from "@/lib/helpers";
 import type { Theme } from "@/types/theme";
 import { useThemeHighlightData } from "@/hooks/useThemeHighlightData";
-import { ThemeSelector } from "@/components/highlight/ThemeSelector";
-import { HighlightedText } from "@/components/highlight/HighlightedText";
-import { LoadingState } from "@/components/highlight/LoadingState";
+import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
+import { TextWithHighlights } from "@/components/highlight/TextWithHighlights";
+import { HighlightLoadingState } from "@/components/highlight/HighlightLoadingState";
 
 type ThemeHighlightViewProps = {
   className?: string;
@@ -29,7 +29,7 @@ export function ThemeHighlightView({
   } = useThemeHighlightData({ propThemes, propFullText });
 
   if (isLoading) {
-    return <LoadingState className={className} />;
+    return <HighlightLoadingState className={className} />;
   }
 
   return (
@@ -37,7 +37,7 @@ export function ThemeHighlightView({
       {/* Static centered container matching write page */}
       <div className="mx-auto max-w-2xl w-full h-full px-4 flex flex-col min-h-0">
         {/* Theme selection buttons */}
-        <ThemeSelector
+        <ThemeToggleButtons
           themes={themes!}
           selectedThemeIds={selectedThemeIds}
           onThemeToggle={toggleTheme}
@@ -45,7 +45,7 @@ export function ThemeHighlightView({
 
         {/* Scrollable text area fills remaining height */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-4">
-          <HighlightedText
+          <TextWithHighlights
             text={fullText}
             currentRanges={highlightRanges}
             allRanges={allHighlightableRanges}

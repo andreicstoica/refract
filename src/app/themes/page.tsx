@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppNav } from "@/components/AppNav";
-import { LoadingState } from "@/components/highlight/LoadingState";
+import { HighlightLoadingState } from "@/components/highlight/HighlightLoadingState";
 import { ThemeHighlightView } from "@/components/ThemeHighlightView";
 import { storage } from "@/services/storage";
 import type { Theme } from "@/types/theme";
@@ -74,7 +74,7 @@ export default function ThemesPage() {
       <div className="relative h-dvh overflow-hidden bg-background text-foreground flex flex-col">
         <AppNav active="reflect" onTabChange={handleTabChange} />
         <div className="flex-1 min-h-0 p-4 pt-8">
-          <LoadingState message="Analyzing your writing..." showSkeletons={true} />
+          <HighlightLoadingState message="Analyzing your writing..." showSkeletons={true} />
         </div>
       </div>
     );

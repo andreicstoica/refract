@@ -1,17 +1,17 @@
 import { cn } from "@/lib/helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type LoadingStateProps = {
+type HighlightLoadingStateProps = {
   className?: string;
   message?: string;
   showSkeletons?: boolean;
 };
 
-export function LoadingState({
+export function HighlightLoadingState({
   className,
   message = "Loading...",
   showSkeletons = false,
-}: LoadingStateProps) {
+}: HighlightLoadingStateProps) {
   return (
     <div
       className={cn(

@@ -234,7 +234,7 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "bg-background/95 dark:bg-background/85 backdrop-blur-sm border border-border/50 dark:border-border rounded-md p-8 max-w-sm w-full",
+              "bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-border/50 rounded-md p-8 max-w-sm w-full",
               "shadow-xl dark:shadow-2xl dark:shadow-black/50",
               className
             )}
