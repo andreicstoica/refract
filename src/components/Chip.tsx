@@ -2,8 +2,9 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/helpers";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AnimatedText } from "./ui/AnimatedText";
+import { Pin } from "lucide-react";
 
 interface ChipProps {
   text: string;
@@ -13,6 +14,7 @@ interface ChipProps {
     width: number;
     height: number;
   };
+  offsetY?: number;
   className?: string;
   onFadeComplete?: () => void;
   onKeepChip?: () => void;
@@ -21,32 +23,44 @@ interface ChipProps {
 export function Chip({
   text,
   position,
+  offsetY = 0,
   className,
   onFadeComplete,
   onKeepChip,
 }: ChipProps) {
   const [shouldFade, setShouldFade] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [pinned, setPinned] = useState(false);
+  const fadeTimerRef = useRef<number | null>(null);
 
   // Start fade after 8 seconds
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShouldFade(true);
-    }, 8000); // Start fade at 8s
-
-    return () => clearTimeout(timer);
-  }, []);
+    // Skip scheduling fade if pinned
+    if (pinned) return;
+    // Schedule fade start
+    const id = window.setTimeout(() => {
+      // Only start fading if not pinned at that moment
+      setShouldFade((prev) => (pinned ? prev : true));
+    }, 8000);
+    fadeTimerRef.current = id;
+    return () => {
+      if (fadeTimerRef.current) {
+        clearTimeout(fadeTimerRef.current);
+        fadeTimerRef.current = null;
+      }
+    };
+  }, [pinned]);
 
   // Handle tap to keep chip
   const handleTap = () => {
-    if (shouldFade) {
-      setShouldFade(false);
-      onKeepChip?.();
-    }
+    if (pinned) return; // already pinned
+    setPinned(true);
+    setShouldFade(false);
+    onKeepChip?.();
   };
 
-  // Position chip in the space between lines (below the sentence)
-  const chipTop = position.top + position.height + 4;
+  // Position chip using consistent line height offset
+  const chipTop = position.top + position.height + offsetY;
   const chipLeft = position.left;
 
   return (
@@ -72,8 +86,9 @@ export function Chip({
           }}
           className={cn(
             "absolute z-20 text-sm font-medium text-blue-600 dark:text-blue-400",
-            "leading-tight cursor-pointer",
-            shouldFade && "pointer-events-auto", // Enable clicks only when fading
+            "leading-tight cursor-pointer group inline-flex items-center",
+            // Always allow interactions so chips can be pinned anytime
+            "pointer-events-auto",
             className
           )}
           style={{
@@ -86,6 +101,18 @@ export function Chip({
             text={text}
             duration={1500} // 1.5 seconds for handwriting animation
             delay={0} // Start immediately
+          />
+          <Pin
+            size={14}
+            className={cn(
+              "ml-0.5 rotate-[12deg]", // tighter gap next to text
+              // gentle appear animation on hover
+              "transition-all duration-200 ease-out",
+              pinned
+                ? "opacity-100 translate-y-0 scale-100"
+                : "opacity-0 translate-y-0.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100",
+            )}
+            aria-hidden="true"
           />
         </motion.div>
       )}

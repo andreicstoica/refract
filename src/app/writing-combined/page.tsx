@@ -157,7 +157,7 @@ export default function WritingCombinedPage() {
   // Whether we have themes to reveal
   const hasThemes = Boolean(themes && themes.length > 0);
 
-  // Animate header transition: timer moves left, then theme buttons slide in from right
+  // Animate header transition: smooth layout change from center to space-between
   useEffect(() => {
     if (!hasThemes || prevHasThemesRef.current) return;
     prevHasThemesRef.current = true;
@@ -168,31 +168,33 @@ export default function WritingCombinedPage() {
     const timerContainer = headerContainer?.querySelector('[data-timer-container]');
     
     if (headerContainer && timerContainer && chipsRef.current) {
-      // Create GSAP timeline for coordinated animation
+      // Create GSAP timeline for smooth layout transition
       const tl = gsap.timeline();
       
-      // Phase 1: Gently move timer to make space (smaller movement)
-      tl.to(timerContainer, {
-        x: -60, // Much smaller movement, just making space
-        duration: 0.4,
-        ease: "power2.out"
-      })
-      // Phase 2: Slide in theme buttons from right
-      .fromTo(chipsRef.current, 
-        { opacity: 0, x: 30 },
-        { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" },
-        ">-0.1"
-      )
-      // Phase 3: Update layout and reset positions
-      .call(() => {
-        // Update header to use space-between layout
+      // Phase 1: Switch to space-between layout immediately but keep timer centered with transforms
+      tl.call(() => {
         if (headerContainer) {
           headerContainer.classList.remove('justify-center');
           headerContainer.classList.add('justify-between');
+          // Calculate how much to move timer to keep it centered initially
+          const containerWidth = headerContainer.offsetWidth;
+          const timerWidth = timerContainer.offsetWidth;
+          const centerOffset = (containerWidth / 2) - (timerWidth / 2);
+          gsap.set(timerContainer, { x: centerOffset });
         }
-        // Reset timer transform now that CSS handles positioning
-        gsap.set(timerContainer, { x: 0 });
-      });
+      })
+      // Phase 2: Smoothly animate timer from center to left over 2 seconds
+      .to(timerContainer, {
+        x: 0, // Move to natural left position
+        duration: 2,
+        ease: "power2.out"
+      })
+      // Phase 3: Slide in theme buttons from right (overlapping with timer movement)
+      .fromTo(chipsRef.current, 
+        { opacity: 0, x: 40 },
+        { opacity: 1, x: 0, duration: 1, ease: "power2.out" },
+        ">-1.5" // Start 0.5s after timer starts moving
+      );
     }
   }, [hasThemes]);
 
