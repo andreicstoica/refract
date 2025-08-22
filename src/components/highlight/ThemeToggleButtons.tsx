@@ -22,7 +22,7 @@ export function ThemeToggleButtons({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className={cn("shrink-0 pb-4 mb-4 pt-4", className)}>
+    <div className={cn("shrink-0", className)}>
       <div className="relative">
         <div
           ref={scrollContainerRef}
@@ -39,25 +39,36 @@ export function ThemeToggleButtons({
                 onClick={() => onThemeToggle(theme.id)}
                 aria-pressed={isSelected}
                 className={cn(
-                  // Base button styling matching app style
+                  // Base button styling matching timer component
                   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-200 ease-out disabled:pointer-events-none disabled:opacity-50",
-                  // No border, solid background
-                  "h-8 px-3 text-xs",
+                  // Timer-style background and dimensions - theme aware
+                  "h-10 px-4 bg-background/90 backdrop-blur-sm border border-border/20",
                   // Subtle active state
                   "active:scale-95",
                   // Text color based on selection
-                  isSelected ? "text-white" : "text-foreground/80"
+                  isSelected ? "text-foreground" : "text-foreground/70"
                 )}
                 style={{
                   ["--chip-color" as any]: baseColor,
-                  background: `color-mix(in srgb, var(--chip-color) ${fillPct}%, ${isSelected ? 'white' : 'transparent'})`,
+                  backgroundColor: isSelected 
+                    ? `color-mix(in srgb, ${baseColor} 15%, hsl(var(--background) / 0.9))`
+                    : 'hsl(var(--background) / 0.9)',
+                  borderColor: isSelected
+                    ? `color-mix(in srgb, ${baseColor} 35%, hsl(var(--border) / 0.2))`
+                    : 'hsl(var(--border) / 0.2)',
                 }}
                 onMouseEnter={(e) => {
-                  const hoverFillPct = isSelected ? 95 : 70; // More vibrant hover for inactive too
-                  e.currentTarget.style.background = `color-mix(in srgb, var(--chip-color) ${hoverFillPct}%, ${isSelected ? 'white' : 'transparent'})`;
+                  e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${baseColor} ${isSelected ? 15 : 8}%, hsl(var(--background) / 0.9))`;
+                  e.currentTarget.style.borderColor = `color-mix(in srgb, ${baseColor} 30%, hsl(var(--border) / 0.2))`;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = `color-mix(in srgb, var(--chip-color) ${fillPct}%, ${isSelected ? 'white' : 'transparent'})`;
+                  if (isSelected) {
+                    e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${baseColor} 15%, hsl(var(--background) / 0.9))`;
+                    e.currentTarget.style.borderColor = `color-mix(in srgb, ${baseColor} 35%, hsl(var(--border) / 0.2))`;
+                  } else {
+                    e.currentTarget.style.backgroundColor = 'hsl(var(--background) / 0.9)';
+                    e.currentTarget.style.borderColor = 'hsl(var(--border) / 0.2)';
+                  }
                 }}
               >
                 {theme.label}
