@@ -40,25 +40,79 @@ export function HighlightLayer({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const prefersReduced = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-	// Animate highlight sweep on activation
+	// Track previous segment metadata for exit animations with reverse stagger
+	const prevRef = useRef<{
+		meta: typeof meta | null;
+		chunkIndex: number[] | null;
+	}>({ meta: null, chunkIndex: null });
+
+	// Determine reverse-stagger baseline for exiting segments (matching TextWithHighlights)
+	const prevMeta = prevRef.current.meta;
+	const prevIndex = prevRef.current.chunkIndex;
+	let maxPrevExitingIdx = -1;
+	if (prevMeta && prevIndex) {
+		for (let i = 0; i < meta.length; i++) {
+			const wasActive = Boolean(prevMeta[i]?.color);
+			const isActive = Boolean(meta[i]?.color);
+			if (wasActive && !isActive) {
+				const p = prevIndex[i] ?? -1;
+				if (p > maxPrevExitingIdx) maxPrevExitingIdx = p;
+			}
+		}
+	}
+
+	// Animate highlights with exact same logic as TextWithHighlights
 	useEffect(() => {
-		if (prefersReduced) return;
-		if (!containerRef.current) return;
-		if (!currentRanges || currentRanges.length === 0) return;
+		if (prefersReduced || !containerRef.current) return;
 
 		const el = containerRef.current;
-		const activeNodes = Array.from(el.querySelectorAll<HTMLElement>('span[data-active="1"][data-chunk]'));
-		activeNodes.forEach((node) => {
-			const idx = Number(node.dataset.chunk ?? -1);
-			if (idx >= 0) {
+		const HIGHLIGHT_ANIM_TIME = 0.2;
+		const STAGGER_PER_CHUNK = 0.03;
+
+		// Animate each segment based on its state change
+		for (let i = 0; i < meta.length; i++) {
+			const segment = meta[i];
+			const isActive = Boolean(segment.color);
+			const wasActive = Boolean(prevMeta?.[i]?.color);
+			const prevIdx = prevIndex?.[i] ?? -1;
+			const exiting = !isActive && wasActive;
+			
+			// Skip if no state change
+			if (isActive === wasActive) continue;
+
+			const delay = isActive
+				? chunkIndex[i] >= 0
+					? chunkIndex[i] * STAGGER_PER_CHUNK
+					: 0
+				: exiting && prevIdx >= 0
+				? maxPrevExitingIdx >= 0
+					? (maxPrevExitingIdx - prevIdx) * STAGGER_PER_CHUNK
+					: prevIdx * STAGGER_PER_CHUNK
+				: 0;
+
+			// Find the corresponding DOM node
+			const node = el.querySelector<HTMLElement>(`span[data-segment="${i}"]`);
+			if (node) {
 				gsap.fromTo(
 					node,
-					{ backgroundSize: "0% 100%" },
-					{ backgroundSize: "100% 100%", duration: 0.25, delay: idx * 0.03, ease: "power1.out" }
+					{ 
+						backgroundSize: isActive ? "0% 100%" : "100% 100%",
+						backgroundPosition: "left top"
+					},
+					{ 
+						backgroundSize: isActive ? "100% 100%" : "0% 100%",
+						backgroundPosition: "left top",
+						duration: HIGHLIGHT_ANIM_TIME,
+						delay,
+						ease: [0.22, 1, 0.36, 1]
+					}
 				);
 			}
-		});
-	}, [currentRanges, prefersReduced]);
+		}
+
+		// Update ref for next comparison (matching TextWithHighlights)
+		prevRef.current = { meta: [...meta], chunkIndex: [...chunkIndex] };
+	}, [meta, chunkIndex, prefersReduced, maxPrevExitingIdx, prevMeta, prevIndex]);
 
 	return (
 		<div
@@ -79,7 +133,7 @@ export function HighlightLayer({
 					transition: "padding-top 300ms ease",
 				}}
 			>
-				{meta.map(({ start, end, color, intensity }, i) => {
+				{meta.map(({ start, end, color, intensity, themeId }, i) => {
 					const str = text.slice(start, end);
 					const isActive = Boolean(color);
 					const opacity =
@@ -104,10 +158,13 @@ export function HighlightLayer({
 										  )}%, transparent))`
 										: undefined,
 								backgroundRepeat: "no-repeat",
+								backgroundPosition: "left top",
 								display: "inline",
 							}}
 							data-active={isActive ? "1" : "0"}
 							data-chunk={chunkIndex[i] >= 0 ? chunkIndex[i] : undefined}
+							data-theme-id={themeId ?? undefined}
+							data-segment={i}
 						>
 							{str}
 						</span>

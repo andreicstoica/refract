@@ -27,6 +27,13 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const stagingRef = useRef<HTMLDivElement>(null);
+  // Track whether we're running the page transition animation to avoid
+  // clobbering GSAP with the reset effect below.
+  const isTransitioningRef = useRef(false);
+  // Single GSAP timeline instance to avoid duplicate animations in dev/StrictMode
+  const tlRef = useRef<gsap.core.Timeline | null>(null);
+  // Flag to render the next page pre-hidden (prevents one-frame flash)
+  const [isPage1Entering, setIsPage1Entering] = useState(false);
 
   // Check if user has seen intro before
   useEffect(() => {
@@ -35,8 +42,10 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
     }
   }, [isOpen]);
 
-  // Reset content position when page changes (for initial render and skips)
+  // Reset content position when page changes only if not mid-transition
+  // (e.g., initial render or skip-to-timer path).
   useEffect(() => {
+    if (isTransitioningRef.current) return;
     if (contentRef.current) {
       gsap.set(contentRef.current.children, { opacity: 1, x: 0 });
     }
@@ -60,19 +69,28 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
 
   const handleNext = () => {
     if (!contentRef.current || !modalRef.current || !stagingRef.current) return;
-    
+    // Prevent reset effect from interfering during the transition
+    isTransitioningRef.current = true;
+    setIsPage1Entering(true);
+
     storage.setHasSeenIntro(true); // Mark intro as seen
-    
+
     // Get current modal height and measure target height from staging div
     const currentHeight = modalRef.current.offsetHeight;
     const targetHeight = stagingRef.current.offsetHeight;
-    
+
+    // Kill any previous timeline before starting a new one
+    if (tlRef.current) {
+      tlRef.current.kill();
+      tlRef.current = null;
+    }
     // GSAP animation with precise height values
     const tl = gsap.timeline();
-    
+    tlRef.current = tl;
+
     // Set modal to fixed current height for smooth animation
     gsap.set(modalRef.current, { height: currentHeight });
-    
+
     // Fade out current content to the left with stagger
     tl.to(contentRef.current.children, {
       opacity: 0,
@@ -91,20 +109,29 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
     .call(() => {
       setCurrentPage(1);
     })
-    // Set new content to start from the right, then animate in with stagger
-    .set(contentRef.current.children, {
-      opacity: 0,
-      x: 25
-    })
-    .to(contentRef.current.children, {
-      opacity: 1,
-      x: 0,
-      duration: 0.5,
-      ease: "power2.out",
-      stagger: 0.1
-    }, ">+0.15")
-    // Reset modal height to auto after animation completes
-    .set(modalRef.current, { height: "auto" });
+    // After React commits the new DOM, animate new content in from the right
+    .call(() => {
+      // Ensure we wait for the DOM update to commit before selecting children.
+      requestAnimationFrame(() => {
+        if (!contentRef.current) return;
+        const children = contentRef.current.children;
+        // Ensure initial state is correct even if classes/styles didn't apply yet
+        gsap.set(children, { opacity: 0, x: 25 });
+        gsap.to(children, {
+          opacity: 1,
+          x: 0,
+          duration: 0.5,
+          ease: "power2.out",
+          stagger: 0.1,
+          onComplete: () => {
+            // Reset modal height to auto after animation completes
+            if (modalRef.current) gsap.set(modalRef.current, { height: "auto" });
+            isTransitioningRef.current = false;
+            setIsPage1Entering(false);
+          }
+        });
+      });
+    }, [], ">+0.15");
   };
 
   const handlePrevious = () => {
@@ -315,7 +342,11 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
               )}
 
               {currentPage === 1 && (
-                <>
+                <div
+                  className="space-y-8"
+                  // Pre-hide and offset the timer page during entry to prevent flash
+                  style={isPage1Entering ? { opacity: 0, transform: "translateX(25px)" } : undefined}
+                >
                   {/* Timer Setup Page */}
                   <div className="flex flex-col items-center justify-center gap-2">
                     <div className="text-muted-foreground text-md">
@@ -368,7 +399,7 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
                     Start Writing
                     <CornerDownLeft className="w-4 h-4" />
                   </button>
-                </>
+                </div>
               )}
             </div>
           </motion.div>
