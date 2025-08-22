@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, forwardRef } from "react";
 import { cn } from "@/lib/helpers";
 import type { HighlightRange } from "@/types/highlight";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
@@ -17,19 +17,17 @@ type HighlightLayerProps = {
   currentRanges: HighlightRange[];
   allRanges: HighlightRange[];
   className?: string;
-  ref?: React.RefObject<HTMLDivElement> | React.RefCallback<HTMLDivElement>;
 };
 
 // Minimal paint-only highlight overlay that mirrors the textarea content flow.
 // No interactivity; caller controls visibility/opacity. Designed to be positioned
 // as absolute inset-0 with pointer-events-none.
-export function HighlightLayer({
+export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(function HighlightLayer({
   text,
   currentRanges,
   allRanges,
   className,
-  ref,
-}: HighlightLayerProps) {
+}, ref) {
   const cuts = useMemo(
     () => buildCutPoints(text, allRanges),
     [text, allRanges]
@@ -217,4 +215,4 @@ export function HighlightLayer({
       </div>
     </div>
   );
-}
+});
