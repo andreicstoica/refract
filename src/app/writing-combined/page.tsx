@@ -5,11 +5,12 @@ import { IntroModal } from "@/components/IntroModal";
 import { WritingTimer } from "@/components/WritingTimer";
 import { TextInput } from "@/components/TextInput";
 import { useGenerateEmbeddings } from "@/hooks/useGenerateEmbeddings";
-import { storage } from "@/services/storage";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
 import { HighlightLayer } from "@/components/highlight/HighlightLayer";
-import { useThemeHighlightData } from "@/hooks/useThemeHighlightData";
+import { rangesFromThemes } from "@/lib/highlight";
 import type { Sentence, SentencePosition } from "@/types/sentence";
+import type { Theme } from "@/types/theme";
+import { gsap } from "gsap";
 
 export default function WritingCombinedPage() {
   const { generate, isGenerating } = useGenerateEmbeddings();
@@ -25,13 +26,15 @@ export default function WritingCombinedPage() {
     []
   );
 
-  // Analysis state
-  const [hasStartedAnalysis, setHasStartedAnalysis] = useState(false);
-  const [localThemes, setLocalThemes] = useState<any[] | null>(null);
+  // Theme state - simple, direct
+  const [themes, setThemes] = useState<Theme[] | null>(null);
+  const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
 
   // Overlay scroll sync
   const [scrollTop, setScrollTop] = useState(0);
   const [textareaEl, setTextareaEl] = useState<HTMLTextAreaElement | null>(null);
+  const chipsRef = useRef<HTMLDivElement | null>(null);
+  const prevHasThemesRef = useRef(false);
 
   const handleTimerStart = (minutes: number) => {
     setTimerMinutes(minutes);
@@ -44,20 +47,17 @@ export default function WritingCombinedPage() {
 
   const handlePreFinish = useCallback(
     async (_secondsLeft: number) => {
-      if (hasStartedAnalysis || isGenerating) return;
-      setHasStartedAnalysis(true);
+      if (themes || isGenerating) return;
 
       try {
-        // Clear stale data and mark analysis in progress
-        storage.clear();
-        localStorage.setItem("refract-analysis", "running");
         if (process.env.NODE_ENV !== "production") {
           console.log("🧠 analysis: started");
         }
 
-        // Kick off embeddings; when done, it persists themes/text/sentences
-        const themes = await generate(currentSentences, currentText);
-        if (themes && themes.length) setLocalThemes(themes);
+        const result = await generate(currentSentences, currentText);
+        if (result && result.length) {
+          setThemes(result);
+        }
 
         if (process.env.NODE_ENV !== "production") {
           console.log("✅ analysis: completed");
@@ -66,7 +66,7 @@ export default function WritingCombinedPage() {
         console.error("❌ analysis failed", err);
       }
     },
-    [currentSentences, currentText, generate, hasStartedAnalysis, isGenerating]
+    [currentSentences, currentText, generate, themes, isGenerating]
   );
 
   const handleTextUpdate = (
@@ -79,14 +79,34 @@ export default function WritingCombinedPage() {
     setCurrentPositions(positions);
   };
 
-  // Theme data for overlay; prefer locally returned themes if present, else poll storage
-  const { themes, fullText, selectedThemeIds, highlightRanges, allHighlightableRanges, toggleTheme } =
-    useThemeHighlightData({
-      propThemes: localThemes ?? undefined,
-      propFullText: currentText,
-      propSentences: currentSentences,
-      disableStorageFallback: true,
-    });
+  // Build sentence lookup map
+  const sentenceMap = useMemo(() => {
+    const map = new Map<string, Sentence>();
+    for (const sentence of currentSentences) {
+      map.set(sentence.id, sentence);
+    }
+    return map;
+  }, [currentSentences]);
+
+  // All possible ranges (stable segmentation)
+  const allHighlightableRanges = useMemo(
+    () => rangesFromThemes(themes, sentenceMap),
+    [themes, sentenceMap]
+  );
+
+  // Currently active ranges (selected themes only)
+  const highlightRanges = useMemo(() => {
+    if (!themes || selectedThemeIds.length === 0) return [];
+    return rangesFromThemes(themes, sentenceMap, new Set(selectedThemeIds));
+  }, [themes, selectedThemeIds, sentenceMap]);
+
+  const toggleTheme = (themeId: string) => {
+    setSelectedThemeIds((prev) =>
+      prev.includes(themeId)
+        ? prev.filter((id) => id !== themeId)
+        : [...prev, themeId]
+    );
+  };
 
   // Lock body scroll, match write page behavior
   useEffect(() => {
@@ -119,6 +139,22 @@ export default function WritingCombinedPage() {
   // Whether we have themes to reveal
   const hasThemes = Boolean(themes && themes.length > 0);
 
+  // Animate chip reveal and make visual room when themes first appear
+  useEffect(() => {
+    if (!hasThemes || prevHasThemesRef.current) return;
+    prevHasThemesRef.current = true;
+    const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) return;
+
+    if (chipsRef.current) {
+      gsap.fromTo(
+        chipsRef.current,
+        { opacity: 0, y: -8 },
+        { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }
+      );
+    }
+  }, [hasThemes]);
+
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background text-foreground">
       {/* Timer Setup Modal */}
@@ -138,16 +174,22 @@ export default function WritingCombinedPage() {
 
       {/* Writing Surface with inline themes overlay */}
       <div className="flex-1 min-h-0">
-        <TextInput onTextUpdate={handleTextUpdate} onTextareaRef={handleTextareaRef}>
+        <TextInput
+          onTextUpdate={handleTextUpdate}
+          onTextareaRef={handleTextareaRef}
+          prodsEnabled={!showTimerSetup}
+          extraTopPaddingPx={hasThemes ? 40 : 0}
+        >
           {/* Theme buttons overlay: fade/slide in when themes available */}
           {hasThemes ? (
-            <div className="absolute left-0 right-0 -top-2 z-20 flex justify-center pointer-events-none">
+            <div ref={chipsRef} className="absolute left-0 right-0 top-0 z-20 flex justify-center pointer-events-none">
               <div className="w-full max-w-2xl px-4 pointer-events-auto">
                 <div className="transition-all duration-300 ease-out opacity-100 translate-y-0 motion-reduce:translate-y-0">
                   <ThemeToggleButtons
                     themes={themes!}
                     selectedThemeIds={selectedThemeIds}
                     onThemeToggle={toggleTheme}
+                    noXPad
                   />
                 </div>
               </div>
@@ -158,10 +200,11 @@ export default function WritingCombinedPage() {
           {hasThemes ? (
             <div className="transition-opacity duration-300 ease-out opacity-100">
               <HighlightLayer
-                text={fullText || currentText}
+                text={currentText}
                 currentRanges={highlightRanges}
                 allRanges={allHighlightableRanges}
                 scrollTop={scrollTop}
+                extraTopPaddingPx={hasThemes ? 40 : 0}
               />
             </div>
           ) : null}

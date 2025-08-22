@@ -8,21 +8,25 @@ type ThemeToggleButtonsProps = {
   themes: Theme[];
   selectedThemeIds: string[];
   onThemeToggle: (themeId: string) => void;
+  className?: string;
+  noXPad?: boolean;
 };
 
 export function ThemeToggleButtons({
   themes,
   selectedThemeIds,
   onThemeToggle,
+  className,
+  noXPad,
 }: ThemeToggleButtonsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="shrink-0 pb-4 mb-4 pt-4">
+    <div className={cn("shrink-0 pb-4 mb-4 pt-4", className)}>
       <div className="relative">
         <div
           ref={scrollContainerRef}
-          className="flex gap-2 overflow-x-auto scrollbar-hide px-4"
+          className={cn("flex gap-2 overflow-x-auto scrollbar-hide", noXPad ? undefined : "px-4")}
         >
           {themes.map((theme) => {
             const isSelected = selectedThemeIds.includes(theme.id);

@@ -20,6 +20,8 @@ interface TextInputProps {
   ) => void;
   onTextareaRef?: (el: HTMLTextAreaElement | null) => void;
   children?: React.ReactNode;
+  prodsEnabled?: boolean;
+  extraTopPaddingPx?: number;
 }
 
 export function TextInput({
@@ -28,6 +30,8 @@ export function TextInput({
   onTextUpdate,
   onTextareaRef,
   children,
+  prodsEnabled = true,
+  extraTopPaddingPx = 0,
 }: TextInputProps) {
   // State for managing text and topic detection
   const [currentText, setCurrentText] = useState("");
@@ -79,6 +83,7 @@ export function TextInput({
         onTextChange?.(newText);
       },
       onTextUpdate,
+      prodsEnabled,
     });
 
   // Expose textarea ref to parent once and on handler change
@@ -120,6 +125,8 @@ export function TextInput({
                 lineHeight: "3.5rem",
                 wordBreak: "break-word",
                 overflowWrap: "anywhere",
+                paddingTop: `${24 + (extraTopPaddingPx || 0)}px`,
+                transition: "padding-top 300ms ease",
               }}
               autoComplete="off"
               autoCorrect="off"

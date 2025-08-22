@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/helpers";
 import type { HighlightRange } from "@/types/highlight";
 import { TEXT_DISPLAY_STYLES } from "@/lib/constants";
@@ -7,7 +8,9 @@ import {
 	buildCutPoints,
 	createSegments,
 	computeSegmentMeta,
+	assignChunkIndices,
 } from "@/lib/highlight";
+import { gsap } from "gsap";
 
 type HighlightLayerProps = {
 	text: string;
@@ -15,6 +18,7 @@ type HighlightLayerProps = {
 	allRanges: HighlightRange[];
 	className?: string;
 	scrollTop?: number;
+	extraTopPaddingPx?: number;
 };
 
 // Minimal paint-only highlight overlay that mirrors the textarea content flow.
@@ -26,15 +30,41 @@ export function HighlightLayer({
 	allRanges,
 	className,
 	scrollTop = 0,
+	extraTopPaddingPx = 0,
 }: HighlightLayerProps) {
-	const cuts = buildCutPoints(text, allRanges);
-	const segments = createSegments(cuts);
-	const meta = computeSegmentMeta(segments, currentRanges);
+	const cuts = useMemo(() => buildCutPoints(text, allRanges), [text, allRanges]);
+	const segments = useMemo(() => createSegments(cuts), [cuts]);
+	const meta = useMemo(() => computeSegmentMeta(segments, currentRanges), [segments, currentRanges]);
+	const chunkIndex = useMemo(() => assignChunkIndices(meta), [meta]);
+
+	const containerRef = useRef<HTMLDivElement>(null);
+	const prefersReduced = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+	// Animate highlight sweep on activation
+	useEffect(() => {
+		if (prefersReduced) return;
+		if (!containerRef.current) return;
+		if (!currentRanges || currentRanges.length === 0) return;
+
+		const el = containerRef.current;
+		const activeNodes = Array.from(el.querySelectorAll<HTMLElement>('span[data-active="1"][data-chunk]'));
+		activeNodes.forEach((node) => {
+			const idx = Number(node.dataset.chunk ?? -1);
+			if (idx >= 0) {
+				gsap.fromTo(
+					node,
+					{ backgroundSize: "0% 100%" },
+					{ backgroundSize: "100% 100%", duration: 0.25, delay: idx * 0.03, ease: "power1.out" }
+				);
+			}
+		});
+	}, [currentRanges, prefersReduced]);
 
 	return (
 		<div
+			ref={containerRef}
 			className={cn(
-				"absolute inset-0 pointer-events-none z-0 overflow-hidden",
+				"absolute inset-0 pointer-events-none z-15 overflow-hidden",
 				className
 			)}
 		>
@@ -45,9 +75,11 @@ export function HighlightLayer({
 					...TEXT_DISPLAY_STYLES.INLINE_STYLES,
 					transform: `translateY(${-scrollTop}px)`,
 					color: "transparent",
+					paddingTop: `${24 + (extraTopPaddingPx || 0)}px`,
+					transition: "padding-top 300ms ease",
 				}}
 			>
-				{meta.map(({ start, end, color, intensity }) => {
+				{meta.map(({ start, end, color, intensity }, i) => {
 					const str = text.slice(start, end);
 					const isActive = Boolean(color);
 					const opacity =
@@ -74,6 +106,8 @@ export function HighlightLayer({
 								backgroundRepeat: "no-repeat",
 								display: "inline",
 							}}
+							data-active={isActive ? "1" : "0"}
+							data-chunk={chunkIndex[i] >= 0 ? chunkIndex[i] : undefined}
 						>
 							{str}
 						</span>
