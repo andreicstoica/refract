@@ -128,9 +128,9 @@ export function WritingTimer({
     <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ 
-        duration: 0.6, 
-        ease: "easeOut" // Framer Motion's built-in easeOut
+      transition={{
+        duration: 0.6,
+        ease: "easeOut", // Framer Motion's built-in easeOut
       }}
       className={cn(
         "group relative flex items-center justify-center gap-3 px-3 py-1.5",

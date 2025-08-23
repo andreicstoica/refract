@@ -77,7 +77,6 @@ export default function WritingCombinedPage() {
   ) => {
     setCurrentText(text);
     setCurrentSentences(sentences);
-    // Removed: setCurrentPositions(positions); - not used in this component
   };
 
   // Build sentence lookup map
