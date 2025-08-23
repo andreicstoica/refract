@@ -195,13 +195,13 @@ export default function WritingCombinedPage() {
         .to(timerContainer, {
           x: 0, // Move to natural left position
           duration: 1,
-          ease: "power2.out",
+          ease: "sine.inOut",
         })
-        // Phase 3: Slide in theme buttons from right (overlapping with timer movement)
+        // Phase 3: Gently fade/scale in theme buttons (no slide)
         .fromTo(
           chipsRef.current,
-          { opacity: 0, x: 40 },
-          { opacity: 1, x: 0, duration: 1, ease: "power2.out" },
+          { opacity: 0, scale: 0.98 },
+          { opacity: 1, scale: 1, duration: 0.9, ease: "sine.inOut" },
           ">-0.25" // Start 0.75s after timer starts moving
         );
     }
