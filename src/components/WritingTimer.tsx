@@ -145,17 +145,17 @@ export function WritingTimer({
       <div
         className={cn(
           "flex items-center gap-2 transition-all duration-200",
-          // Blur when paused or on hover
-          !isRunning ? "blur-sm" : "group-hover:blur-sm"
+          // Blur when paused; only blur on hover for pointer/desktop (md+)
+          !isRunning ? "blur-sm" : "md:group-hover:blur-sm"
         )}
       >
         <div
           className={cn(
             "text-base sm:text-lg font-mono tabular-nums transition-colors duration-200",
-            // Mute text when paused or on hover for better contrast with overlay buttons
+            // Mute text when paused; only on hover for pointer/desktop (md+)
             !isRunning
               ? "text-muted-foreground"
-              : "group-hover:text-muted-foreground"
+              : "md:group-hover:text-muted-foreground"
           )}
         >
           {formatTime(timeLeft)}
@@ -166,9 +166,9 @@ export function WritingTimer({
       <div
         className={cn(
           "absolute inset-0 flex items-center justify-center transition-all duration-200",
-          // Show on hover when running, or always when paused
+          // On mobile, don't show hover state when running; desktop shows on hover
           isRunning
-            ? "opacity-0 group-hover:opacity-100 pointer-events-none"
+            ? "opacity-0 md:group-hover:opacity-100 pointer-events-none"
             : "opacity-100 pointer-events-none"
         )}
       >

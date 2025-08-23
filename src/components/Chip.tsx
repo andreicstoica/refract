@@ -38,10 +38,11 @@ export function Chip({
   // Memoize position calculations to avoid recalculation on every render
   // Position is relative to textarea content area, chip overlay is relative to textarea container
   // Position chip right under the sentence with horizontal offset for side-by-side layout
-  const chipTop = useMemo(
-    () => position.top + (position.height || 56) + 4 + verticalOffset, // place just below the sentence line
-    [position.top, position.height, verticalOffset]
-  );
+  const chipTop = useMemo(() => {
+    const measured = position.height ?? 44;
+    const lineOffset = Math.min(44, measured); // cap to 44px so chips sit closer
+    return position.top + lineOffset + 4 + verticalOffset; // small gap below line
+  }, [position.top, position.height, verticalOffset]);
   const chipLeft = useMemo(() => {
     // Clamp to the start of the textarea content (px-4 => 16px)
     const baseLeft = position.left + 16 + horizontalOffset;
