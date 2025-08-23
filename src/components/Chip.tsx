@@ -16,6 +16,7 @@ interface ChipProps {
   };
   horizontalOffset?: number;
   verticalOffset?: number;
+  maxWidthPx?: number;
   className?: string;
   onFadeComplete?: () => void;
   onKeepChip?: () => void;
@@ -26,6 +27,7 @@ export function Chip({
   position,
   horizontalOffset = 0,
   verticalOffset = 0,
+  maxWidthPx,
   className,
   onFadeComplete,
   onKeepChip,
@@ -111,7 +113,7 @@ export function Chip({
           className={cn(
             "absolute z-20 text-sm font-medium text-blue-600 dark:text-blue-400",
             "leading-tight cursor-pointer group inline-flex items-center",
-            "whitespace-nowrap", // Keep chips single-line
+            "whitespace-nowrap overflow-hidden text-ellipsis", // single-line with safe truncation
             // Always allow interactions so chips can be pinned anytime
             "pointer-events-auto",
             className
@@ -119,6 +121,7 @@ export function Chip({
           style={{
             top: chipTop,
             left: chipLeft,
+            maxWidth: maxWidthPx ? `${Math.max(0, Math.floor(maxWidthPx))}px` : undefined,
           }}
           onClick={handleTap}
         >
