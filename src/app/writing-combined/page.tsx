@@ -8,6 +8,10 @@ import { useGenerateEmbeddings } from "@/hooks/useGenerateEmbeddings";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
 import { HighlightLayer } from "@/components/highlight/HighlightLayer";
 import { rangesFromThemes } from "@/lib/highlight";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { RefreshCw } from "lucide-react";
+import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
 import { gsap } from "gsap";
@@ -35,6 +39,7 @@ export default function WritingCombinedPage() {
   );
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
+  const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
   const prevHasThemesRef = useRef(false);
 
   const handleTimerStart = (minutes: number) => {
@@ -107,6 +112,19 @@ export default function WritingCombinedPage() {
         : [...prev, themeId]
     );
   };
+
+  // Explicit re-run of embeddings on demand
+  const handleRerunEmbeddings = useCallback(async () => {
+    if (isGenerating) return;
+    try {
+      const result = await generate(currentSentences, currentText);
+      if (result && result.length) {
+        setThemes(result);
+      }
+    } catch (err) {
+      console.error("❌ re-run embeddings failed", err);
+    }
+  }, [isGenerating, generate, currentSentences, currentText]);
 
   // Lock body scroll, match write page behavior
   useEffect(() => {
@@ -186,9 +204,16 @@ export default function WritingCombinedPage() {
           headerContainer.classList.add("justify-between");
           // Calculate how much to move timer to keep it centered initially
           const containerWidth = headerContainer.offsetWidth;
-          const timerWidth = timerContainer.offsetWidth;
+          // Get just the timer width (first child is the WritingTimer)
+          const timerEl = timerContainer.firstElementChild as HTMLElement;
+          const timerWidth = timerEl?.offsetWidth || 0;
           const centerOffset = containerWidth / 2 - timerWidth / 2;
           gsap.set(timerContainer, { x: centerOffset });
+          
+          // Hide reload button initially
+          if (reloadButtonRef.current) {
+            gsap.set(reloadButtonRef.current, { opacity: 0, scale: 0.98 });
+          }
         }
       })
         // Phase 2: Smoothly animate timer from center to left over 1 second
@@ -197,12 +222,19 @@ export default function WritingCombinedPage() {
           duration: 1,
           ease: "sine.inOut",
         })
-        // Phase 3: Gently fade/scale in theme buttons (no slide)
+        // Phase 3: Fade in reload button first
+        .fromTo(
+          reloadButtonRef.current,
+          { opacity: 0, scale: 0.98 },
+          { opacity: 1, scale: 1, duration: 0.9, ease: "sine.inOut" },
+          ">-0.25" // Start 0.75s after timer starts moving
+        )
+        // Phase 4: Gently fade/scale in theme buttons (no slide)
         .fromTo(
           chipsRef.current,
           { opacity: 0, scale: 0.98 },
           { opacity: 1, scale: 1, duration: 0.9, ease: "sine.inOut" },
-          ">-0.25" // Start 0.75s after timer starts moving
+          "<" // Start at the same time as reload button
         );
     }
   }, [hasThemes]);
@@ -233,17 +265,45 @@ export default function WritingCombinedPage() {
                   : "justify-center max-w-6xl px-8"
               }`}
             >
-              <div data-timer-container className="flex items-baseline">
+              <div data-timer-container className="flex items-center">
                 <WritingTimer
                   initialMinutes={timerMinutes}
                   onTimerComplete={handleTimerComplete}
                   onThreshold={handlePreFinish}
                   thresholdSeconds={20}
                 />
+                {hasThemes && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        ref={reloadButtonRef}
+                        variant="ghost"
+                        className={cn(
+                          "ml-3 h-10 px-3",
+                          // Match timer's neutral styling
+                          "bg-muted/50 backdrop-blur-sm border border-border/50 rounded-md"
+                        )}
+                        onClick={handleRerunEmbeddings}
+                        disabled={isGenerating || currentSentences.length === 0}
+                        aria-label="Reload themes"
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "w-4 h-4",
+                            isGenerating && "animate-spin"
+                          )}
+                        />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Reload themes</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               {hasThemes && (
-                <div ref={chipsRef} className="flex-1 ml-4 min-w-0">
-                  <div className="overflow-x-auto">
+                <div ref={chipsRef} className="flex-1 ml-3 min-w-0 flex items-center">
+                  <div className="overflow-x-auto flex-1">
                     <ThemeToggleButtons
                       themes={themes!}
                       selectedThemeIds={selectedThemeIds}

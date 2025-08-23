@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Edu_NSW_ACT_Foundation, IBM_Plex_Sans } from "next/font/google";
+import { Edu_SA_Beginner, IBM_Plex_Sans } from "next/font/google";
 import "../index.css";
 import Providers from "@/components/layout/providers";
 
@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const eduCursive = Edu_NSW_ACT_Foundation({
+const eduCursive = Edu_SA_Beginner({
   variable: "--font-edu-cursive",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],

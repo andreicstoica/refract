@@ -133,9 +133,9 @@ export function WritingTimer({
         ease: "easeOut", // Framer Motion's built-in easeOut
       }}
       className={cn(
-        "group relative flex items-center justify-center gap-3 px-3 py-1.5",
+        "group relative flex items-center justify-center gap-3 px-3 h-10",
         // Neutral styling consistent with other components
-        "bg-muted/50 backdrop-blur-sm border border-border/50 rounded-md shadow-sm",
+        "bg-muted/50 backdrop-blur-sm border border-border/50 rounded-md",
         "font-medium cursor-pointer",
         className
       )}

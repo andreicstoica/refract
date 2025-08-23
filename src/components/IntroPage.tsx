@@ -16,7 +16,7 @@ export function IntroPage({ onNext, isEnterPressed }: IntroPageProps) {
         <h1 className="text-2xl font-semibold text-foreground">Welcome</h1>
         <div className="space-y-4 text-muted-foreground text-sm">
           <p>
-            Write about whatever's on your mind. We don't store what you write.
+            Journal about whatever's on your mind. We don't store your writing.
           </p>
           <p>
             Our AI will gently nudge you deeper and surface connections you

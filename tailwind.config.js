@@ -67,7 +67,7 @@ module.exports = {
           "Inter", "Geist", "ui-sans-serif", "system-ui", "sans-serif",
           "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"
         ],
-        cursive: ["Edu NSW ACT Foundation", "cursive"],
+        cursive: ["Edu SA Beginner", "cursive"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
       },
       backdropBlur: {

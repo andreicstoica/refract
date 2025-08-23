@@ -105,3 +105,12 @@ body {
 		@apply font-sans bg-background text-foreground;
 	}
 }
+
+/* Thinner scrollbar utility: apply to elements needing a slimmer bar */
+.scrollbar-thin {
+  scrollbar-width: thin; /* Firefox */
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
