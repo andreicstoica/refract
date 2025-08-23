@@ -10,6 +10,7 @@ import { useGenerateEmbeddings } from "@/hooks/useGenerateEmbeddings";
 import { storage } from "@/services/storage";
 import type { Sentence } from "@/types/sentence";
 import type { SentencePosition } from "@/types/sentence";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function WritePage() {
   const router = useRouter();
@@ -19,13 +20,9 @@ export default function WritePage() {
   // Simplified state management
   const [showTimerSetup, setShowTimerSetup] = useState(true);
   const [timerMinutes, setTimerMinutes] = useState(1);
-  const [timerStarted, setTimerStarted] = useState(false);
   const [analyzeEnabled, setAnalyzeEnabled] = useState(false);
   const [currentText, setCurrentText] = useState("");
   const [currentSentences, setCurrentSentences] = useState<Sentence[]>([]);
-  const [currentPositions, setCurrentPositions] = useState<SentencePosition[]>(
-    []
-  );
 
   // Simple navigation state
   const analyzeDisabled = !analyzeEnabled || isGenerating;
@@ -41,13 +38,11 @@ export default function WritePage() {
   ) => {
     setCurrentText(text);
     setCurrentSentences(sentences);
-    setCurrentPositions(positions);
   };
 
   const handleTimerStart = (minutes: number) => {
     setTimerMinutes(minutes);
     setShowTimerSetup(false);
-    setTimerStarted(true);
 
     // Enable analyze tab after 20 seconds
     setTimeout(() => {
@@ -109,14 +104,25 @@ export default function WritePage() {
       <IntroModal isOpen={showTimerSetup} onStart={handleTimerStart} />
 
       {/* Timer Display */}
-      {!showTimerSetup && (
-        <div className="flex justify-center pt-4">
-          <WritingTimer
-            initialMinutes={timerMinutes}
-            onTimerComplete={handleTimerComplete}
-          />
-        </div>
-      )}
+      <AnimatePresence>
+        {!showTimerSetup && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{
+              duration: 0.6,
+              ease: "easeOut",
+            }}
+            className="flex justify-center pt-4 overflow-hidden"
+          >
+            <WritingTimer
+              initialMinutes={timerMinutes}
+              onTimerComplete={handleTimerComplete}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Text Input */}
       <div className="flex-1 min-h-0">

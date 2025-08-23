@@ -37,8 +37,8 @@ export function Chip({
   // Position is relative to textarea content area, chip overlay is relative to textarea container
   // Position chip right under the sentence with horizontal offset for side-by-side layout
   const chipTop = useMemo(
-    () => position.top + position.height + 8, // Appear right under the sentence with small gap
-    [position.top, position.height]
+    () => position.top + 44, // Position in the spacing area below text
+    [position.top]
   );
   const chipLeft = useMemo(
     () => position.left + 16 + horizontalOffset, // Add textarea's px-4 padding (16px) + horizontal offset
@@ -107,6 +107,7 @@ export function Chip({
           className={cn(
             "absolute z-20 text-sm font-medium text-blue-600 dark:text-blue-400",
             "leading-tight cursor-pointer group inline-flex items-center",
+            "whitespace-nowrap", // Keep chips single-line
             // Always allow interactions so chips can be pinned anytime
             "pointer-events-auto",
             className

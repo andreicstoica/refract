@@ -115,10 +115,11 @@ export function TextInput({
                 overflowX: "hidden",
                 resize: "none",
                 lineHeight: "3.5rem",
+                fontSize: "1rem",
                 wordBreak: "break-word",
                 overflowWrap: "anywhere",
                 paddingTop: `${24 + (extraTopPaddingPx || 0)}px`,
-                transition: "padding-top 300ms ease",
+                transition: "padding-top 400ms ease-out", // CSS ease-out for consistency
               }}
               autoComplete="off"
               autoCorrect="off"
