@@ -8,6 +8,10 @@ import { useGenerateEmbeddings } from "@/hooks/useGenerateEmbeddings";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
 import { HighlightLayer } from "@/components/highlight/HighlightLayer";
 import { rangesFromThemes } from "@/lib/highlight";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { RefreshCw } from "lucide-react";
+import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
 import { gsap } from "gsap";
@@ -107,6 +111,19 @@ export default function WritingCombinedPage() {
         : [...prev, themeId]
     );
   };
+
+  // Explicit re-run of embeddings on demand
+  const handleRerunEmbeddings = useCallback(async () => {
+    if (isGenerating) return;
+    try {
+      const result = await generate(currentSentences, currentText);
+      if (result && result.length) {
+        setThemes(result);
+      }
+    } catch (err) {
+      console.error("❌ re-run embeddings failed", err);
+    }
+  }, [isGenerating, generate, currentSentences, currentText]);
 
   // Lock body scroll, match write page behavior
   useEffect(() => {
@@ -233,17 +250,44 @@ export default function WritingCombinedPage() {
                   : "justify-center max-w-6xl px-8"
               }`}
             >
-              <div data-timer-container className="flex items-baseline">
+              <div data-timer-container className="flex items-center">
                 <WritingTimer
                   initialMinutes={timerMinutes}
                   onTimerComplete={handleTimerComplete}
                   onThreshold={handlePreFinish}
                   thresholdSeconds={20}
                 />
+                {hasThemes && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          "ml-3 h-10 px-3",
+                          // Match timer's neutral styling
+                          "bg-muted/50 backdrop-blur-sm border border-border/50 rounded-md"
+                        )}
+                        onClick={handleRerunEmbeddings}
+                        disabled={isGenerating || currentSentences.length === 0}
+                        aria-label="Reload themes"
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "w-4 h-4",
+                            isGenerating && "animate-spin"
+                          )}
+                        />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Reload themes</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               {hasThemes && (
-                <div ref={chipsRef} className="flex-1 ml-4 min-w-0">
-                  <div className="overflow-x-auto">
+                <div ref={chipsRef} className="flex-1 ml-3 min-w-0 flex items-center">
+                  <div className="overflow-x-auto flex-1">
                     <ThemeToggleButtons
                       themes={themes!}
                       selectedThemeIds={selectedThemeIds}

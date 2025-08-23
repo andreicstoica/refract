@@ -107,7 +107,7 @@ export function TextInput({
               placeholder={placeholder}
               className={cn(
                 `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex relative z-10`,
-                "py-6 h-full"
+                "py-6 h-full scrollbar-thin"
               )}
               style={{
                 caretColor: "currentColor",

@@ -39,10 +39,10 @@ export function ThemeToggleButtons({
                 onClick={() => onThemeToggle(theme.id)}
                 aria-pressed={isSelected}
                 className={cn(
-                  // Base button styling matching timer component
+                  // Base button styling
                   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-200 ease-out disabled:pointer-events-none disabled:opacity-50",
-                  // Timer-style background and dimensions - theme aware
-                  "h-10 px-4 bg-background/90 backdrop-blur-sm border border-border/20",
+                  // Match timer neutral container styling and explicit height
+                  "h-10 px-3 bg-muted/50 backdrop-blur-sm border border-border/50",
                   // Subtle active state
                   "active:scale-95",
                   // Text color based on selection
@@ -50,24 +50,25 @@ export function ThemeToggleButtons({
                 )}
                 style={{
                   ["--chip-color" as any]: baseColor,
+                  // Slight tint when selected; otherwise rely on neutral bg
                   backgroundColor: isSelected 
-                    ? `color-mix(in srgb, ${baseColor} 15%, hsl(var(--background) / 0.9))`
-                    : 'hsl(var(--background) / 0.9)',
+                    ? `color-mix(in srgb, ${baseColor} 10%, hsl(var(--muted) / 0.5))`
+                    : undefined,
                   borderColor: isSelected
-                    ? `color-mix(in srgb, ${baseColor} 35%, hsl(var(--border) / 0.2))`
-                    : 'hsl(var(--border) / 0.2)',
+                    ? `color-mix(in srgb, ${baseColor} 30%, hsl(var(--border) / 0.5))`
+                    : undefined,
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${baseColor} ${isSelected ? 15 : 8}%, hsl(var(--background) / 0.9))`;
-                  e.currentTarget.style.borderColor = `color-mix(in srgb, ${baseColor} 30%, hsl(var(--border) / 0.2))`;
+                  e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${baseColor} ${isSelected ? 12 : 6}%, hsl(var(--muted) / 0.5))`;
+                  e.currentTarget.style.borderColor = `color-mix(in srgb, ${baseColor} 30%, hsl(var(--border) / 0.5))`;
                 }}
                 onMouseLeave={(e) => {
                   if (isSelected) {
-                    e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${baseColor} 15%, hsl(var(--background) / 0.9))`;
-                    e.currentTarget.style.borderColor = `color-mix(in srgb, ${baseColor} 35%, hsl(var(--border) / 0.2))`;
+                    e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${baseColor} 10%, hsl(var(--muted) / 0.5))`;
+                    e.currentTarget.style.borderColor = `color-mix(in srgb, ${baseColor} 30%, hsl(var(--border) / 0.5))`;
                   } else {
-                    e.currentTarget.style.backgroundColor = 'hsl(var(--background) / 0.9)';
-                    e.currentTarget.style.borderColor = 'hsl(var(--border) / 0.2)';
+                    e.currentTarget.style.backgroundColor = '';
+                    e.currentTarget.style.borderColor = '';
                   }
                 }}
               >
