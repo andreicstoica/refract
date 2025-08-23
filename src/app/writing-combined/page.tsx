@@ -11,6 +11,7 @@ import { rangesFromThemes } from "@/lib/highlight";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
 import { gsap } from "gsap";
+import { AnimatePresence, motion } from "framer-motion";
 
 export default function WritingCombinedPage() {
   const { generate, isGenerating } = useGenerateEmbeddings();
@@ -22,9 +23,7 @@ export default function WritingCombinedPage() {
   // Writing state
   const [currentText, setCurrentText] = useState("");
   const [currentSentences, setCurrentSentences] = useState<Sentence[]>([]);
-  const [currentPositions, setCurrentPositions] = useState<SentencePosition[]>(
-    []
-  );
+  // Removed: currentPositions - not used in this component
 
   // Theme state - simple, direct
   const [themes, setThemes] = useState<Theme[] | null>(null);
@@ -78,7 +77,6 @@ export default function WritingCombinedPage() {
   ) => {
     setCurrentText(text);
     setCurrentSentences(sentences);
-    setCurrentPositions(positions);
   };
 
   // Build sentence lookup map
@@ -215,37 +213,50 @@ export default function WritingCombinedPage() {
       <IntroModal isOpen={showTimerSetup} onStart={handleTimerStart} />
 
       {/* Header with Timer + Theme Controls */}
-      {!showTimerSetup && (
-        <div
-          data-header-container
-          className={`flex items-center pt-4 w-full mx-auto ${
-            hasThemes
-              ? "justify-between max-w-2xl px-8"
-              : "justify-center max-w-6xl px-8"
-          }`}
-        >
-          <div data-timer-container className="flex items-baseline">
-            <WritingTimer
-              initialMinutes={timerMinutes}
-              onTimerComplete={handleTimerComplete}
-              onThreshold={handlePreFinish}
-              thresholdSeconds={20}
-            />
-          </div>
-          {hasThemes && (
-            <div ref={chipsRef} className="flex-1 ml-4 min-w-0">
-              <div className="overflow-x-auto">
-                <ThemeToggleButtons
-                  themes={themes!}
-                  selectedThemeIds={selectedThemeIds}
-                  onThemeToggle={toggleTheme}
-                  noXPad
+      <AnimatePresence>
+        {!showTimerSetup && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{
+              duration: 0.6,
+              ease: "easeOut",
+            }}
+            className="overflow-hidden"
+          >
+            <div
+              data-header-container
+              className={`flex items-center pt-4 w-full mx-auto ${
+                hasThemes
+                  ? "justify-between max-w-2xl px-8"
+                  : "justify-center max-w-6xl px-8"
+              }`}
+            >
+              <div data-timer-container className="flex items-baseline">
+                <WritingTimer
+                  initialMinutes={timerMinutes}
+                  onTimerComplete={handleTimerComplete}
+                  onThreshold={handlePreFinish}
+                  thresholdSeconds={20}
                 />
               </div>
+              {hasThemes && (
+                <div ref={chipsRef} className="flex-1 ml-4 min-w-0">
+                  <div className="overflow-x-auto">
+                    <ThemeToggleButtons
+                      themes={themes!}
+                      selectedThemeIds={selectedThemeIds}
+                      onThemeToggle={toggleTheme}
+                      noXPad
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Writing Surface with highlight layer */}
       <div className="flex-1 min-h-0 px-4 max-w-6xl mx-auto w-full">

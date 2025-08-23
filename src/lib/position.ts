@@ -1,36 +1,36 @@
 import type { Sentence, SentencePosition } from "@/types/sentence";
-import { TEXT_STYLES } from "./constants";
+import type { Prod } from "@/types/prod";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-// Cache for mirror element and computed styles
+// Cache for mirror element and position calculations
 let mirrorElement: HTMLDivElement | null = null;
-let cachedStyles: {
-  font: string;
-  padding: string;
-  width: string;
-  lineHeight: string;
-  overflowWrap: string;
-  wordBreak: string;
-  boxSizing: string;
-  paddingTop: number;
-  paddingLeft: number;
-} | null = null;
-
-// Memoization cache for position calculations
 const positionCache = new Map<string, SentencePosition[]>();
-const CACHE_SIZE_LIMIT = 50; // Prevent memory leaks
+const CACHE_SIZE_LIMIT = 50;
+
+function getTextAreaStyles(textareaElement: HTMLTextAreaElement) {
+  const style = window.getComputedStyle(textareaElement);
+  return {
+    font: style.font,
+    padding: style.padding,
+    width: style.width,
+    lineHeight: style.lineHeight,
+    overflowWrap: (style as any).overflowWrap || (style as any)["overflow-wrap"] || "anywhere",
+    wordBreak: style.wordBreak,
+    boxSizing: style.boxSizing,
+    paddingTop: parseFloat(style.paddingTop) || 0,
+    paddingLeft: parseFloat(style.paddingLeft) || 0,
+  };
+}
 
 export function measureSentencePositions(
   sentences: Sentence[],
   textareaElement: HTMLTextAreaElement
 ): SentencePosition[] {
-  if (!textareaElement) return [];
+  if (!textareaElement || sentences.length === 0) return [];
 
-  // Create cache key based on textarea content and sentences
-  const textContent = textareaElement.value;
-  const sentencesKey = sentences.map(s => `${s.id}:${s.text.length}`).join('|') || '';
-  const cacheKey = `${textContent.length}:${sentencesKey}`;
+  const text = textareaElement.value;
+  const cacheKey = `${text.length}:${sentences.map(s => s.id).join(',')}`;
 
   // Check cache first
   if (positionCache.has(cacheKey)) {
@@ -49,56 +49,24 @@ export function measureSentencePositions(
     document.body.appendChild(mirrorElement);
   }
 
-  // Cache computed styles to avoid repeated getComputedStyle calls
-  if (!cachedStyles) {
-    const style = window.getComputedStyle(textareaElement);
-    cachedStyles = {
-      font: style.font,
-      padding: style.padding,
-      width: style.width,
-      lineHeight: style.lineHeight,
-      overflowWrap: (style as any).overflowWrap || (style as any)["overflow-wrap"] || "anywhere",
-      wordBreak: style.wordBreak,
-      boxSizing: style.boxSizing,
-      paddingTop: parseFloat(style.paddingTop) || 0,
-      paddingLeft: parseFloat(style.paddingLeft) || 0,
-    };
-  }
-
-  // Apply cached styles to mirror
-  mirrorElement.style.font = cachedStyles.font;
-  mirrorElement.style.padding = cachedStyles.padding;
-  mirrorElement.style.width = cachedStyles.width;
-  mirrorElement.style.lineHeight = cachedStyles.lineHeight;
+  // Apply textarea styles to mirror
+  const styles = getTextAreaStyles(textareaElement);
+  mirrorElement.style.font = styles.font;
+  mirrorElement.style.padding = styles.padding;
+  mirrorElement.style.width = styles.width;
+  mirrorElement.style.lineHeight = styles.lineHeight;
   mirrorElement.style.whiteSpace = "pre-wrap";
-  mirrorElement.style.overflowWrap = cachedStyles.overflowWrap;
-  mirrorElement.style.wordBreak = cachedStyles.wordBreak;
-  mirrorElement.style.boxSizing = cachedStyles.boxSizing;
+  mirrorElement.style.overflowWrap = styles.overflowWrap;
+  mirrorElement.style.wordBreak = styles.wordBreak;
+  mirrorElement.style.boxSizing = styles.boxSizing;
 
-  if (isDev) {
-    console.log("🔧 Using cached styles:", cachedStyles);
-  }
-
-  // Optimized HTML building with pre-allocated array
-  const text = textareaElement.value;
+  // Build HTML with sentence spans
   const htmlParts: string[] = [];
   let cursor = 0;
 
-  // Pre-calculate sentence positions in text for faster lookup
-  const sentencePositions = new Map<string, number>();
   for (const sentence of sentences) {
     const idx = text.indexOf(sentence.text, cursor);
-    if (idx !== -1) {
-      sentencePositions.set(sentence.id, idx);
-      cursor = idx + sentence.text.length;
-    }
-  }
-
-  // Build HTML more efficiently
-  cursor = 0;
-  for (const sentence of sentences) {
-    const idx = sentencePositions.get(sentence.id);
-    if (idx === undefined) continue;
+    if (idx === -1) continue;
 
     if (idx > cursor) {
       htmlParts.push(text
@@ -127,42 +95,35 @@ export function measureSentencePositions(
 
   mirrorElement.innerHTML = htmlParts.join('');
 
-  if (isDev) {
-    console.log("🔍 Built HTML efficiently with", htmlParts.length, "parts");
-  }
-
-  // Align mirror with textarea
+  // Position mirror element
   const taRect = textareaElement.getBoundingClientRect();
   mirrorElement.style.left = `${taRect.left + window.scrollX}px`;
   mirrorElement.style.top = `${taRect.top + window.scrollY}px`;
 
-  // Measure positions efficiently
+  // Measure sentence positions
   const results: SentencePosition[] = [];
   const scrollTop = textareaElement.scrollTop || 0;
 
   for (const sentence of sentences) {
     const el = document.getElementById(`mirror-sent-${sentence.id}`);
-    if (!el) {
-      if (isDev) console.log("❌ Mirror element not found for sentence:", sentence.id);
-      continue;
-    }
+    if (!el) continue;
 
     const r = el.getBoundingClientRect();
     const position = {
       sentenceId: sentence.id,
-      // Position relative to textarea content area (accounting for padding and scroll)
-      top: r.top - taRect.top - cachedStyles.paddingTop + scrollTop,
-      left: r.left - taRect.left - cachedStyles.paddingLeft,
+      top: r.top - taRect.top - styles.paddingTop + scrollTop,
+      left: r.left - taRect.left - styles.paddingLeft,
       width: r.width,
-      // Use line height instead of measured height to prevent overlap
-      height: cachedStyles.lineHeight ? parseFloat(cachedStyles.lineHeight.replace('px', '') || '56') : r.height,
+      height: parseFloat(styles.lineHeight.replace('px', '')) || 56,
     };
 
     results.push(position);
-    if (isDev) console.log("📍 Measured position for sentence:", sentence.text.substring(0, 30), position);
+    if (isDev) {
+      console.log("📍 Measured position for sentence:", sentence.text.substring(0, 30), position);
+    }
   }
 
-  // Cache results and manage cache size
+  // Cache results
   positionCache.set(cacheKey, results);
   if (positionCache.size > CACHE_SIZE_LIMIT) {
     const firstKey = positionCache.keys().next().value;
@@ -171,13 +132,33 @@ export function measureSentencePositions(
     }
   }
 
-  if (isDev) console.log("🎯 Final position results:", results.length, "positions");
   return results;
+}
+
+export function calculateHorizontalOffsets(
+  prods: Prod[]
+): Map<string, number> {
+  const horizontalOffsetByProdId = new Map<string, number>();
+  const chipWidthBySentence = new Map<string, number>();
+
+  // Sort prods by timestamp to ensure consistent ordering
+  const sortedProds = [...prods].sort((a, b) => a.timestamp - b.timestamp);
+
+  for (const prod of sortedProds) {
+    const currentWidth = chipWidthBySentence.get(prod.sentenceId) || 0;
+    
+    // Estimate chip width based on text length
+    const estimatedWidth = Math.max(120, prod.text.length * 8) + 40;
+    
+    horizontalOffsetByProdId.set(prod.id, currentWidth);
+    chipWidthBySentence.set(prod.sentenceId, currentWidth + estimatedWidth + 8);
+  }
+
+  return horizontalOffsetByProdId;
 }
 
 // Clear cache when needed (e.g., on window resize)
 export function clearPositionCache() {
   positionCache.clear();
-  cachedStyles = null;
 }
 

@@ -35,7 +35,6 @@ export function useTextProcessing({
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const positionTimerRef = useRef<NodeJS.Timeout | null>(null);
     const sentencesDebounceRef = useRef<NodeJS.Timeout | null>(null);
     const watchdogTimerRef = useRef<NodeJS.Timeout | null>(null);
     const lastWatchdogFireRef = useRef<number>(0);
@@ -56,19 +55,14 @@ export function useTextProcessing({
         []
     );
 
-    // Debounced position measurement to avoid excessive calculations
-    const debouncedMeasurePositions = useCallback(
+    // Immediate position measurement (no debouncing needed)
+    const updatePositions = useCallback(
         (sentences: Sentence[], textarea: HTMLTextAreaElement) => {
-            if (positionTimerRef.current) {
-                clearTimeout(positionTimerRef.current);
+            if (textarea && sentences.length > 0) {
+                const positions = measurePositions(sentences, textarea);
+                setSentencePositions(positions);
+                if (process.env.NODE_ENV !== "production") console.log("📍 Updated sentence positions:", positions.length, "positions");
             }
-            positionTimerRef.current = setTimeout(() => {
-                if (textarea && sentences.length > 0) {
-                    const positions = measurePositions(sentences, textarea);
-                    setSentencePositions(positions);
-                    if (process.env.NODE_ENV !== "production") console.log("📍 Updated sentence positions:", positions.length, "positions");
-                }
-            }, 50);
         },
         [measurePositions]
     );
@@ -190,9 +184,9 @@ export function useTextProcessing({
                 if (process.env.NODE_ENV !== "production") console.log("❌ Trigger conditions not met for:", lastSentence.text.substring(0, 30) + "...");
             }
 
-            // Use debounced position measurement
+            // Update positions immediately
             if (textareaRef.current && newSentences.length > 0) {
-                debouncedMeasurePositions(newSentences, textareaRef.current);
+                updatePositions(newSentences, textareaRef.current);
             }
         };
 
@@ -208,33 +202,25 @@ export function useTextProcessing({
 
     // Handle scroll and resize events to reposition chips
     useEffect(() => {
-        let rafPending = false;
-        const handleRepositionRAF = () => {
-            if (rafPending) return;
-            rafPending = true;
-            requestAnimationFrame(() => {
-                rafPending = false;
-                if (textareaRef.current && sentences.length > 0) {
-                    // Clear cache on resize to force recalculation
-                    clearPositionCache();
-                    const positions = measurePositions(sentences, textareaRef.current);
-                    setSentencePositions(positions);
-                    if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after scroll/resize");
-                }
-            });
+        const handleReposition = () => {
+            if (textareaRef.current && sentences.length > 0) {
+                clearPositionCache();
+                updatePositions(sentences, textareaRef.current);
+                if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after scroll/resize");
+            }
         };
 
         const textarea = textareaRef.current;
         if (textarea) {
-            textarea.addEventListener("scroll", handleRepositionRAF, { passive: true });
-            window.addEventListener("resize", handleRepositionRAF, { passive: true });
+            textarea.addEventListener("scroll", handleReposition, { passive: true });
+            window.addEventListener("resize", handleReposition, { passive: true });
 
             return () => {
-                textarea.removeEventListener("scroll", handleRepositionRAF);
-                window.removeEventListener("resize", handleRepositionRAF);
+                textarea.removeEventListener("scroll", handleReposition);
+                window.removeEventListener("resize", handleReposition);
             };
         }
-    }, [sentences, measurePositions]);
+    }, [sentences, updatePositions]);
 
     // Cleanup timers on unmount
     useEffect(() => {
@@ -242,8 +228,8 @@ export function useTextProcessing({
             if (debounceTimerRef.current) {
                 clearTimeout(debounceTimerRef.current);
             }
-            if (positionTimerRef.current) {
-                clearTimeout(positionTimerRef.current);
+            if (sentencesDebounceRef.current) {
+                clearTimeout(sentencesDebounceRef.current);
             }
             if (watchdogTimerRef.current) {
                 clearTimeout(watchdogTimerRef.current);
