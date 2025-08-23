@@ -36,6 +36,7 @@ export default function HomePage() {
   const [textareaEl, setTextareaEl] = useState<HTMLTextAreaElement | null>(
     null
   );
+  const textareaRefObject = useMemo(() => ({ current: textareaEl }), [textareaEl]);
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -332,6 +333,7 @@ export default function HomePage() {
                 text={currentText}
                 currentRanges={highlightRanges}
                 allRanges={allHighlightableRanges}
+                textareaRef={textareaRefObject}
               />
             </div>
           ) : null}

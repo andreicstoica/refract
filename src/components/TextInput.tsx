@@ -165,6 +165,7 @@ export function TextInput({
             <ChipOverlay
               visibleProds={prods}
               sentencePositions={sentencePositions}
+              textareaRef={textareaRef}
             />
           </div>
         </div>

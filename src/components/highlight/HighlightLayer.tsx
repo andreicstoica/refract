@@ -17,13 +17,14 @@ type HighlightLayerProps = {
   currentRanges: HighlightRange[];
   allRanges: HighlightRange[];
   className?: string;
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
 };
 
 // Minimal paint-only highlight overlay that mirrors the textarea content flow.
 // No interactivity; caller controls visibility/opacity. Designed to be positioned
 // as absolute inset-0 with pointer-events-none.
 export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
-  function HighlightLayer({ text, currentRanges, allRanges, className }, ref) {
+  function HighlightLayer({ text, currentRanges, allRanges, className, textareaRef }, ref) {
     const cuts = useMemo(
       () => buildCutPoints(text, allRanges),
       [text, allRanges]
@@ -36,10 +37,34 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
     const chunkIndex = useMemo(() => assignChunkIndices(meta), [meta]);
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
     const prefersReduced =
       typeof window !== "undefined" &&
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Sync with textarea scroll position using direct DOM manipulation for smooth performance
+    useEffect(() => {
+      if (!textareaRef?.current || !contentRef.current) return;
+      
+      const textarea = textareaRef.current;
+      const content = contentRef.current;
+      
+      const handleScroll = () => {
+        // Use requestAnimationFrame for smooth sync without React re-renders
+        requestAnimationFrame(() => {
+          if (content) {
+            content.style.transform = `translateY(-${textarea.scrollTop}px)`;
+          }
+        });
+      };
+      
+      // Set initial scroll position
+      handleScroll();
+      
+      textarea.addEventListener('scroll', handleScroll, { passive: true });
+      return () => textarea.removeEventListener('scroll', handleScroll);
+    }, [textareaRef]);
 
     // Track previous segment metadata for exit animations with reverse stagger
     const prevRef = useRef<{
@@ -141,6 +166,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
       >
         {/* Inner content translated to mirror textarea scroll */}
         <div
+          ref={contentRef}
           data-highlight-content
           className={cn(
             `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex`,

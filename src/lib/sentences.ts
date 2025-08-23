@@ -154,7 +154,8 @@ export function measureSentencePositions(
 
   // Measure sentence positions
   const results: SentencePosition[] = [];
-  const scrollTop = textareaElement.scrollTop || 0;
+  // Note: We do NOT include scrollTop here. Positions are in content coordinates
+  // so overlays can translate by -scrollTop and remain stable during scroll.
 
   for (const sentence of sentences) {
     const el = document.getElementById(`mirror-sent-${sentence.id}`);
@@ -164,7 +165,7 @@ export function measureSentencePositions(
     const rawLeft = r.left - taRect.left - styles.paddingLeft;
     const position = {
       sentenceId: sentence.id,
-      top: r.top - taRect.top - styles.paddingTop + scrollTop,
+      top: r.top - taRect.top - styles.paddingTop,
       // Ensure left never falls before the start of textarea content
       left: Math.max(0, rawLeft),
       width: r.width,

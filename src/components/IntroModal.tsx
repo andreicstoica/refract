@@ -157,7 +157,8 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
                   How long would you like to write?
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  You can pause, resume, or skip the timer at any time
+                  You can pause at any time. You can analyze your writing at the
+                  end of your session.
                 </p>
               </div>
 
