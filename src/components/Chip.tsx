@@ -15,6 +15,7 @@ interface ChipProps {
     height: number;
   };
   horizontalOffset?: number;
+  verticalOffset?: number;
   className?: string;
   onFadeComplete?: () => void;
   onKeepChip?: () => void;
@@ -24,6 +25,7 @@ export function Chip({
   text,
   position,
   horizontalOffset = 0,
+  verticalOffset = 0,
   className,
   onFadeComplete,
   onKeepChip,
@@ -37,13 +39,14 @@ export function Chip({
   // Position is relative to textarea content area, chip overlay is relative to textarea container
   // Position chip right under the sentence with horizontal offset for side-by-side layout
   const chipTop = useMemo(
-    () => position.top + 44, // Position in the spacing area below text
-    [position.top]
+    () => position.top + (position.height || 56) + 4 + verticalOffset, // place just below the sentence line
+    [position.top, position.height, verticalOffset]
   );
-  const chipLeft = useMemo(
-    () => position.left + 16 + horizontalOffset, // Add textarea's px-4 padding (16px) + horizontal offset
-    [position.left, horizontalOffset]
-  );
+  const chipLeft = useMemo(() => {
+    // Clamp to the start of the textarea content (px-4 => 16px)
+    const baseLeft = position.left + 16 + horizontalOffset;
+    return Math.max(16, baseLeft);
+  }, [position.left, horizontalOffset]);
 
   // Start fade after 8 seconds
   useEffect(() => {
