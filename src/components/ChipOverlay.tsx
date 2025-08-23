@@ -11,7 +11,6 @@ interface ChipOverlayProps {
   className?: string;
   onChipFade?: (prodId: string) => void;
   onChipKeep?: (prod: Prod) => void;
-  lineHeightPx?: number; // computed textarea line-height in pixels
 }
 
 export function ChipOverlay({
@@ -20,7 +19,6 @@ export function ChipOverlay({
   className,
   onChipFade,
   onChipKeep,
-  lineHeightPx,
 }: ChipOverlayProps) {
   // Memoize position map to avoid recreating on every render
   const positionMap = useMemo(
@@ -28,16 +26,8 @@ export function ChipOverlay({
     [sentencePositions]
   );
 
-  // Memoize line height calculation
-  const LINE_HEIGHT_PX = useMemo(
-    () => Math.max(1, Math.round(lineHeightPx || 56)),
-    [lineHeightPx]
-  );
-  const CHIP_HEIGHT_PX = LINE_HEIGHT_PX;
-  const STACK_GAP_PX = 2;
-
-  // Memoize prod positioning calculations - no stacking, just one chip per sentence
-  const { prodsWithPos, yOffsetByProdId } = useMemo(() => {
+  // Memoize prod positioning calculations - side by side layout
+  const { prodsWithPos, horizontalOffsetByProdId } = useMemo(() => {
     const prodsWithPos = visibleProds
       .map((p) => ({ prod: p, pos: positionMap.get(p.sentenceId) }))
       .filter(
@@ -47,16 +37,32 @@ export function ChipOverlay({
           prod: (typeof visibleProds)[number];
           pos: SentencePosition;
         } => Boolean(x.pos)
-      )
-      .sort((a, b) => a.pos.top - b.pos.top || a.pos.left - b.pos.left);
+      );
 
-    // No stacking - just one chip per sentence
-    const yOffsetByProdId = new Map<string, number>();
+    // Calculate horizontal offsets for side-by-side layout
+    const horizontalOffsetByProdId = new Map<string, number>();
+    const chipsPerSentence = new Map<
+      string,
+      { count: number; totalWidth: number }
+    >();
+
     for (const { prod } of prodsWithPos) {
-      yOffsetByProdId.set(prod.id, 0); // No offset, chips appear directly under sentences
+      const sentenceData = chipsPerSentence.get(prod.sentenceId) || {
+        count: 0,
+        totalWidth: 0,
+      };
+
+      // Estimate chip width based on text length (rough approximation)
+      const estimatedWidth = Math.max(120, prod.text.length * 8) + 40; // Base width + text width + padding
+
+      horizontalOffsetByProdId.set(prod.id, sentenceData.totalWidth);
+      chipsPerSentence.set(prod.sentenceId, {
+        count: sentenceData.count + 1,
+        totalWidth: sentenceData.totalWidth + estimatedWidth + 8, // Add 8px gap between chips
+      });
     }
 
-    return { prodsWithPos, yOffsetByProdId };
+    return { prodsWithPos, horizontalOffsetByProdId };
   }, [visibleProds, positionMap]);
 
   return (
@@ -67,14 +73,14 @@ export function ChipOverlay({
         const sentencePosition = positionMap.get(prod.sentenceId);
         if (!sentencePosition) return null;
 
-        const offsetY = yOffsetByProdId.get(prod.id) ?? 0;
+        const horizontalOffset = horizontalOffsetByProdId.get(prod.id) ?? 0;
 
         return (
           <Chip
             key={prod.id}
             text={prod.text}
             position={sentencePosition}
-            offsetY={offsetY}
+            horizontalOffset={horizontalOffset}
             onFadeComplete={() => onChipFade?.(prod.id)}
             onKeepChip={() => onChipKeep?.(prod)}
           />

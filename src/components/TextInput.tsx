@@ -60,15 +60,7 @@ export function TextInput({
     }
   }, []);
 
-  const {
-    prods,
-    callProdAPI,
-    clearQueue,
-    handleTopicShift,
-    queueState,
-    filteredSentences,
-    prodMetrics,
-  } = useProds({
+  const { prods, callProdAPI, handleTopicShift } = useProds({
     onTopicShift: onProdTopicShift,
     topicKeywords: currentKeywordsRef.current,
     topicVersion,
@@ -85,28 +77,6 @@ export function TextInput({
       onTextUpdate,
       prodsEnabled,
     });
-
-  // Compute and pass actual line height of the textarea for chip stacking
-  const [lineHeightPx, setLineHeightPx] = useState<number | null>(null);
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const compute = () => {
-      const cs = window.getComputedStyle(el);
-      const lh = cs.lineHeight;
-      const px = lh.endsWith("px") ? parseFloat(lh) : NaN;
-      if (!Number.isNaN(px)) {
-        setLineHeightPx(px);
-        if (process.env.NODE_ENV !== "production") {
-          console.log("📏 Computed line height:", px, "px");
-        }
-      }
-    };
-    compute();
-    // Update on resize in case of responsive root font size changes
-    window.addEventListener("resize", compute);
-    return () => window.removeEventListener("resize", compute);
-  }, [textareaRef]);
 
   // Expose textarea ref to parent once and on handler change
   useEffect(() => {
@@ -194,7 +164,6 @@ export function TextInput({
             <ChipOverlay
               visibleProds={prods}
               sentencePositions={sentencePositions}
-              lineHeightPx={lineHeightPx ?? undefined}
             />
           </div>
         </div>

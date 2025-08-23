@@ -14,7 +14,7 @@ interface ChipProps {
     width: number;
     height: number;
   };
-  offsetY?: number;
+  horizontalOffset?: number;
   className?: string;
   onFadeComplete?: () => void;
   onKeepChip?: () => void;
@@ -23,7 +23,7 @@ interface ChipProps {
 export function Chip({
   text,
   position,
-  offsetY = 0,
+  horizontalOffset = 0,
   className,
   onFadeComplete,
   onKeepChip,
@@ -35,12 +35,15 @@ export function Chip({
 
   // Memoize position calculations to avoid recalculation on every render
   // Position is relative to textarea content area, chip overlay is relative to textarea container
-  // Position chip right under the sentence with minimal spacing
+  // Position chip right under the sentence with horizontal offset for side-by-side layout
   const chipTop = useMemo(
-    () => position.top + 48, // Appear right under the sentence
-    [position.top]
+    () => position.top + position.height + 8, // Appear right under the sentence with small gap
+    [position.top, position.height]
   );
-  const chipLeft = useMemo(() => position.left + 16, [position.left]); // Add textarea's px-4 padding (16px)
+  const chipLeft = useMemo(
+    () => position.left + 16 + horizontalOffset, // Add textarea's px-4 padding (16px) + horizontal offset
+    [position.left, horizontalOffset]
+  );
 
   // Start fade after 8 seconds
   useEffect(() => {
@@ -65,6 +68,7 @@ export function Chip({
     if (pinned) return; // already pinned
     setPinned(true);
     setShouldFade(false);
+    setIsVisible(true); // Ensure chip is visible when pinned
     onKeepChip?.();
   };
 
@@ -73,7 +77,7 @@ export function Chip({
     console.log("🎯 Chip positioning:", {
       text: text.substring(0, 30) + "...",
       position,
-      offsetY,
+      horizontalOffset,
       chipTop,
       chipLeft,
     });

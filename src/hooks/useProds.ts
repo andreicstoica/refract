@@ -176,7 +176,7 @@ export function useProds(options: UseProdsOptions = {}) {
 
             // Confidence gating: require confidence > 0.4 if provided
             if (typeof data?.confidence === 'number' && data.confidence <= 0.4) {
-                if (isDev) console.log(`🔕 Low confidence (${data.confidence.toFixed(2)}) – skipping prod for sentence:` , sentence.text);
+                if (isDev) console.log(`🔕 Low confidence (${data.confidence.toFixed(2)}) – skipping prod for sentence:`, sentence.text);
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
                 ongoingRequestsRef.current.delete(requestId);
                 return;
