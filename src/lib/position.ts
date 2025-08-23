@@ -109,12 +109,14 @@ export function measureSentencePositions(
     if (!el) continue;
 
     const r = el.getBoundingClientRect();
+    const rawLeft = r.left - taRect.left - styles.paddingLeft;
     const position = {
       sentenceId: sentence.id,
       top: r.top - taRect.top - styles.paddingTop + scrollTop,
-      left: r.left - taRect.left - styles.paddingLeft,
+      // Ensure left never falls before the start of textarea content
+      left: Math.max(0, rawLeft),
       width: r.width,
-      height: parseFloat(styles.lineHeight.replace('px', '')) || 56,
+      height: parseFloat(styles.lineHeight.replace('px', '')) || 44,
     };
 
     results.push(position);
@@ -161,4 +163,3 @@ export function calculateHorizontalOffsets(
 export function clearPositionCache() {
   positionCache.clear();
 }
-
