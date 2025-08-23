@@ -9,7 +9,11 @@ import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
 import { HighlightLayer } from "@/components/highlight/HighlightLayer";
 import { rangesFromThemes } from "@/lib/highlight";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
@@ -36,7 +40,10 @@ export default function HomePage() {
   const [textareaEl, setTextareaEl] = useState<HTMLTextAreaElement | null>(
     null
   );
-  const textareaRefObject = useMemo(() => ({ current: textareaEl }), [textareaEl]);
+  const textareaRefObject = useMemo(
+    () => ({ current: textareaEl } as React.RefObject<HTMLTextAreaElement>),
+    [textareaEl]
+  );
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -209,7 +216,7 @@ export default function HomePage() {
           const timerWidth = timerEl?.offsetWidth || 0;
           const centerOffset = containerWidth / 2 - timerWidth / 2;
           gsap.set(timerContainer, { x: centerOffset });
-          
+
           // Hide reload button initially
           if (reloadButtonRef.current) {
             gsap.set(reloadButtonRef.current, { opacity: 0, scale: 0.98 });
@@ -302,7 +309,10 @@ export default function HomePage() {
                 )}
               </div>
               {hasThemes && (
-                <div ref={chipsRef} className="flex-1 ml-3 min-w-0 flex items-center">
+                <div
+                  ref={chipsRef}
+                  className="flex-1 ml-3 min-w-0 flex items-center"
+                >
                   <div className="overflow-x-auto flex-1">
                     <ThemeToggleButtons
                       themes={themes!}
