@@ -1,15 +1,12 @@
 import { openai } from "@ai-sdk/openai";
-import { cosineSimilarity } from "ai";
-import { generateObject } from "ai";
+import { generateObject, embedMany } from "ai";
 import { z } from "zod";
 import { MIN_CHUNK_CORRELATION } from "@/lib/highlight";
-import { generateEmbeddingVectors } from "@/services/embeddingsClient";
 import {
   clusterEmbeddings,
   sentencesToChunks,
 } from "@/lib/embeddings";
-import type { Sentence } from "@/types/sentence";
-import type { TextChunk, ClusterResult } from "@/types/embedding";
+import type { TextChunk, ClusterResult, EmbeddingResult } from "@/types/embedding";
 
 export const maxDuration = 30; // Embeddings can take longer than prods
 
@@ -259,5 +256,48 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
 
     console.log("🔄 Using fallback themes:", fallbackThemes);
     return fallbackThemes;
+  }
+}
+
+/**
+ * Generate embeddings for text chunks using Vercel AI SDK
+ * This handles the OpenAI API integration at the service layer
+ */
+async function generateEmbeddingVectors(
+  chunks: TextChunk[]
+): Promise<EmbeddingResult> {
+  if (chunks.length === 0) {
+    return {
+      chunks: [],
+      embeddings: [],
+      usage: { tokens: 0, cost: 0 },
+    };
+  }
+
+  try {
+    const texts = chunks.map((chunk) => chunk.text);
+
+    const result = await embedMany({
+      model: openai.embedding("text-embedding-3-small"),
+      values: texts,
+    });
+
+    // Attach embeddings to chunks
+    const chunksWithEmbeddings = chunks.map((chunk, index) => ({
+      ...chunk,
+      embedding: result.embeddings[index],
+    }));
+
+    return {
+      chunks: chunksWithEmbeddings,
+      embeddings: result.embeddings,
+      usage: {
+        tokens: result.usage?.tokens || 0,
+        cost: (result.usage?.tokens || 0) * 0.00002, // Approximate cost for text-embedding-3-small
+      },
+    };
+  } catch (error) {
+    console.error("❌ Embedding generation failed:", error);
+    throw new Error("Failed to generate embeddings");
   }
 }
