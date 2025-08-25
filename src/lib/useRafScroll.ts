@@ -34,7 +34,7 @@ const subscriptions = new Map<HTMLElement, ScrollSubscription>();
 function executeHandlers(subscription: ScrollSubscription) {
   subscription.rafId = null;
   subscription.isScheduled = false;
-  
+
   // Execute all handlers for this element
   subscription.handlers.forEach(handler => {
     try {
@@ -47,7 +47,7 @@ function executeHandlers(subscription: ScrollSubscription) {
 
 function scheduleUpdate(subscription: ScrollSubscription) {
   if (subscription.isScheduled) return;
-  
+
   subscription.isScheduled = true;
   subscription.rafId = requestAnimationFrame(() => executeHandlers(subscription));
 }
@@ -67,7 +67,7 @@ function handleScroll(this: HTMLElement) {
  */
 export function subscribe(element: HTMLElement, handler: ScrollHandler): () => void {
   let subscription = subscriptions.get(element);
-  
+
   if (!subscription) {
     subscription = {
       element,
@@ -76,20 +76,20 @@ export function subscribe(element: HTMLElement, handler: ScrollHandler): () => v
       isScheduled: false,
     };
     subscriptions.set(element, subscription);
-    
+
     // Add the actual DOM event listener (passive for performance)
     element.addEventListener('scroll', handleScroll, { passive: true });
   }
-  
+
   subscription.handlers.add(handler);
-  
+
   // Return cleanup function
   return () => {
     const currentSubscription = subscriptions.get(element);
     if (!currentSubscription) return;
-    
+
     currentSubscription.handlers.delete(handler);
-    
+
     // If no more handlers, clean up completely
     if (currentSubscription.handlers.size === 0) {
       if (currentSubscription.rafId) {
@@ -107,8 +107,8 @@ export function subscribe(element: HTMLElement, handler: ScrollHandler): () => v
  * @param handler - The callback function to execute on scroll
  * @param deps - Dependencies array (similar to useEffect)
  */
-export function useRafScroll(
-  elementRef: React.RefObject<HTMLElement>,
+export function useRafScroll<T extends HTMLElement>(
+  elementRef: React.RefObject<T | null>,
   handler: ScrollHandler,
   deps: React.DependencyList = []
 ) {
