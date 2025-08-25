@@ -137,20 +137,51 @@ export default function HomePage() {
     }
   }, [isGenerating, generate, currentSentences, currentText]);
 
-  // Lock body scroll with proper height handling
+  // Aggressive scroll lock for mobile
   useEffect(() => {
     const originalBodyOverflow = document.body.style.overflow;
     const originalBodyClasses = document.body.className;
     const originalDocumentElementOverflow = document.documentElement.style.overflow;
     const originalBodyPosition = document.body.style.position;
     
-    // Aggressive scroll lock for mobile
+    // CSS-based scroll lock
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
     document.body.style.width = "100%";
     document.body.style.height = "100%";
     document.documentElement.style.overflow = "hidden";
     document.body.classList.add("full-vh");
+    
+    // JavaScript-based scroll prevention for stubborn mobile browsers
+    const preventScroll = (e: TouchEvent | WheelEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Allow scrolling only on textarea and scrollable elements
+      if (target.tagName === 'TEXTAREA' || target.closest('.scrollable')) {
+        return;
+      }
+      
+      // Prevent all other scrolling
+      e.preventDefault();
+    };
+    
+    const preventKeyboardScroll = (e: KeyboardEvent) => {
+      // Prevent arrow keys, page up/down, etc. from scrolling the page
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Space'].includes(e.key)) {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+        }
+      }
+    };
+    
+    // Add passive: false to ensure preventDefault works
+    document.addEventListener('touchmove', preventScroll, { passive: false });
+    document.addEventListener('wheel', preventScroll, { passive: false });
+    document.addEventListener('keydown', preventKeyboardScroll);
+    
+    // Prevent context menu which can interfere with touch handling
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
     
     return () => {
       document.body.style.overflow = originalBodyOverflow;
@@ -159,6 +190,11 @@ export default function HomePage() {
       document.body.style.height = "";
       document.documentElement.style.overflow = originalDocumentElementOverflow;
       document.body.className = originalBodyClasses;
+      
+      document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('wheel', preventScroll);
+      document.removeEventListener('keydown', preventKeyboardScroll);
+      document.removeEventListener('contextmenu', (e) => e.preventDefault());
     };
   }, []);
 
