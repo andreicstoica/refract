@@ -130,3 +130,28 @@ body {
   /* Remove will-change when not actively scrolling to save memory */
   will-change: auto;
 }
+
+/* Keyboard-safe spacing utilities */
+.keyboard-safe-bottom {
+  /* Use the larger of safe-area-inset-bottom or our computed keyboard height */
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--kb-safe, 0px));
+}
+
+.scroll-keyboard-safe {
+  /* Add keyboard-safe scroll margin to prevent caret from being hidden */
+  scroll-margin-bottom: var(--kb-safe, 0px);
+}
+
+/* Dynamic viewport height classes with progressive enhancement */
+.full-vh {
+  /* Prefer dynamic viewport units where supported */
+  height: 100dvh;
+}
+
+/* Fallback for older iOS versions */
+@supports not (height: 100dvh) {
+  .full-vh {
+    height: -webkit-fill-available;
+    min-height: 100vh;
+  }
+}

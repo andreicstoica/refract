@@ -5,6 +5,7 @@ import { IntroModal } from "@/components/IntroModal";
 import { WritingTimer } from "@/components/WritingTimer";
 import { TextInput } from "@/components/TextInput";
 import { useGenerateEmbeddings } from "@/hooks/useGenerateEmbeddings";
+import { useViewportKeyboardCSSVar } from "@/hooks/useViewportKeyboard";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
 import { HighlightLayer } from "@/components/highlight/HighlightLayer";
 import { rangesFromThemes } from "@/lib/highlight";
@@ -23,6 +24,9 @@ import { AnimatePresence, motion } from "framer-motion";
 
 export default function HomePage() {
   const { generate, isGenerating } = useGenerateEmbeddings();
+  
+  // Enable keyboard-safe spacing via CSS variables
+  useViewportKeyboardCSSVar();
 
   // Timer + intro state
   const [showTimerSetup, setShowTimerSetup] = useState(true);
@@ -133,15 +137,17 @@ export default function HomePage() {
     }
   }, [isGenerating, generate, currentSentences, currentText]);
 
-  // Lock body scroll, match write page behavior
+  // Lock body scroll and set keyboard-safe full height
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
-    const originalHeight = document.body.style.height;
+    const originalClasses = document.body.className;
+    
     document.body.style.overflow = "hidden";
-    document.body.style.height = "100vh";
+    document.body.classList.add("full-vh", "keyboard-safe-bottom");
+    
     return () => {
       document.body.style.overflow = originalOverflow;
-      document.body.style.height = originalHeight;
+      document.body.className = originalClasses;
     };
   }, []);
 
