@@ -64,49 +64,62 @@ export function ChipOverlay({
     }
   }, [textareaRef]);
 
-  // Simple horizontal offset calculation - stack chips horizontally
+  // End-aligned with clamping; mobile-friendly via CSS --chip-gutter
   const layoutByProdId = useMemo(() => {
     if (contentWidth <= 0)
       return new Map<string, { h: number; v: number; maxWidth?: number }>();
 
-    const horizontalOffsetByProdId = new Map<string, number>();
-    const chipWidthBySentence = new Map<string, number>();
+    // Read responsive chip gutter from CSS. On mobile, CSS can override this var.
+    const chipGutter =
+      typeof window !== "undefined"
+        ? parseInt(
+            getComputedStyle(document.documentElement).getPropertyValue(
+              "--chip-gutter"
+            )
+          ) || 8
+        : 8;
 
-    // Sort prods by timestamp to ensure consistent ordering
-    const sortedProds = [...visibleProds].sort(
-      (a, b) => a.timestamp - b.timestamp
-    );
+    // Content padding used in Chip.tsx left calculation (px-4 => 16)
+    const contentLeftPad = 16;
+    const rightPad = chipGutter + 8; // small extra for pin/icon space
 
-    for (const prod of sortedProds) {
-      const currentWidth = chipWidthBySentence.get(prod.sentenceId) || 0;
+    const rightLimit = contentWidth - rightPad;
+    const rowGap = 20;
+    const minChipPx = 120; // can tune for mobile via CSS var if needed
 
-      // Estimate chip width based on text length
-      const estimatedWidth = Math.max(120, prod.text.length * 8) + 40;
-
-      horizontalOffsetByProdId.set(prod.id, currentWidth);
-      chipWidthBySentence.set(
-        prod.sentenceId,
-        currentWidth + estimatedWidth + 8
-      );
-    }
-
-    // Convert to the expected format
     const result = new Map<
       string,
       { h: number; v: number; maxWidth?: number }
     >();
-    for (const prod of visibleProds) {
-      const horizontalOffset = horizontalOffsetByProdId.get(prod.id) || 0;
 
-      result.set(prod.id, {
-        h: horizontalOffset,
-        v: 0, // No vertical offset - chips are positioned directly below sentences
-        maxWidth: Math.max(120, prod.text.length * 8) + 40,
-      });
+    for (const prod of visibleProds) {
+      const pos = positionMap.get(prod.sentenceId);
+      if (!pos) continue;
+
+      // Estimate width quickly (avoid layout thrash)
+      const estW = Math.max(minChipPx, Math.round(prod.text.length * 7.5) + 40);
+
+      // End-align: chip's right edge should match sentence end
+      const sentenceEndX = contentLeftPad + pos.left + pos.width;
+      let startX = sentenceEndX - estW;
+
+      // Clamp to bounds
+      startX = Math.max(contentLeftPad, Math.min(startX, rightLimit - estW));
+
+      const available = rightLimit - startX;
+      const needsSecondRow = available < Math.min(minChipPx, estW * 0.7);
+
+      // Chip.tsx computes left as: pos.left + 16 + horizontalOffset
+      // So we store offsets relative to (pos.left + contentLeftPad)
+      const h = startX - (pos.left + contentLeftPad);
+      const v = needsSecondRow ? rowGap : 0;
+      const maxWidth = Math.max(0, rightLimit - startX);
+
+      result.set(prod.id, { h, v, maxWidth });
     }
 
     return result;
-  }, [visibleProds, contentWidth]);
+  }, [visibleProds, positionMap, contentWidth]);
 
   return (
     <div
