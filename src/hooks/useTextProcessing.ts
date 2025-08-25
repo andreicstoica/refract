@@ -16,14 +16,15 @@ interface ProcessedSentence {
 // Content-based hashing for sentence identification
 function generateSentenceHash(text: string, startIndex: number, endIndex: number): string {
     const content = text.slice(startIndex, endIndex).trim();
-    // Create a more robust hash using the full content
+    // Create a more robust hash using the full content + position
     let hash = 0;
     for (let i = 0; i < content.length; i++) {
         const char = content.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
         hash = hash & hash; // Convert to 32-bit integer
     }
-    return Math.abs(hash).toString(36).slice(0, 8);
+    // Include position info to make hash more unique
+    return `${Math.abs(hash).toString(36).slice(0, 8)}_${content.length}_${startIndex}`;
 }
 
 interface UseTextProcessingOptions {
@@ -120,6 +121,14 @@ export function useTextProcessing({
         if (processed && processed.prodGenerated) {
             console.log("🔄 Already processed sentence with hash:", sentenceHash, "text:", lastSentence.text.substring(0, 30) + "...");
             return false;
+        }
+
+        // Also check if we recently processed very similar content (within last 2 seconds)
+        for (const [hash, proc] of processedSentencesRef.current.entries()) {
+            if (now - proc.timestamp < 2000 && proc.text === lastSentence.text && proc.prodGenerated) {
+                console.log("🔄 Recently processed identical sentence text:", lastSentence.text.substring(0, 30) + "...");
+                return false;
+            }
         }
 
         console.log("✅ Should trigger prod for:", lastSentence.text.substring(0, 30) + "...");

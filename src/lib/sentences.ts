@@ -127,13 +127,11 @@ export function measureSentencePositions(
         .replace(/\n/g, "<br/>"));
     }
 
-    const sentenceText = sentence.text.replace(/\n/g, "");
-    htmlParts.push(`<span id="mirror-sent-${sentence.id}">${sentenceText
-      .replace(/ /g, "&nbsp;")}</span>`);
-
-    if (sentence.text.endsWith('\n')) {
-      htmlParts.push("<br/>");
-    }
+    // Preserve newlines in sentence measurement - don't strip them
+    const sentenceHtml = sentence.text
+      .replace(/ /g, "&nbsp;")
+      .replace(/\n/g, "<br/>");
+    htmlParts.push(`<span id="mirror-sent-${sentence.id}">${sentenceHtml}</span>`)
 
     cursor = idx + sentence.text.length;
   }

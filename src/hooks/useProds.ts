@@ -255,6 +255,38 @@ export function useProds(options: UseProdsOptions = {}) {
             return;
         }
 
+        // Check if we already have this exact sentence in the queue
+        const existingInQueue = queueState.items.some(
+            item => item.sentence.text === sentence.text &&
+                Date.now() - item.timestamp < 2000 // Within last 2 seconds
+        );
+
+        if (existingInQueue) {
+            console.log("🔄 Sentence already in queue, skipping:", sentence.text.substring(0, 50) + "...");
+            return;
+        }
+
+        // Check if we already have a prod for this exact sentence text (recent ones)
+        const recentProd = prods.find(
+            p => Date.now() - p.timestamp < 5000
+        );
+
+        if (recentProd) {
+            // If we recently generated any prod, be extra careful about duplicates
+            const hasSimilarText = prods.some(p => {
+                // Simple text similarity check
+                const prodWords = p.text.toLowerCase().split(/\s+/);
+                const sentenceWords = sentence.text.toLowerCase().split(/\s+/);
+                const commonWords = prodWords.filter(w => sentenceWords.includes(w));
+                return commonWords.length > Math.min(prodWords.length, sentenceWords.length) * 0.5;
+            });
+
+            if (hasSimilarText) {
+                console.log("🔄 Similar prod recently generated, skipping:", sentence.text.substring(0, 50) + "...");
+                return;
+            }
+        }
+
         // Cache filtered sentence for embedding reuse
         setFilteredSentences(prev => {
             // Check if sentence already exists to avoid duplicates
@@ -274,7 +306,7 @@ export function useProds(options: UseProdsOptions = {}) {
 
         console.log("📝 Adding to queue:", sentence.text.substring(0, 50) + "...");
         queueDispatch({ type: 'ENQUEUE', payload: queueItem });
-    }, []);
+    }, [queueState.items, prods]);
 
     // Clear queue and cancel all requests
     const clearQueue = useCallback(() => {
