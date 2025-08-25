@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 import { cn } from "@/lib/helpers";
 import { storage } from "@/services/storage";
-import { CornerDownLeft } from "lucide-react";
+import { CornerDownLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { TimerControls } from "./TimerControls";
 import { IntroPage } from "./IntroPage";
 import { animateModalTransition } from "@/lib/modalAnimation";
@@ -165,38 +165,14 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
               {/* Clock Display */}
               <div className="flex items-center justify-center gap-6">
                 <div className="flex flex-col items-center gap-2">
-                  <button className="p-2 rounded-full">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 15l7-7 7 7"
-                      />
-                    </svg>
+                  <button className="p-2 hover:bg-muted/70 rounded-full transition-all duration-200 ease-out">
+                    <ChevronUp className="w-5 h-5 text-foreground transition-transform duration-200 ease-out" />
                   </button>
-                  <div className="text-4xl font-mono tabular-nums">
+                  <div className="text-4xl font-mono tabular-nums text-foreground transition-transform duration-200 ease-out">
                     {selectedMinutes.toString().padStart(2, "0")}
                   </div>
-                  <button className="p-2 rounded-full">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
+                  <button className="p-2 rounded-full transition-all duration-200 ease-out">
+                    <ChevronDown className="w-5 h-5 text-foreground transition-transform duration-200 ease-out" />
                   </button>
                   <div className="text-xs text-muted-foreground">
                     {selectedMinutes === 1 ? "minute" : "minutes"}
@@ -205,7 +181,7 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
               </div>
 
               {/* Start Button */}
-              <button className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-colors">
+              <button className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-all duration-150">
                 Start Writing
                 <CornerDownLeft className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
               </button>
