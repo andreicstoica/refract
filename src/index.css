@@ -114,3 +114,19 @@ body {
   width: 8px;
   height: 8px;
 }
+
+/* Mobile performance optimizations */
+.overlay-container {
+  /* CSS containment for performance - isolates layout/paint/size calculations */
+  contain: layout paint size;
+}
+
+.overlay-content {
+  /* Only apply will-change when elements are actively being transformed */
+  will-change: transform;
+}
+
+.overlay-content.static {
+  /* Remove will-change when not actively scrolling to save memory */
+  will-change: auto;
+}

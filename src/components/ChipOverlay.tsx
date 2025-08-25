@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Chip } from "./Chip";
 import type { Prod } from "@/types/prod";
 import type { SentencePosition } from "@/types/sentence";
 import { computeChipLayout } from "@/lib/chipLayout";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
 import { cn } from "@/lib/helpers";
+import { useRafScroll } from "@/lib/useRafScroll";
 
 interface ChipOverlayProps {
   visibleProds: Prod[];
@@ -46,27 +47,22 @@ export function ChipOverlay({
     return () => ro.disconnect();
   }, []);
 
-  // Sync with textarea scroll position using direct DOM manipulation (same approach as HighlightLayer)
+  // Sync with textarea scroll position using RAF coalescing for optimal performance
+  const handleScrollSync = useCallback((element: HTMLElement) => {
+    if (contentRef.current) {
+      const textarea = element as HTMLTextAreaElement;
+      contentRef.current.style.transform = `translateY(-${textarea.scrollTop}px)`;
+    }
+  }, []);
+
+  useRafScroll(textareaRef, handleScrollSync);
+
+  // Set initial scroll position
   useEffect(() => {
-    if (!textareaRef?.current || !contentRef.current) return;
-
-    const textarea = textareaRef.current;
-    const content = contentRef.current;
-
-    const handleScroll = () => {
-      // Use requestAnimationFrame for smooth sync without React re-renders
-      requestAnimationFrame(() => {
-        if (content) {
-          content.style.transform = `translateY(-${textarea.scrollTop}px)`;
-        }
-      });
-    };
-
-    // Set initial scroll position
-    handleScroll();
-
-    textarea.addEventListener("scroll", handleScroll, { passive: true });
-    return () => textarea.removeEventListener("scroll", handleScroll);
+    if (textareaRef?.current && contentRef.current) {
+      const textarea = textareaRef.current;
+      contentRef.current.style.transform = `translateY(-${textarea.scrollTop}px)`;
+    }
   }, [textareaRef]);
 
   // Compute per-chip offsets via layout engine (boundary-safe + collision-free)
@@ -90,7 +86,7 @@ export function ChipOverlay({
     <div
       ref={containerRef}
       className={cn(
-        "absolute inset-0 pointer-events-none z-20 overflow-hidden",
+        "absolute inset-0 pointer-events-none z-20 overflow-hidden overlay-container",
         className
       )}
     >
@@ -100,7 +96,7 @@ export function ChipOverlay({
         data-chip-content
         className={cn(
           `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex`,
-          "py-6 h-full relative"
+          "py-6 h-full relative overlay-content"
         )}
         style={{
           caretColor: "transparent",

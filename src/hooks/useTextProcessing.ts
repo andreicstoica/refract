@@ -3,6 +3,7 @@ import { splitIntoSentences } from "@/lib/sentences";
 import type { Sentence } from "@/types/sentence";
 import { measureSentencePositions, clearPositionCache } from "@/lib/sentences";
 import type { SentencePosition } from "@/types/sentence";
+import { useRafScroll } from "@/lib/useRafScroll";
 
 interface UseTextProcessingOptions {
     onProdTrigger: (fullText: string, lastSentence: Sentence, opts?: { force?: boolean }) => void;
@@ -200,26 +201,29 @@ export function useTextProcessing({
         }
     };
 
-    // Handle scroll and resize events to reposition chips
+    // Handle scroll events to reposition chips using RAF coalescing
+    const handleScrollReposition = useCallback((element: HTMLElement) => {
+        if (sentences.length > 0) {
+            clearPositionCache();
+            updatePositions(sentences, element as HTMLTextAreaElement);
+            if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after scroll (RAF)");
+        }
+    }, [sentences, updatePositions]);
+
+    useRafScroll(textareaRef, handleScrollReposition, [sentences, updatePositions]);
+
+    // Handle resize events to reposition chips
     useEffect(() => {
         const handleReposition = () => {
             if (textareaRef.current && sentences.length > 0) {
                 clearPositionCache();
                 updatePositions(sentences, textareaRef.current);
-                if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after scroll/resize");
+                if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after resize");
             }
         };
 
-        const textarea = textareaRef.current;
-        if (textarea) {
-            textarea.addEventListener("scroll", handleReposition, { passive: true });
-            window.addEventListener("resize", handleReposition, { passive: true });
-
-            return () => {
-                textarea.removeEventListener("scroll", handleReposition);
-                window.removeEventListener("resize", handleReposition);
-            };
-        }
+        window.addEventListener("resize", handleReposition, { passive: true });
+        return () => window.removeEventListener("resize", handleReposition);
     }, [sentences, updatePositions]);
 
     // Cleanup timers on unmount
