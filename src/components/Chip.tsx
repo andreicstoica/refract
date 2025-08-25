@@ -120,9 +120,13 @@ export function Chip({
           style={{
             top: chipTop,
             left: chipLeft,
+            // Use clamp to ensure chips respect gutters and don't overflow
             maxWidth: maxWidthPx
-              ? `${Math.max(0, Math.floor(maxWidthPx))}px`
-              : undefined,
+              ? `clamp(8ch, ${Math.floor(maxWidthPx)}px, calc(100% - 2 * var(--chip-gutter)))`
+              : `calc(100% - 2 * var(--chip-gutter))`,
+            inlineSize: maxWidthPx
+              ? `clamp(8ch, ${Math.floor(maxWidthPx)}px, calc(100% - 2 * var(--chip-gutter)))`
+              : `calc(100% - 2 * var(--chip-gutter))`,
           }}
           onClick={handleTap}
         >

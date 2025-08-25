@@ -155,3 +155,8 @@ body {
     min-height: 100vh;
   }
 }
+
+/* Chip gutter spacing for edge-clipping prevention */
+:root {
+  --chip-gutter: 8px; /* Consistent gutter for chip edge spacing */
+}

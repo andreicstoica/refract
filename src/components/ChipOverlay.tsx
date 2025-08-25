@@ -70,10 +70,15 @@ export function ChipOverlay({
     if (contentWidth <= 0)
       return new Map<string, { h: number; v: number; maxWidth?: number }>();
 
+    // Get chip gutter from CSS variable (fallback to 8px)
+    const chipGutter = typeof window !== "undefined" 
+      ? parseInt(getComputedStyle(document.documentElement).getPropertyValue('--chip-gutter')) || 8
+      : 8;
+
     const bounds = {
       containerWidth: contentWidth,
-      leftPad: 0,
-      rightPad: 16,
+      leftPad: chipGutter, // Use chip gutter for left padding
+      rightPad: chipGutter + 8, // Extra space on right for pin icon
       gapX: 8,
       rowGap: 20,
       maxRowsPerSentence: 3,
