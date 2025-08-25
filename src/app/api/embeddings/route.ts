@@ -8,7 +8,7 @@ import {
 } from "@/lib/embeddings";
 import type { TextChunk, ClusterResult, EmbeddingResult } from "@/types/embedding";
 
-export const maxDuration = 30; // Embeddings can take longer than prods
+export const maxDuration = 40;
 
 const EmbeddingsRequestSchema = z.object({
   sentences: z.array(z.object({
