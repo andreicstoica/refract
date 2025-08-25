@@ -91,6 +91,7 @@ export function ChipOverlay({
       string,
       { h: number; v: number; maxWidth?: number }
     >();
+    const usedPositions = new Set<string>();
 
     for (const prod of visibleProds) {
       const pos = positionMap.get(prod.sentenceId);
@@ -109,12 +110,23 @@ export function ChipOverlay({
       const available = rightLimit - startX;
       const needsSecondRow = available < Math.min(minChipPx, estW * 0.7);
 
-      // Chip.tsx computes left as: pos.left + 16 + horizontalOffset
-      // So we store offsets relative to (pos.left + contentLeftPad)
-      const h = startX - (pos.left + contentLeftPad);
-      const v = needsSecondRow ? rowGap : 0;
-      const maxWidth = Math.max(0, rightLimit - startX);
+      let v = needsSecondRow ? rowGap : 0;
+      let h = startX - (pos.left + contentLeftPad);
 
+      // Collision detection: adjust position if overlapping
+      let positionKey = `${Math.round(pos.top)}-${Math.round(startX)}-${v}`;
+      let horizontalOffset = 0;
+
+      while (usedPositions.has(positionKey)) {
+        horizontalOffset += 32;
+        const adjustedStartX = startX + horizontalOffset;
+        h = adjustedStartX - (pos.left + contentLeftPad);
+        positionKey = `${Math.round(pos.top)}-${Math.round(adjustedStartX)}-${v}`;
+      }
+
+      usedPositions.add(positionKey);
+
+      const maxWidth = Math.max(0, rightLimit - (startX + horizontalOffset));
       result.set(prod.id, { h, v, maxWidth });
     }
 
