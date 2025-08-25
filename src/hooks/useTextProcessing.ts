@@ -5,27 +5,6 @@ import { measureSentencePositions, clearPositionCache } from "@/lib/sentences";
 import type { SentencePosition } from "@/types/sentence";
 import { useRafScroll } from "@/lib/useRafScroll";
 
-// Enhanced deduplication system
-interface ProcessedSentence {
-    id: string;
-    text: string;
-    timestamp: number;
-    prodGenerated: boolean;
-}
-
-// Content-based hashing for sentence identification
-function generateSentenceHash(text: string, startIndex: number, endIndex: number): string {
-    const content = text.slice(startIndex, endIndex).trim();
-    // Create a more robust hash using the full content + position
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-        const char = content.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32-bit integer
-    }
-    // Include position info to make hash more unique
-    return `${Math.abs(hash).toString(36).slice(0, 8)}_${content.length}_${startIndex}`;
-}
 
 interface UseTextProcessingOptions {
     onProdTrigger: (fullText: string, lastSentence: Sentence, opts?: { force?: boolean }) => void;
@@ -62,8 +41,7 @@ export function useTextProcessing({
     const watchdogTimerRef = useRef<NodeJS.Timeout | null>(null);
     const lastWatchdogFireRef = useRef<number>(0);
 
-    // Enhanced deduplication tracking
-    const processedSentencesRef = useRef<Map<string, ProcessedSentence>>(new Map());
+    // Basic tracking for triggers and watchdog
     const lastTriggerAtRef = useRef<number>(0);
     const lastTriggerCharPosRef = useRef<number>(0);
     const lastInputAtRef = useRef<number>(Date.now());
@@ -114,23 +92,6 @@ export function useTextProcessing({
             return false;
         }
 
-        // Enhanced deduplication: check content hash and processed sentences
-        const sentenceHash = generateSentenceHash(currentText, lastSentence.startIndex, lastSentence.endIndex);
-        const processed = processedSentencesRef.current.get(sentenceHash);
-
-        if (processed && processed.prodGenerated) {
-            console.log("🔄 Already processed sentence with hash:", sentenceHash, "text:", lastSentence.text.substring(0, 30) + "...");
-            return false;
-        }
-
-        // Also check if we recently processed very similar content (within last 2 seconds)
-        for (const [hash, proc] of processedSentencesRef.current.entries()) {
-            if (now - proc.timestamp < 2000 && proc.text === lastSentence.text && proc.prodGenerated) {
-                console.log("🔄 Recently processed identical sentence text:", lastSentence.text.substring(0, 30) + "...");
-                return false;
-            }
-        }
-
         console.log("✅ Should trigger prod for:", lastSentence.text.substring(0, 30) + "...");
         return true;
     }, []);
@@ -147,24 +108,6 @@ export function useTextProcessing({
         // Update tracking state
         lastTriggerAtRef.current = Date.now();
         lastTriggerCharPosRef.current = currentText.length;
-
-        // Mark sentence as processed in deduplication system
-        const sentenceHash = generateSentenceHash(currentText, lastSentence.startIndex, lastSentence.endIndex);
-        processedSentencesRef.current.set(sentenceHash, {
-            id: lastSentence.id,
-            text: lastSentence.text,
-            timestamp: Date.now(),
-            prodGenerated: true,
-        });
-
-        // Clean up old entries to prevent memory leaks (keep last 100)
-        if (processedSentencesRef.current.size > 100) {
-            const entries = Array.from(processedSentencesRef.current.entries());
-            const sorted = entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
-            const toKeep = sorted.slice(0, 100);
-            processedSentencesRef.current.clear();
-            toKeep.forEach(([key, value]) => processedSentencesRef.current.set(key, value));
-        }
     }, [onProdTrigger, prodsEnabled]);
 
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -299,7 +242,7 @@ export function useTextProcessing({
             const now = Date.now();
             const idleMs = now - lastInputAtRef.current;
 
-            if (idleMs >= 8000 && watchdogArmedRef.current) {
+            if (idleMs >= 6000 && watchdogArmedRef.current) {
                 const latestText = textareaRef.current?.value || text;
                 const currentSentences = sentences.length > 0 ? sentences : splitIntoSentences(latestText);
                 if (currentSentences.length > 0) {
