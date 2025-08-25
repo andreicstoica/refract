@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/helpers";
 import type { Sentence } from "@/types/sentence";
 import type { SentencePosition } from "@/types/sentence";
@@ -89,36 +89,38 @@ export function TextInput({
   // Simplified caret auto-scroll functionality for keyboard visibility
   const ensureCaretVisible = useCallback(() => {
     if (!textareaRef.current) return;
-    
+
     const textarea = textareaRef.current;
     const visualViewport = window.visualViewport;
-    
+
     // Only proceed if Visual Viewport API is available and keyboard might be visible
     if (!visualViewport) return;
-    
+
     try {
       // Get textarea position and caret info
       const textareaRect = textarea.getBoundingClientRect();
       const caretPosition = textarea.selectionStart;
-      
+
       // Simple approximation: assume caret is at scroll position + some offset
       // This is much lighter than creating mirror elements
-      const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight) || 56; // 3.5rem default
+      const lineHeight =
+        parseFloat(window.getComputedStyle(textarea).lineHeight) || 56; // 3.5rem default
       const textBeforeCaret = textarea.value.substring(0, caretPosition);
-      const lineCount = textBeforeCaret.split('\n').length;
-      const approximateCaretTop = textareaRect.top + (lineCount - 1) * lineHeight;
+      const lineCount = textBeforeCaret.split("\n").length;
+      const approximateCaretTop =
+        textareaRect.top + (lineCount - 1) * lineHeight;
       const approximateCaretBottom = approximateCaretTop + lineHeight;
-      
+
       // Check if caret is below visible area (with buffer)
       const threshold = 40; // Larger buffer for approximation
       const visualBottom = visualViewport.height + visualViewport.offsetTop;
-      
+
       if (approximateCaretBottom > visualBottom - threshold) {
         // Scroll to end of textarea with smooth behavior
         textarea.scrollTop = textarea.scrollHeight;
-        
+
         if (process.env.NODE_ENV !== "production") {
-          console.log('📱 Auto-scrolled textarea for caret visibility:', {
+          console.log("📱 Auto-scrolled textarea for caret visibility:", {
             approximateCaretBottom,
             visualBottom,
             threshold,
@@ -128,7 +130,7 @@ export function TextInput({
     } catch (error) {
       // Silently fail if measurement doesn't work
       if (process.env.NODE_ENV !== "production") {
-        console.warn('📱 Caret visibility check failed:', error);
+        console.warn("📱 Caret visibility check failed:", error);
       }
     }
   }, []);
@@ -137,25 +139,25 @@ export function TextInput({
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
-    
+
     const handleInputEvent = () => {
       // Small delay to ensure DOM updates are complete
       setTimeout(ensureCaretVisible, 50);
     };
-    
+
     const handleSelectionChange = () => {
       // Only handle if this textarea is focused
       if (document.activeElement === textarea) {
         setTimeout(ensureCaretVisible, 50);
       }
     };
-    
-    textarea.addEventListener('input', handleInputEvent);
-    document.addEventListener('selectionchange', handleSelectionChange);
-    
+
+    textarea.addEventListener("input", handleInputEvent);
+    document.addEventListener("selectionchange", handleSelectionChange);
+
     return () => {
-      textarea.removeEventListener('input', handleInputEvent);
-      document.removeEventListener('selectionchange', handleSelectionChange);
+      textarea.removeEventListener("input", handleInputEvent);
+      document.removeEventListener("selectionchange", handleSelectionChange);
     };
   }, [ensureCaretVisible]);
 
@@ -239,6 +241,7 @@ export function TextInput({
               visibleProds={prods}
               sentencePositions={sentencePositions}
               textareaRef={textareaRef}
+              extraTopPaddingPx={extraTopPaddingPx}
             />
           </div>
         </div>

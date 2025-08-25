@@ -457,6 +457,7 @@ export default function DemoPage() {
                 currentRanges={highlightRanges}
                 allRanges={allHighlightableRanges}
                 textareaRef={textareaRefObject}
+                extraTopPaddingPx={0}
               />
             </div>
           ) : null}

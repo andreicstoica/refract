@@ -22,7 +22,7 @@ const EmbeddingsRequestSchema = z.object({
 
 const ComprehensiveThemeSchema = z.object({
   themes: z.array(z.object({
-    theme: z.string(),
+    theme: z.string().max(30, "Theme label must be 30 characters or less"),
     description: z.string(),
     confidence: z.number(),
     color: z.string(),
@@ -157,11 +157,28 @@ async function generateComprehensiveThemes(
 
 ## Core Requirements
 
+**CRITICAL: Theme labels must be 30 characters or less** - this is a hard requirement for UI display. Examples of good labels:
+- "Creative Flow" (13 chars)
+- "Self-Doubt & Growth" (18 chars) 
+- "Connection & Belonging" (22 chars)
+- "Work-Life Balance" (17 chars)
+- "Inner Peace" (11 chars)
+
+**Avoid labels that are too long:**
+- "The struggle between work responsibilities and personal relationships" (too long!)
+- "Complex emotions around career advancement and family time" (too long!)
+
 **Uniqueness**: Each theme label must be completely unique - no duplicates or similar variations allowed.
 
 **Specificity**: Labels should be 2-4 words that capture the essence of what makes each cluster distinct from others. Avoid generic terms.
 
 **Emotional Resonance**: Choose labels that reflect the emotional tone and significance of the content, not just surface topics.
+
+Choose labels that are:
+- Concise but descriptive
+- Emotionally resonant
+- Easy to understand at a glance
+- Under 30 characters
 
 ## Technical Specifications
 

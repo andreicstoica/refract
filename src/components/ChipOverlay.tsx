@@ -15,6 +15,7 @@ interface ChipOverlayProps {
   onChipFade?: (prodId: string) => void;
   onChipKeep?: (prod: Prod) => void;
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  extraTopPaddingPx?: number;
 }
 
 export function ChipOverlay({
@@ -24,6 +25,7 @@ export function ChipOverlay({
   onChipFade,
   onChipKeep,
   textareaRef,
+  extraTopPaddingPx = 0,
 }: ChipOverlayProps) {
   const positionMap = useMemo(
     () => new Map(sentencePositions.map((pos) => [pos.sentenceId, pos])),
@@ -121,7 +123,7 @@ export function ChipOverlay({
       while (usedPositions.has(positionKey)) {
         horizontalOffset += 32;
         currentStartX = startX + horizontalOffset;
-        
+
         // Check if shifted position would overflow right boundary
         if (currentStartX + estW > rightLimit) {
           // Reset horizontal offset and move to next row
@@ -129,11 +131,15 @@ export function ChipOverlay({
           currentStartX = startX;
           v += rowGap;
           h = currentStartX - (pos.left + contentLeftPad);
-          positionKey = `${Math.round(pos.top)}-${Math.round(currentStartX)}-${v}`;
+          positionKey = `${Math.round(pos.top)}-${Math.round(
+            currentStartX
+          )}-${v}`;
           // If this row position is also taken, continue the loop to try next horizontal shift
         } else {
           h = currentStartX - (pos.left + contentLeftPad);
-          positionKey = `${Math.round(pos.top)}-${Math.round(currentStartX)}-${v}`;
+          positionKey = `${Math.round(pos.top)}-${Math.round(
+            currentStartX
+          )}-${v}`;
         }
       }
 
@@ -170,7 +176,7 @@ export function ChipOverlay({
           lineHeight: "3.5rem",
           wordBreak: "break-word",
           overflowWrap: "anywhere",
-          paddingTop: "24px",
+          paddingTop: `${24 + extraTopPaddingPx}px`,
           color: "transparent",
         }}
       >
