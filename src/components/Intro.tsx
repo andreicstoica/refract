@@ -3,12 +3,12 @@
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/helpers";
 
-interface IntroPageProps {
+interface IntroProps {
   onNext: () => void;
   isEnterPressed: boolean;
 }
 
-export function IntroPage({ onNext, isEnterPressed }: IntroPageProps) {
+export function Intro({ onNext, isEnterPressed }: IntroProps) {
   return (
     <>
       {/* Intro Page */}

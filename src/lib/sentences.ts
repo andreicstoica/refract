@@ -26,7 +26,7 @@ export function splitIntoSentences(inputText: string): Sentence[] {
         const sentenceText = raw.slice(leadingWs);
         if (sentenceText.length > 0) {
           sentences.push({
-            id: `sentence-${sentences.length}`,
+            id: `sentence-${sentences.length}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
             text: sentenceText,
             startIndex: start + leadingWs,
             endIndex: start + leadingWs + sentenceText.length,
@@ -42,7 +42,7 @@ export function splitIntoSentences(inputText: string): Sentence[] {
   if (sentences.length === 0) {
     return [
       {
-        id: "sentence-0",
+        id: `sentence-0-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         text,
         startIndex: 0,
         endIndex: text.length,
@@ -127,13 +127,11 @@ export function measureSentencePositions(
         .replace(/\n/g, "<br/>"));
     }
 
-    const sentenceText = sentence.text.replace(/\n/g, "");
-    htmlParts.push(`<span id="mirror-sent-${sentence.id}">${sentenceText
-      .replace(/ /g, "&nbsp;")}</span>`);
-
-    if (sentence.text.endsWith('\n')) {
-      htmlParts.push("<br/>");
-    }
+    // Preserve newlines in sentence measurement - don't strip them
+    const sentenceHtml = sentence.text
+      .replace(/ /g, "&nbsp;")
+      .replace(/\n/g, "<br/>");
+    htmlParts.push(`<span id="mirror-sent-${sentence.id}">${sentenceHtml}</span>`)
 
     cursor = idx + sentence.text.length;
   }

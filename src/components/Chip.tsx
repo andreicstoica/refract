@@ -46,8 +46,9 @@ export function Chip({
     return position.top + lineOffset + 4 + verticalOffset; // small gap below line
   }, [position.top, position.height, verticalOffset]);
   const chipLeft = useMemo(() => {
-    // Position relative to the content div (which already has padding)
-    return position.left + horizontalOffset;
+    // Clamp to the start of the textarea content (px-4 => 16px)
+    const baseLeft = position.left + 16 + horizontalOffset;
+    return Math.max(16, baseLeft);
   }, [position.left, horizontalOffset]);
 
   // Start fade after 8 seconds
@@ -122,10 +123,14 @@ export function Chip({
             left: chipLeft,
             // Use clamp to ensure chips respect gutters and don't overflow
             maxWidth: maxWidthPx
-              ? `clamp(8ch, ${Math.floor(maxWidthPx)}px, calc(100% - 2 * var(--chip-gutter)))`
+              ? `clamp(8ch, ${Math.floor(
+                  maxWidthPx
+                )}px, calc(100% - 2 * var(--chip-gutter)))`
               : `calc(100% - 2 * var(--chip-gutter))`,
             inlineSize: maxWidthPx
-              ? `clamp(8ch, ${Math.floor(maxWidthPx)}px, calc(100% - 2 * var(--chip-gutter)))`
+              ? `clamp(8ch, ${Math.floor(
+                  maxWidthPx
+                )}px, calc(100% - 2 * var(--chip-gutter)))`
               : `calc(100% - 2 * var(--chip-gutter))`,
           }}
           onClick={handleTap}

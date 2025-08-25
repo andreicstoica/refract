@@ -255,6 +255,36 @@ export function useProds(options: UseProdsOptions = {}) {
             return;
         }
 
+        // Simple duplicate check: if we already have a prod for this exact sentence text, skip
+        const existingProd = prods.find(p => p.sentenceId === sentence.id);
+
+        if (existingProd) {
+            console.log("🔄 Prod already exists for this sentence, skipping:", sentence.text.substring(0, 50) + "...");
+            return;
+        }
+
+        // Check if we already have this exact sentence in the queue
+        const existingInQueue = queueState.items.some(
+            item => item.sentence.text === sentence.text &&
+                Date.now() - item.timestamp < 2000 // Within last 2 seconds
+        );
+
+        if (existingInQueue) {
+            console.log("🔄 Sentence already in queue, skipping:", sentence.text.substring(0, 50) + "...");
+            return;
+        }
+
+        // Additional safety check: if we have any recent prod for this sentence ID, skip
+        const recentProdForSentence = prods.find(p =>
+            p.sentenceId === sentence.id &&
+            Date.now() - p.timestamp < 10000 // Within last 10 seconds
+        );
+
+        if (recentProdForSentence) {
+            console.log("🔄 Recent prod exists for this sentence ID, skipping:", sentence.text.substring(0, 50) + "...");
+            return;
+        }
+
         // Cache filtered sentence for embedding reuse
         setFilteredSentences(prev => {
             // Check if sentence already exists to avoid duplicates
@@ -274,7 +304,7 @@ export function useProds(options: UseProdsOptions = {}) {
 
         console.log("📝 Adding to queue:", sentence.text.substring(0, 50) + "...");
         queueDispatch({ type: 'ENQUEUE', payload: queueItem });
-    }, []);
+    }, [queueState.items, prods]);
 
     // Clear queue and cancel all requests
     const clearQueue = useCallback(() => {

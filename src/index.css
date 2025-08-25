@@ -170,5 +170,11 @@ textarea {
 
 /* Chip gutter spacing for edge-clipping prevention */
 :root {
-  --chip-gutter: 8px; /* Consistent gutter for chip edge spacing */
+  --chip-gutter: 8px;
 }
+/* Activate this to make the chips have more gutter space on mobile
+@media (max-width: 480px) {
+	:root {
+		--chip-gutter: 6px;
+	}
+} */
