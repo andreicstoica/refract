@@ -15,14 +15,21 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Clipboard } from "lucide-react";
 import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
 import { gsap } from "gsap";
 import { AnimatePresence, motion } from "framer-motion";
 
-export default function HomePage() {
+// Sample journaling content for demo
+const DEMO_TEXT = `Bootcamp mode again. Demo in less than two weeks now. Time moves fast, but also slow. App works in chunks. Each piece fine on its own. Together? Still messy. Not a story yet. Needs arc. Needs one clear takeaway. Judges won’t remember the tech stack. They’ll remember how it felt.
+Morning: tried polishing the layout. Fonts, spacing, small animations. Makes it feel more real. Then broke the data sync. Classic. Two hours gone. Fixed it, but left with that tired feeling—progress, but sideways. Everyone in Slack is on the same rollercoaster. Debug screenshots, half-jokes, late-night commits. Whole cohort vibrating with stress and pride.
+I keep circling back to the pitch. Ninety seconds. Show, not tell. Hook early, wow moment, clean close. I wrote it out again. Fewer words. More clicks. Then too many clicks. Judges won’t wait. Every extra step is a chance to lose them. Need to simplify.
+Practiced once, recorded on Loom. Awkward. Talking too fast. Forgetting to pause. Harder than coding, honestly. But useful—watching it back shows what lands, what drags.
+Plan for tomorrow: cut one more feature, tighten flow. Trust the basics. Remind myself: not about showing everything I built. It’s about showing the one thing that matters.`;
+
+export default function DemoPage() {
   const { generate, isGenerating } = useGenerateEmbeddings();
 
   // Enable keyboard-safe spacing via CSS variables
@@ -31,6 +38,9 @@ export default function HomePage() {
   // Timer + intro state
   const [showTimerSetup, setShowTimerSetup] = useState(true);
   const [timerMinutes, setTimerMinutes] = useState(1);
+  const [clipboardStatus, setClipboardStatus] = useState<
+    "loading" | "error" | null
+  >(null);
 
   // Writing state
   const [currentText, setCurrentText] = useState("");
@@ -52,6 +62,26 @@ export default function HomePage() {
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
   const prevHasThemesRef = useRef(false);
+
+  // Pre-load demo content to clipboard
+  useEffect(() => {
+    const loadClipboard = async () => {
+      try {
+        setClipboardStatus("loading");
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(DEMO_TEXT);
+          setClipboardStatus(null); // Hide status silently on success
+        } else {
+          setClipboardStatus("error");
+        }
+      } catch (error) {
+        console.error("Failed to load demo content to clipboard:", error);
+        setClipboardStatus("error");
+      }
+    };
+
+    loadClipboard();
+  }, []);
 
   const handleTimerStart = (minutes: number) => {
     setTimerMinutes(minutes);
@@ -86,11 +116,7 @@ export default function HomePage() {
     [currentSentences, currentText, generate, themes, isGenerating]
   );
 
-  const handleTextUpdate = (
-    text: string,
-    sentences: Sentence[],
-    positions: SentencePosition[]
-  ) => {
+  const handleTextUpdate = (text: string, sentences: Sentence[]) => {
     setCurrentText(text);
     setCurrentSentences(sentences);
   };
@@ -214,8 +240,36 @@ export default function HomePage() {
     setTextareaEl(el);
   }, []);
 
-  // Note: overlay components (ChipOverlay, HighlightLayer) handle their own
-  // RAF-coalesced scroll sync. Avoid duplicating here to prevent jank/lag.
+  // Direct DOM scroll sync without React state updates
+  useEffect(() => {
+    if (!textareaEl || !highlightLayerRef.current) return;
+
+    const highlightLayer = highlightLayerRef.current;
+    let rafId: number;
+
+    const handleScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+
+      rafId = requestAnimationFrame(() => {
+        const scrollTop = Math.round(textareaEl.scrollTop);
+        const content = highlightLayer.querySelector(
+          "[data-highlight-content]"
+        ) as HTMLElement;
+        if (content) {
+          content.style.transform = `translate3d(0, ${-scrollTop}px, 0)`;
+        }
+      });
+    };
+
+    // Initialize position
+    handleScroll();
+
+    textareaEl.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      textareaEl.removeEventListener("scroll", handleScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [textareaEl]);
 
   // Whether we have themes to reveal
   const hasThemes = Boolean(themes && themes.length > 0);
@@ -284,6 +338,29 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background text-foreground">
+      {/* Demo Clipboard Status */}
+      {clipboardStatus && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className={cn(
+            "fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-md shadow-lg border backdrop-blur-sm",
+            clipboardStatus === "error" &&
+              "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300",
+            clipboardStatus === "loading" &&
+              "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <Clipboard className="w-4 h-4" />
+            {clipboardStatus === "error" &&
+              "Clipboard not available - manual text entry required"}
+            {clipboardStatus === "loading" && "Loading demo content..."}
+          </div>
+        </motion.div>
+      )}
+
       {/* Timer Setup Modal */}
       <IntroModal isOpen={showTimerSetup} onStart={handleTimerStart} />
 

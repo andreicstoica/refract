@@ -13,7 +13,6 @@ const MAX_CACHE_SIZE = 100;
 
 const ProdResponseSchema = z.object({
 	selectedProd: z.string().optional().describe("Best single prod or empty if skipping"),
-	shouldSkip: z.boolean().describe("True if sentence doesn't merit a prod"),
 	confidence: z.number().min(0).max(1).describe("0–1 confidence score"),
 });
 
@@ -97,7 +96,7 @@ export async function POST(req: Request) {
 - Example: "I think I avoid conflict" → "What does avoiding it protect you from?"
 
 **For Mundane or Factual Content**:
-- Set shouldSkip=true for purely factual statements
+- Set confidence to 0.1-0.3 for purely factual statements
 - Skip routine activities without emotional content
 - Skip simple announcements or logistics
 
@@ -155,7 +154,7 @@ Analyze this sentence in context and determine the best approach:
    - Feels natural and conversational
    - Could reveal meaningful patterns or understanding
 
-3. **If the sentence is too mundane or factual**: Set shouldSkip=true
+3. **If the sentence is too mundane or factual**: Set confidence to 0.1-0.3
 
 4. **Rate your confidence** in how well your prod would serve this specific writer in this moment
 
@@ -170,14 +169,12 @@ Generate a response that would genuinely help this person understand themselves 
 
 		const response = {
 			selectedProd: result.object.selectedProd || "",
-			shouldSkip: result.object.shouldSkip ?? false,
 			confidence: result.object.confidence ?? 0
 		};
 
 		console.log("🎯 Generated prod:", {
 			sentence: lastParagraph.slice(0, 50) + "...",
 			prod: response.selectedProd,
-			shouldSkip: response.shouldSkip,
 			confidence: response.confidence
 		});
 
@@ -200,7 +197,6 @@ Generate a response that would genuinely help this person understand themselves 
 		// Return thoughtful fallback response if generation fails
 		return Response.json({
 			selectedProd: "What made this significant to you?",
-			shouldSkip: false,
 			confidence: 0.5
 		});
 	}

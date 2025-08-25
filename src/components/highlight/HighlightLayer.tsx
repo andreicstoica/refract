@@ -19,13 +19,24 @@ type HighlightLayerProps = {
   allRanges: HighlightRange[];
   className?: string;
   textareaRef?: React.RefObject<HTMLTextAreaElement>;
+  extraTopPaddingPx?: number;
 };
 
 // Minimal paint-only highlight overlay that mirrors the textarea content flow.
 // No interactivity; caller controls visibility/opacity. Designed to be positioned
 // as absolute inset-0 with pointer-events-none.
 export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
-  function HighlightLayer({ text, currentRanges, allRanges, className, textareaRef }, ref) {
+  function HighlightLayer(
+    {
+      text,
+      currentRanges,
+      allRanges,
+      className,
+      textareaRef,
+      extraTopPaddingPx = 0,
+    },
+    ref
+  ) {
     const cuts = useMemo(
       () => buildCutPoints(text, allRanges),
       [text, allRanges]
@@ -172,11 +183,13 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
             caretColor: "transparent",
             overflowY: "hidden",
             overflowX: "hidden",
+            whiteSpace: "pre-wrap",
             resize: "none",
             lineHeight: "3.5rem",
+            fontSize: "1rem",
             wordBreak: "break-word",
             overflowWrap: "anywhere",
-            paddingTop: "24px",
+            paddingTop: `${24 + extraTopPaddingPx}px`,
             color: "transparent",
           }}
         >

@@ -10,13 +10,13 @@ function autoAbort(ms: number) {
 
 describe("prodClient", () => {
   it("returns data on success", async () => {
-    const mockBody = { selectedProd: "What felt most meaningful?", shouldSkip: false, confidence: 0.9 };
+    const mockBody = { selectedProd: "What felt most meaningful?", confidence: 0.9 };
     // @ts-expect-error override global fetch
     globalThis.fetch = async () => new Response(JSON.stringify(mockBody), { status: 200, headers: { "Content-Type": "application/json" } });
 
     const res = await generateProd({ lastParagraph: "I had a good day.", fullText: "I had a good day." });
     expect(res.selectedProd).toBe(mockBody.selectedProd);
-    expect(res.shouldSkip).toBe(false);
+    expect(res.confidence).toBe(0.9);
   });
 
   it("soft-skips on abort/timeout", async () => {
@@ -40,7 +40,7 @@ describe("prodClient", () => {
 
     const external = autoAbort(5); // abort quickly
     const res = await generateProdWithTimeout({ lastParagraph: "...", fullText: "..." }, { signal: external.signal });
-    expect(res.shouldSkip).toBe(true);
+    expect(res.confidence).toBe(0.1);
   });
 });
 
