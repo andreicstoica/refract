@@ -165,13 +165,22 @@ async function generateComprehensiveThemes(
 
 ## Technical Specifications
 
-**Colors**: Use these exact hex values only:
-- \`#3B82F6\` (Blue) - Daily life, routine, neutral reflection
-- \`#8B5CF6\` (Purple) - Creativity, dreams, aspirations  
-- \`#10B981\` (Green) - Growth, positive experiences, achievements
-- \`#F59E0B\` (Amber) - Important memories, significant moments
-- \`#EF4444\` (Red) - Stress, challenges, intense emotions
-- \`#EC4899\` (Pink) - Relationships, love, personal connections
+**Colors**: Choose any hex color that best represents the emotional tone and significance of each theme. Consider color psychology and emotional associations. Here are some examples to guide your choices:
+
+- \`#3B82F6\` (Blue) - Daily life, routine, neutral reflection, calmness
+- \`#8B5CF6\` (Purple) - Creativity, dreams, aspirations, spirituality
+- \`#10B981\` (Green) - Growth, positive experiences, achievements, nature
+- \`#F59E0B\` (Amber) - Important memories, significant moments, warmth
+- \`#EF4444\` (Red) - Stress, challenges, intense emotions, passion
+- \`#EC4899\` (Pink) - Relationships, love, personal connections, tenderness
+- \`#06B6D4\` (Cyan) - Clarity, insight, intellectual pursuits
+- \`#84CC16\` (Lime) - Energy, optimism, new beginnings
+- \`#F97316\` (Orange) - Enthusiasm, adventure, social connections
+- \`#6366F1\` (Indigo) - Depth, introspection, wisdom
+- \`#A855F7\` (Violet) - Imagination, mystery, transformation
+- \`#14B8A6\` (Teal) - Balance, harmony, emotional stability
+
+Feel free to use any hex color that feels right for the theme's emotional resonance. Consider using softer pastels for gentle themes, vibrant colors for intense emotions, or muted tones for reflective content.
 
 **Confidence Scale** (0.1-1.0):
 - 0.7-1.0: Very clear theme with strong coherence
@@ -244,8 +253,12 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
       hasFullText: !!fullText
     });
 
-    // Enhanced fallback with better variety
-    const fallbackColors = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899"];
+    // Enhanced fallback with expanded color variety
+    const fallbackColors = [
+      "#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899",
+      "#06B6D4", "#84CC16", "#F97316", "#6366F1", "#A855F7", "#14B8A6",
+      "#F472B6", "#34D399", "#FBBF24", "#A78BFA", "#60A5FA", "#F87171"
+    ];
     const fallbackThemes = clusters.map((cluster, index) => ({
       clusterId: cluster.id,
       label: `Theme ${index + 1}`,
