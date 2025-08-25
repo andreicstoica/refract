@@ -26,7 +26,7 @@ export function splitIntoSentences(inputText: string): Sentence[] {
         const sentenceText = raw.slice(leadingWs);
         if (sentenceText.length > 0) {
           sentences.push({
-            id: `sentence-${sentences.length}`,
+            id: `sentence-${sentences.length}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
             text: sentenceText,
             startIndex: start + leadingWs,
             endIndex: start + leadingWs + sentenceText.length,
@@ -42,7 +42,7 @@ export function splitIntoSentences(inputText: string): Sentence[] {
   if (sentences.length === 0) {
     return [
       {
-        id: "sentence-0",
+        id: `sentence-0-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         text,
         startIndex: 0,
         endIndex: text.length,
