@@ -10,7 +10,6 @@ export interface ProdRequest {
 }
 
 export interface ProdResponse {
-    shouldSkip?: boolean;
     selectedProd?: string;
     confidence?: number;
 }
