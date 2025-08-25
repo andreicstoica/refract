@@ -166,16 +166,10 @@ export function useProds(options: UseProdsOptions = {}) {
                 return;
             }
 
-            // Check if AI decided to skip this sentence
-            if (data?.shouldSkip === true) {
-                if (isDev) console.log(`🙅 Skipped | api: ${Math.round(apiElapsed)}ms | sentence:`, sentence.text);
-                queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
-                ongoingRequestsRef.current.delete(requestId);
-                return; // Skip without creating a prod
-            }
 
-            // Confidence gating: require confidence > 0.4 if provided
-            if (typeof data?.confidence === 'number' && data.confidence <= 0.4) {
+
+            // Confidence gating: require confidence > 0.5 if provided
+            if (typeof data?.confidence === 'number' && data.confidence <= 0.5) {
                 if (isDev) console.log(`🔕 Low confidence (${data.confidence.toFixed(2)}) – skipping prod for sentence:`, sentence.text);
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
                 ongoingRequestsRef.current.delete(requestId);

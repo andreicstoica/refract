@@ -1,46 +1,64 @@
-import { describe, it, expect } from "bun:test";
-import { generateProd, generateProdWithTimeout } from "@/services/prodClient";
+import { generateProd } from "@/services/prodClient";
 
-// Helper to create an AbortController that aborts after ms
-function autoAbort(ms: number) {
-  const controller = new AbortController();
-  setTimeout(() => controller.abort(), ms);
-  return controller;
-}
+// Mock fetch globally
+global.fetch = jest.fn();
 
 describe("prodClient", () => {
-  it("returns data on success", async () => {
-    const mockBody = { selectedProd: "What felt most meaningful?", shouldSkip: false, confidence: 0.9 };
-    // @ts-expect-error override global fetch
-    globalThis.fetch = async () => new Response(JSON.stringify(mockBody), { status: 200, headers: { "Content-Type": "application/json" } });
-
-    const res = await generateProd({ lastParagraph: "I had a good day.", fullText: "I had a good day." });
-    expect(res.selectedProd).toBe(mockBody.selectedProd);
-    expect(res.shouldSkip).toBe(false);
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("soft-skips on abort/timeout", async () => {
-    // Mock fetch that never resolves but rejects on abort
-    // @ts-expect-error override global fetch
-    globalThis.fetch = (_input: any, init?: RequestInit) => {
-      return new Promise((_resolve, reject) => {
-        const signal = init?.signal as AbortSignal | undefined;
-        if (signal) {
-          const onAbort = () => {
-            const err = new Error("Aborted");
-            // @ts-expect-error add name to mimic AbortError
-            err.name = "AbortError";
-            reject(err);
-          };
-          if (signal.aborted) onAbort();
-          else signal.addEventListener("abort", onAbort, { once: true });
-        }
-      });
+  it("should return prod data on successful response", async () => {
+    const mockBody = { selectedProd: "What felt most meaningful?", confidence: 0.9 };
+    const mockResponse = {
+      ok: true,
+      json: jest.fn().mockResolvedValue(mockBody),
     };
+    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
 
-    const external = autoAbort(5); // abort quickly
-    const res = await generateProdWithTimeout({ lastParagraph: "...", fullText: "..." }, { signal: external.signal });
-    expect(res.shouldSkip).toBe(true);
+    const result = await generateProd({
+      lastParagraph: "I had a great day today",
+      fullText: "I had a great day today. It was wonderful.",
+    });
+
+    expect(result.selectedProd).toBe("What felt most meaningful?");
+    expect(result.confidence).toBe(0.9);
+    expect(global.fetch).toHaveBeenCalledWith("/api/prod", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lastParagraph: "I had a great day today",
+        fullText: "I had a great day today. It was wonderful.",
+      }),
+      signal: undefined,
+    });
+  });
+
+  it("should handle API errors", async () => {
+    const mockResponse = {
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+    };
+    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+
+    await expect(
+      generateProd({
+        lastParagraph: "I had a great day today",
+        fullText: "I had a great day today. It was wonderful.",
+      })
+    ).rejects.toThrow("Prod API call failed: 500 Internal Server Error");
+  });
+
+  it("should handle network errors", async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(new Error("Network error"));
+
+    await expect(
+      generateProd({
+        lastParagraph: "I had a great day today",
+        fullText: "I had a great day today. It was wonderful.",
+      })
+    ).rejects.toThrow("Network error");
   });
 });
 

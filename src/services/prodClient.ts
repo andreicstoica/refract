@@ -61,7 +61,6 @@ export async function generateProd(
         const totalElapsed = getNow() - start;
 
         console.log(`⏱️ /api/prod completed in ${Math.round(totalElapsed)}ms`, {
-            shouldSkip: data?.shouldSkip ?? false,
             selectedLen: typeof data?.selectedProd === "string" ? data.selectedProd.length : 0,
             confidence: data?.confidence ?? null,
         });
@@ -74,7 +73,7 @@ export async function generateProd(
         if (error instanceof Error && error.name === 'AbortError') {
             console.warn(`⏱️ /api/prod timed out after ${Math.round(elapsed)}ms (soft-skip)`);
             // Soft-skip on timeout so upstream can continue without error noise
-            const softSkip: ProdResponse = { shouldSkip: true };
+            const softSkip: ProdResponse = { selectedProd: "" };
             return softSkip;
         }
 
