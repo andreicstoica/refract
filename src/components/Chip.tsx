@@ -46,8 +46,9 @@ export function Chip({
     return position.top + lineOffset + 4 + verticalOffset; // small gap below line
   }, [position.top, position.height, verticalOffset]);
   const chipLeft = useMemo(() => {
-    // Position relative to the content div (which already has padding)
-    return position.left + horizontalOffset;
+    // Clamp to the start of the textarea content (px-4 => 16px)
+    const baseLeft = position.left + 16 + horizontalOffset;
+    return Math.max(16, baseLeft);
   }, [position.left, horizontalOffset]);
 
   // Start fade after 8 seconds

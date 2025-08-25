@@ -7,7 +7,7 @@ import { cn } from "@/lib/helpers";
 import { storage } from "@/services/storage";
 import { CornerDownLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { TimerControls } from "./TimerControls";
-import { IntroPage } from "./IntroPage";
+import { Intro } from "./Intro";
 import { animateModalTransition } from "@/lib/modalAnimation";
 import { useModalKeyboard } from "@/hooks/useModalKeyboard";
 
@@ -189,10 +189,7 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
 
             <div ref={contentRef} className="text-center space-y-8">
               {currentPage === 0 && (
-                <IntroPage
-                  onNext={handleNext}
-                  isEnterPressed={isEnterPressed}
-                />
+                <Intro onNext={handleNext} isEnterPressed={isEnterPressed} />
               )}
 
               {currentPage === 1 && (
