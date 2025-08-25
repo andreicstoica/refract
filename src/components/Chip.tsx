@@ -115,8 +115,6 @@ export function Chip({
             "whitespace-nowrap overflow-hidden text-ellipsis", // single-line with safe truncation
             // Always allow interactions so chips can be pinned anytime
             "pointer-events-auto",
-            // Add subtle visual connection to sentence
-            "before:absolute before:top-[-8px] before:left-1/2 before:w-px before:h-2 before:bg-blue-300/40 before:transform before:-translate-x-1/2",
             className
           )}
           style={{
