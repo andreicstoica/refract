@@ -183,6 +183,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
             caretColor: "transparent",
             overflowY: "hidden",
             overflowX: "hidden",
+            whiteSpace: "pre-wrap",
             resize: "none",
             lineHeight: "3.5rem",
             fontSize: "1rem",

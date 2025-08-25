@@ -197,7 +197,8 @@ Choose labels that are:
 - \`#A855F7\` (Violet) - Imagination, mystery, transformation
 - \`#14B8A6\` (Teal) - Balance, harmony, emotional stability
 
-Feel free to use any hex color that feels right for the theme's emotional resonance. Consider using softer pastels for gentle themes, vibrant colors for intense emotions, or muted tones for reflective content.
+Feel free to use any hex color that feels right for the theme's emotional resonance. Consider using softer pastels for gentle themes, vibrant colors for intense emotions, or muted tones for reflective content. 
+Make sure that the colors are not too similar to each other for good visual contrast.
 
 **Confidence Scale** (0.1-1.0):
 - 0.7-1.0: Very clear theme with strong coherence

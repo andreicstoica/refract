@@ -172,6 +172,7 @@ export function ChipOverlay({
           caretColor: "transparent",
           overflowY: "hidden",
           overflowX: "hidden",
+          whiteSpace: "pre-wrap",
           resize: "none",
           lineHeight: "3.5rem",
           wordBreak: "break-word",
