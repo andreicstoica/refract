@@ -266,25 +266,12 @@ export function useProds(options: UseProdsOptions = {}) {
             return;
         }
 
-        // Check if we already have a prod for this exact sentence text (recent ones)
-        const recentProd = prods.find(
-            p => Date.now() - p.timestamp < 5000
-        );
+        // Simple duplicate check: if we already have a prod for this exact sentence text, skip
+        const existingProd = prods.find(p => p.sentenceId === sentence.id);
 
-        if (recentProd) {
-            // If we recently generated any prod, be extra careful about duplicates
-            const hasSimilarText = prods.some(p => {
-                // Simple text similarity check
-                const prodWords = p.text.toLowerCase().split(/\s+/);
-                const sentenceWords = sentence.text.toLowerCase().split(/\s+/);
-                const commonWords = prodWords.filter(w => sentenceWords.includes(w));
-                return commonWords.length > Math.min(prodWords.length, sentenceWords.length) * 0.5;
-            });
-
-            if (hasSimilarText) {
-                console.log("🔄 Similar prod recently generated, skipping:", sentence.text.substring(0, 50) + "...");
-                return;
-            }
+        if (existingProd) {
+            console.log("🔄 Prod already exists for this sentence, skipping:", sentence.text.substring(0, 50) + "...");
+            return;
         }
 
         // Cache filtered sentence for embedding reuse

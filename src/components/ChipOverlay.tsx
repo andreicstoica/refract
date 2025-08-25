@@ -71,17 +71,19 @@ export function ChipOverlay({
       return new Map<string, { h: number; v: number; maxWidth?: number }>();
 
     // Get chip gutter from CSS variable (fallback to 8px)
-    const chipGutter = typeof window !== "undefined" 
-      ? parseInt(getComputedStyle(document.documentElement).getPropertyValue('--chip-gutter')) || 8
-      : 8;
+    const chipGutter =
+      typeof window !== "undefined"
+        ? parseInt(
+            getComputedStyle(document.documentElement).getPropertyValue(
+              "--chip-gutter"
+            )
+          ) || 8
+        : 8;
 
     const bounds = {
       containerWidth: contentWidth,
-      leftPad: chipGutter, // Use chip gutter for left padding
-      rightPad: chipGutter + 8, // Extra space on right for pin icon
-      gapX: 8,
-      rowGap: 20,
-      maxRowsPerSentence: 3,
+      leftPad: chipGutter,
+      rightPad: chipGutter + 8,
     } as const;
 
     return computeChipLayout(visibleProds, positionMap, bounds);
