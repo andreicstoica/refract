@@ -2,8 +2,14 @@
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { createHash } from "crypto";
 
 export const maxDuration = 12;
+
+// Simple in-memory cache for request deduplication
+const requestCache = new Map<string, { timestamp: number; response: any }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 100;
 
 const ProdResponseSchema = z.object({
 	selectedProd: z.string().optional().describe("Best single prod or empty if skipping"),
@@ -15,6 +21,24 @@ export async function POST(req: Request) {
 	const { lastParagraph, fullText }: { lastParagraph: string; fullText?: string } = await req.json();
 
 	try {
+		// API-level deduplication: check if we've already processed this exact text
+		const requestHash = createHash("md5").update(lastParagraph).digest("hex");
+		const now = Date.now();
+
+		// Clean up expired cache entries
+		for (const [key, value] of requestCache.entries()) {
+			if (now - value.timestamp > CACHE_TTL_MS) {
+				requestCache.delete(key);
+			}
+		}
+
+		// Check cache for existing response
+		const cached = requestCache.get(requestHash);
+		if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
+			console.log("🔄 Returning cached response for request hash:", requestHash);
+			return Response.json(cached.response);
+		}
+
 		// Truncate fullText to last 400 characters for efficiency
 		const truncatedContext = fullText ? fullText.slice(-400) : "";
 
@@ -144,18 +168,31 @@ Generate a response that would genuinely help this person understand themselves 
 			schema: ProdResponseSchema,
 		});
 
-		console.log("🎯 Generated prod:", {
-			sentence: lastParagraph.slice(0, 50) + "...",
-			prod: result.object.selectedProd,
-			shouldSkip: result.object.shouldSkip,
-			confidence: result.object.confidence
-		});
-
-		return Response.json({
+		const response = {
 			selectedProd: result.object.selectedProd || "",
 			shouldSkip: result.object.shouldSkip ?? false,
 			confidence: result.object.confidence ?? 0
+		};
+
+		console.log("🎯 Generated prod:", {
+			sentence: lastParagraph.slice(0, 50) + "...",
+			prod: response.selectedProd,
+			shouldSkip: response.shouldSkip,
+			confidence: response.confidence
 		});
+
+		// Cache the response
+		requestCache.set(requestHash, { timestamp: now, response });
+
+		// Maintain cache size limit
+		if (requestCache.size > MAX_CACHE_SIZE) {
+			const entries = Array.from(requestCache.entries());
+			const sorted = entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+			const toRemove = sorted.slice(0, Math.floor(MAX_CACHE_SIZE / 2));
+			toRemove.forEach(([key]) => requestCache.delete(key));
+		}
+
+		return Response.json(response);
 
 	} catch (error) {
 		console.error("❌ Prod API Error:", error);

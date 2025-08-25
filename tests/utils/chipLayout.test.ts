@@ -2,13 +2,9 @@ import { describe, it, expect } from "bun:test";
 import { computeChipLayout, estimateChipWidthPx } from "@/lib/chipLayout";
 import type { SentencePosition } from "@/types/sentence";
 
-function absLeft(pos: SentencePosition, h: number, leftPad: number) {
-  return pos.left + leftPad + h;
-}
-
 describe("computeChipLayout", () => {
   const bounds = {
-    containerWidth: 400,
+    containerWidth: 800,
     leftPad: 16,
     rightPad: 16,
     gapX: 8,
@@ -26,6 +22,10 @@ describe("computeChipLayout", () => {
     [sC.sentenceId, sC],
   ]);
 
+  function absLeft(pos: SentencePosition, h: number, leftPad: number): number {
+    return pos.left + leftPad + h;
+  }
+
   it("keeps chips within left/right bounds and avoids overlap on the same row", () => {
     const prods = [
       { id: "p1", sentenceId: "sa", text: "alpha", timestamp: 1 },
@@ -34,6 +34,8 @@ describe("computeChipLayout", () => {
     ];
     const layout = computeChipLayout(prods, posMap, bounds);
     const rightLimit = bounds.containerWidth - bounds.rightPad;
+
+
 
     // No chip should exceed the right limit and offsets must be non-negative
     for (const p of prods) {
@@ -53,12 +55,18 @@ describe("computeChipLayout", () => {
       const top = sA.top + Math.min(44, sA.height) + 4 + off.v;
       return { id: p.id, left, right: left + w, top, bottom: top + 20 };
     });
+
+
+
     for (let i = 0; i < rects.length; i++) {
       for (let j = i + 1; j < rects.length; j++) {
         const a = rects[i];
         const b = rects[j];
         const overlapX = a.left < b.right && a.right > b.left;
         const sameRow = a.top === b.top;
+
+
+
         expect(!(overlapX && sameRow)).toBe(true);
       }
     }
@@ -100,6 +108,8 @@ describe("computeChipLayout", () => {
     const wA = estimateChipWidthPx("alpha long");
     const wB = estimateChipWidthPx("beta long");
     const overlapX = leftA < leftB + wB && leftA + wA > leftB;
+
+
 
     // If same row, they should not overlap; if overlapping would happen, one should be on the next row
     if (topA === topB) {

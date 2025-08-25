@@ -115,6 +115,8 @@ export function Chip({
             "whitespace-nowrap overflow-hidden text-ellipsis", // single-line with safe truncation
             // Always allow interactions so chips can be pinned anytime
             "pointer-events-auto",
+            // Add subtle visual connection to sentence
+            "before:absolute before:top-[-8px] before:left-1/2 before:w-px before:h-2 before:bg-blue-300/40 before:transform before:-translate-x-1/2",
             className
           )}
           style={{
@@ -122,10 +124,14 @@ export function Chip({
             left: chipLeft,
             // Use clamp to ensure chips respect gutters and don't overflow
             maxWidth: maxWidthPx
-              ? `clamp(8ch, ${Math.floor(maxWidthPx)}px, calc(100% - 2 * var(--chip-gutter)))`
+              ? `clamp(8ch, ${Math.floor(
+                  maxWidthPx
+                )}px, calc(100% - 2 * var(--chip-gutter)))`
               : `calc(100% - 2 * var(--chip-gutter))`,
             inlineSize: maxWidthPx
-              ? `clamp(8ch, ${Math.floor(maxWidthPx)}px, calc(100% - 2 * var(--chip-gutter)))`
+              ? `clamp(8ch, ${Math.floor(
+                  maxWidthPx
+                )}px, calc(100% - 2 * var(--chip-gutter)))`
               : `calc(100% - 2 * var(--chip-gutter))`,
           }}
           onClick={handleTap}

@@ -29,6 +29,24 @@ const MIN_CHIP_PX = 120; // minimum visual width for a chip
 const CHROME_PX = 40; // padding + pin + spacing around text
 const CHIP_HEIGHT = 20; // approximate chip height for collision
 
+/**
+ * Get natural chip position near the end of the sentence
+ */
+function getNaturalChipPosition(
+    sentencePos: SentencePosition,
+    containerWidth: number,
+    chipWidth: number
+): number {
+    const sentenceEnd = sentencePos.left + sentencePos.width;
+    const preferredPosition = sentenceEnd - chipWidth;
+
+    // Ensure it stays within bounds
+    return Math.max(
+        16, // leftPad
+        Math.min(preferredPosition, containerWidth - chipWidth - 16) // rightPad
+    );
+}
+
 export function estimateChipWidthPx(text: string): number {
     return Math.max(MIN_CHIP_PX, Math.round(text.length * DEFAULT_CHAR_PX)) + CHROME_PX;
 }
@@ -83,26 +101,38 @@ export function computeChipLayout(
         if (!pos) continue;
 
         const baseTop = chipBaseTopPx(pos);
-        const baseLeft = Math.max(bounds.leftPad, pos.left + bounds.leftPad);
         const estWidth = estimateChipWidthPx(prod.text);
-        const maxLeft = Math.max(bounds.leftPad, Math.min(baseLeft, rightLimit - estWidth));
+
+        // Use natural positioning as preferred starting point, but ensure sequential placement for same sentence
+        const naturalPosition = getNaturalChipPosition(pos, bounds.containerWidth, estWidth);
+        const baseLeft = Math.max(bounds.leftPad, pos.left + bounds.leftPad);
+
+        // For chips of the same sentence, start from the left to ensure sequential placement
+        const existingChipsForSentence = placed.filter(r => {
+            const probe = { ...r, prodId: r.prodId };
+            const rowRect = buildRect(0, baseTop, 1);
+            return rectsOverlap(probe, rowRect);
+        });
+
+        // Check if this is the first chip for this sentence
+        const isFirstChipForSentence = existingChipsForSentence.length === 0;
+        const startPosition = isFirstChipForSentence ? naturalPosition : baseLeft;
+        const maxLeft = Math.max(bounds.leftPad, Math.min(startPosition, rightLimit - estWidth));
 
         let placedForThis = false;
 
         for (let row = 0; row < bounds.maxRowsPerSentence; row++) {
             const rowTop = baseTop + row * bounds.rowGap;
-            // Build list of occupied intervals for this row (vertical overlap window)
+            // Build list of occupied intervals for this specific row
             const rowOccupants = placed.filter(r => {
-                const probe = { ...r, prodId: r.prodId };
-                // vertical overlap if any intersection with this row's CHIP_HEIGHT band
-                const rowRect = buildRect(0, rowTop, 1);
-                return rectsOverlap(probe, rowRect);
+                // Check if this placed rect is on the same row (within CHIP_HEIGHT tolerance)
+                return Math.abs(r.top - rowTop) < CHIP_HEIGHT;
             });
 
-            // Attempt greedy placement starting near base left
+            // Attempt placement starting from natural position, then fallback to left alignment
             let x = clamp(maxLeft, bounds.leftPad, rightLimit - estWidth);
             let iterations = 0;
-            const maxIterations = 20;
+            const maxIterations = 30; // Increased for better placement
 
             while (iterations < maxIterations) {
                 iterations++;
@@ -122,13 +152,13 @@ export function computeChipLayout(
                     break;
                 }
 
-                // Nudge to just after the colliding rect's right edge
+                // Try to place after the colliding rect with gap
                 const nextX = collision.right + bounds.gapX;
                 if (nextX + estWidth > rightLimit) {
-                    // No room on this row; give up and try next row
+                    // No room on this row; try next row
                     break;
                 }
-                x = Math.max(x, nextX);
+                x = nextX;
             }
 
             if (placedForThis) break;
