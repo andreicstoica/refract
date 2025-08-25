@@ -42,10 +42,8 @@ export function Chip({
   // Position chip right under the sentence with horizontal offset for side-by-side layout
   const chipTop = useMemo(() => {
     const measured = position.height ?? 56; // Use 56px (3.5rem) as default
-    const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
-    // Ensure chips appear below the line, accounting for line height
-    const lineOffset = isMobile ? Math.min(32, measured) : Math.min(56, measured);
-    return position.top + lineOffset + 8 + verticalOffset; // Larger gap below line for better spacing
+    const lineOffset = Math.min(56, measured); // Use consistent 56px line offset
+    return position.top + lineOffset + 4 + verticalOffset; // Small gap below line
   }, [position.top, position.height, verticalOffset]);
   const chipLeft = useMemo(() => {
     // Position relative to the content div (which already has padding)

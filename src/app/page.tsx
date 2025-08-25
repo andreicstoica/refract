@@ -113,11 +113,17 @@ export default function HomePage() {
   }, [themes, selectedThemeIds, sentenceMap]);
 
   const toggleTheme = (themeId: string) => {
-    setSelectedThemeIds((prev) =>
-      prev.includes(themeId)
+    setSelectedThemeIds((prev) => {
+      const newIds = prev.includes(themeId)
         ? prev.filter((id) => id !== themeId)
-        : [...prev, themeId]
-    );
+        : [...prev, themeId];
+      
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🎨 Theme toggle:", { themeId, newIds, themes: themes?.length });
+      }
+      
+      return newIds;
+    });
   };
 
   // Explicit re-run of embeddings on demand

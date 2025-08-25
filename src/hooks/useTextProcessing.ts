@@ -96,16 +96,19 @@ export function useTextProcessing({
             // Get textarea's visible area (accounting for mobile keyboard)
             const textareaRect = textarea.getBoundingClientRect();
             const viewportHeight = window.innerHeight;
-            const keyboardBuffer = isMobile ? 200 : 100; // Larger buffer on mobile for keyboard
+            
+            // More aggressive mobile keyboard detection
+            const keyboardBuffer = isMobile ? Math.max(250, viewportHeight * 0.3) : 100;
             
             // Check if cursor is below the visible area
-            const visibleBottom = Math.min(textareaRect.bottom, viewportHeight - keyboardBuffer);
-            const textareaScrollBottom = textarea.scrollTop + (visibleBottom - textareaRect.top);
+            const availableHeight = viewportHeight - keyboardBuffer;
+            const textareaVisibleHeight = Math.min(textareaRect.height, availableHeight - textareaRect.top);
             
-            if (cursorBottom > textareaScrollBottom) {
-                // Scroll to keep cursor in view with some padding
-                const scrollTarget = Math.max(0, cursorTop - (visibleBottom - textareaRect.top) + lineHeight + 20);
+            // If cursor is below the visible area, scroll it into view
+            if (cursorBottom > textarea.scrollTop + textareaVisibleHeight) {
+                const scrollTarget = Math.max(0, cursorBottom - textareaVisibleHeight + 40);
                 textarea.scrollTop = scrollTarget;
+                console.log("📱 Mobile auto-scroll triggered:", { cursorBottom, scrollTarget, textareaVisibleHeight });
             }
         }
     }, [text]);
