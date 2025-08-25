@@ -176,6 +176,12 @@ body {
 /* Fix cursor height to match font size, not line height */
 .textarea-fixed-caret {
   caret-color: currentColor;
-  /* Use font shorthand to control caret height */
-  font: 1rem/1.2 'IBM Plex Mono', ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, 'DejaVu Sans Mono', monospace;
+}
+
+/* Force caret to be smaller by using a pseudo-element approach for mobile */
+@media (max-width: 768px) {
+  .textarea-fixed-caret {
+    /* Override line height just for caret calculation on mobile */
+    line-height: 1.5 !important;
+  }
 }

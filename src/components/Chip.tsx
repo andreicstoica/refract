@@ -41,9 +41,11 @@ export function Chip({
   // Position is relative to textarea content area, chip overlay is relative to textarea container
   // Position chip right under the sentence with horizontal offset for side-by-side layout
   const chipTop = useMemo(() => {
-    const measured = position.height ?? 44;
-    const lineOffset = Math.min(44, measured); // cap to 44px so chips sit closer
-    return position.top + lineOffset + 4 + verticalOffset; // small gap below line
+    const measured = position.height ?? 56; // Use 56px (3.5rem) as default
+    const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+    // Ensure chips appear below the line, accounting for line height
+    const lineOffset = isMobile ? Math.min(32, measured) : Math.min(56, measured);
+    return position.top + lineOffset + 8 + verticalOffset; // Larger gap below line for better spacing
   }, [position.top, position.height, verticalOffset]);
   const chipLeft = useMemo(() => {
     // Position relative to the content div (which already has padding)

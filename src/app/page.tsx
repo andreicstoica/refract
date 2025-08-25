@@ -328,8 +328,8 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* Writing Surface with highlight layer */}
-      <div className="flex-1 min-h-0 px-4 max-w-6xl mx-auto w-full">
+      {/* Writing Surface with highlight layer - wider on mobile */}
+      <div className="flex-1 min-h-0 px-2 md:px-4 max-w-6xl mx-auto w-full">
         <TextInput
           onTextUpdate={handleTextUpdate}
           onTextareaRef={handleTextareaRef}

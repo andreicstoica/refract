@@ -86,10 +86,10 @@ export function ChipOverlay({
     const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
     const bounds = {
       containerWidth: contentWidth,
-      leftPad: 0,
-      rightPad: isMobile ? 8 : 16, // Smaller right padding on mobile
-      gapX: isMobile ? 4 : 8, // Tighter horizontal spacing on mobile
-      rowGap: isMobile ? 16 : 20, // Slightly tighter vertical spacing on mobile
+      leftPad: isMobile ? 8 : 0, // Add left padding on mobile to prevent edge cutoff
+      rightPad: isMobile ? 16 : 16, // Increased right padding on mobile
+      gapX: isMobile ? 6 : 8, // Slightly tighter horizontal spacing on mobile
+      rowGap: isMobile ? 18 : 20, // Slightly tighter vertical spacing on mobile
       maxRowsPerSentence: isMobile ? 2 : 3, // Fewer rows on mobile to prevent crowding
     } as const;
 
