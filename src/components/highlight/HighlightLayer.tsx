@@ -177,7 +177,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
             overflowY: "hidden",
             overflowX: "hidden",
             resize: "none",
-            lineHeight: "3.5rem",
+            lineHeight: "3.5rem", // Match TextInput line height
             wordBreak: "break-word",
             overflowWrap: "anywhere",
             paddingTop: "24px",

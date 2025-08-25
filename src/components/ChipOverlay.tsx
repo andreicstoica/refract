@@ -46,19 +46,22 @@ export function ChipOverlay({
     return () => ro.disconnect();
   }, []);
 
-  // Sync with textarea scroll position using direct DOM manipulation (same approach as HighlightLayer)
+  // Optimized scroll sync with throttling to prevent lag
   useEffect(() => {
     if (!textareaRef?.current || !contentRef.current) return;
 
     const textarea = textareaRef.current;
     const content = contentRef.current;
+    let rafId: number | null = null;
 
     const handleScroll = () => {
-      // Use requestAnimationFrame for smooth sync without React re-renders
-      requestAnimationFrame(() => {
-        if (content) {
-          content.style.transform = `translateY(-${textarea.scrollTop}px)`;
+      if (rafId) return; // Skip if animation frame already scheduled
+      
+      rafId = requestAnimationFrame(() => {
+        if (content && textarea) {
+          content.style.transform = `translate3d(0, -${textarea.scrollTop}px, 0)`; // Use translate3d for better performance
         }
+        rafId = null;
       });
     };
 
@@ -66,7 +69,12 @@ export function ChipOverlay({
     handleScroll();
 
     textarea.addEventListener("scroll", handleScroll, { passive: true });
-    return () => textarea.removeEventListener("scroll", handleScroll);
+    return () => {
+      textarea.removeEventListener("scroll", handleScroll);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, [textareaRef]);
 
   // Compute per-chip offsets via layout engine (boundary-safe + collision-free)
@@ -74,13 +82,15 @@ export function ChipOverlay({
     if (contentWidth <= 0)
       return new Map<string, { h: number; v: number; maxWidth?: number }>();
 
+    // Mobile-optimized boundary calculations
+    const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
     const bounds = {
       containerWidth: contentWidth,
       leftPad: 0,
-      rightPad: 16,
-      gapX: 8,
-      rowGap: 20,
-      maxRowsPerSentence: 3,
+      rightPad: isMobile ? 8 : 16, // Smaller right padding on mobile
+      gapX: isMobile ? 4 : 8, // Tighter horizontal spacing on mobile
+      rowGap: isMobile ? 16 : 20, // Slightly tighter vertical spacing on mobile
+      maxRowsPerSentence: isMobile ? 2 : 3, // Fewer rows on mobile to prevent crowding
     } as const;
 
     return computeChipLayout(visibleProds, positionMap, bounds);
@@ -107,7 +117,7 @@ export function ChipOverlay({
           overflowY: "hidden",
           overflowX: "hidden",
           resize: "none",
-          lineHeight: "3.5rem",
+          lineHeight: "3.5rem", // Match TextInput line height
           wordBreak: "break-word",
           overflowWrap: "anywhere",
           paddingTop: "24px",

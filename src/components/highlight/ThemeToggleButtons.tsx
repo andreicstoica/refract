@@ -26,12 +26,17 @@ export function ThemeToggleButtons({
       <div className="relative">
         <div
           ref={scrollContainerRef}
-          className={cn("flex gap-2 overflow-x-auto scrollbar-hide", noXPad ? undefined : "px-4")}
+          className={cn(
+            "flex gap-2 overflow-x-auto scrollbar-overlay",
+            noXPad ? undefined : "px-4"
+          )}
+          style={{
+            WebkitOverflowScrolling: "touch", // iOS smooth scrolling
+          }}
         >
           {themes.map((theme) => {
             const isSelected = selectedThemeIds.includes(theme.id);
             const baseColor = theme.color ?? "#93c5fd";
-            const fillPct = isSelected ? 90 : 55; // more vibrant for both states
 
             return (
               <button
@@ -51,7 +56,7 @@ export function ThemeToggleButtons({
                 style={{
                   ["--chip-color" as any]: baseColor,
                   // Slight tint when selected; otherwise rely on neutral bg
-                  backgroundColor: isSelected 
+                  backgroundColor: isSelected
                     ? `color-mix(in srgb, ${baseColor} 10%, hsl(var(--muted) / 0.5))`
                     : undefined,
                   borderColor: isSelected
@@ -59,7 +64,9 @@ export function ThemeToggleButtons({
                     : undefined,
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${baseColor} ${isSelected ? 12 : 6}%, hsl(var(--muted) / 0.5))`;
+                  e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${baseColor} ${
+                    isSelected ? 12 : 6
+                  }%, hsl(var(--muted) / 0.5))`;
                   e.currentTarget.style.borderColor = `color-mix(in srgb, ${baseColor} 30%, hsl(var(--border) / 0.5))`;
                 }}
                 onMouseLeave={(e) => {
@@ -67,8 +74,8 @@ export function ThemeToggleButtons({
                     e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${baseColor} 10%, hsl(var(--muted) / 0.5))`;
                     e.currentTarget.style.borderColor = `color-mix(in srgb, ${baseColor} 30%, hsl(var(--border) / 0.5))`;
                   } else {
-                    e.currentTarget.style.backgroundColor = '';
-                    e.currentTarget.style.borderColor = '';
+                    e.currentTarget.style.backgroundColor = "";
+                    e.currentTarget.style.borderColor = "";
                   }
                 }}
               >

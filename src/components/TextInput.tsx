@@ -107,19 +107,17 @@ export function TextInput({
               placeholder={placeholder}
               className={cn(
                 `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex relative z-10`,
-                "py-6 h-full scrollbar-thin"
+                "py-6 h-full scrollbar-overlay textarea-fixed-caret"
               )}
               style={{
-                caretColor: "currentColor",
                 overflowY: "auto",
                 overflowX: "hidden",
                 resize: "none",
-                lineHeight: "3.5rem",
-                fontSize: "1rem",
+                lineHeight: "3.5rem", // Keep original line height for proper spacing
                 wordBreak: "break-word",
                 overflowWrap: "anywhere",
                 paddingTop: `${24 + (extraTopPaddingPx || 0)}px`,
-                transition: "padding-top 400ms ease-out", // CSS ease-out for consistency
+                transition: "padding-top 400ms ease-out",
               }}
               autoComplete="off"
               autoCorrect="off"

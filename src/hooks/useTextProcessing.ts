@@ -74,11 +74,39 @@ export function useTextProcessing({
         }
     }, []);
 
-    // Auto-scroll to cursor when text changes
+    // Mobile-optimized auto-scroll to cursor when text changes
     useEffect(() => {
         if (textareaRef.current) {
             const textarea = textareaRef.current;
-            textarea.scrollTop = textarea.scrollHeight;
+            const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+            
+            // Line height calculation 
+            const lineHeight = 56; // 3.5rem consistent across devices
+            const paddingTop = 24;
+            
+            // Calculate cursor position from selection
+            const selectionEnd = textarea.selectionEnd;
+            const textBeforeCursor = textarea.value.substring(0, selectionEnd);
+            const lines = textBeforeCursor.split('\n');
+            const currentLine = lines.length;
+            
+            const cursorTop = (currentLine - 1) * lineHeight + paddingTop;
+            const cursorBottom = cursorTop + lineHeight;
+            
+            // Get textarea's visible area (accounting for mobile keyboard)
+            const textareaRect = textarea.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const keyboardBuffer = isMobile ? 200 : 100; // Larger buffer on mobile for keyboard
+            
+            // Check if cursor is below the visible area
+            const visibleBottom = Math.min(textareaRect.bottom, viewportHeight - keyboardBuffer);
+            const textareaScrollBottom = textarea.scrollTop + (visibleBottom - textareaRect.top);
+            
+            if (cursorBottom > textareaScrollBottom) {
+                // Scroll to keep cursor in view with some padding
+                const scrollTarget = Math.max(0, cursorTop - (visibleBottom - textareaRect.top) + lineHeight + 20);
+                textarea.scrollTop = scrollTarget;
+            }
         }
     }, [text]);
 
@@ -200,14 +228,24 @@ export function useTextProcessing({
         }
     };
 
-    // Handle scroll and resize events to reposition chips
+    // Optimized scroll and resize handling with throttling
     useEffect(() => {
+        let rafId: number | null = null;
+        let isScheduled = false;
+
         const handleReposition = () => {
-            if (textareaRef.current && sentences.length > 0) {
-                clearPositionCache();
-                updatePositions(sentences, textareaRef.current);
-                if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after scroll/resize");
-            }
+            if (isScheduled) return;
+            isScheduled = true;
+            
+            rafId = requestAnimationFrame(() => {
+                if (textareaRef.current && sentences.length > 0) {
+                    clearPositionCache();
+                    updatePositions(sentences, textareaRef.current);
+                    if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after scroll/resize");
+                }
+                isScheduled = false;
+                rafId = null;
+            });
         };
 
         const textarea = textareaRef.current;
@@ -218,6 +256,9 @@ export function useTextProcessing({
             return () => {
                 textarea.removeEventListener("scroll", handleReposition);
                 window.removeEventListener("resize", handleReposition);
+                if (rafId) {
+                    cancelAnimationFrame(rafId);
+                }
             };
         }
     }, [sentences, updatePositions]);

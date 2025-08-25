@@ -106,11 +106,76 @@ body {
 	}
 }
 
-/* Thinner scrollbar utility: apply to elements needing a slimmer bar */
+/* Scrollbar utilities */
 .scrollbar-thin {
   scrollbar-width: thin; /* Firefox */
 }
 .scrollbar-thin::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+}
+
+.scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Overlay scrollbar that doesn't affect layout */
+.scrollbar-overlay {
+  scrollbar-width: thin; /* Firefox: thin scrollbar */
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent; /* Firefox: thumb and track colors */
+}
+
+.scrollbar-overlay::-webkit-scrollbar {
+  height: 4px; /* Horizontal scrollbar height */
+  width: 4px; /* Vertical scrollbar width (if needed) */
+}
+
+.scrollbar-overlay::-webkit-scrollbar-track {
+  background: transparent; /* Invisible track */
+}
+
+.scrollbar-overlay::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.3); /* Semi-transparent thumb */
+  border-radius: 2px; /* Smaller border radius for thinner scrollbar */
+  border: none;
+}
+
+.scrollbar-overlay::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.5); /* Darker on hover */
+}
+
+/* Dark mode scrollbar */
+.dark .scrollbar-overlay {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.dark .scrollbar-overlay::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.dark .scrollbar-overlay::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.scroll-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+.buttons {
+  position: relative;
+  z-index: 2;
+}
+
+/* Fix cursor height to match font size, not line height */
+.textarea-fixed-caret {
+  caret-color: currentColor;
+  /* Use font shorthand to control caret height */
+  font: 1rem/1.2 'IBM Plex Mono', ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, 'DejaVu Sans Mono', monospace;
 }
