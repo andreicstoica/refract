@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, forwardRef } from "react";
+import { useEffect, useMemo, useRef, forwardRef, useCallback } from "react";
 import { cn } from "@/lib/helpers";
 import type { HighlightRange } from "@/types/highlight";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
@@ -11,6 +11,7 @@ import {
   assignChunkIndices,
 } from "@/lib/highlight";
 import { gsap } from "gsap";
+import { useRafScroll } from "@/lib/useRafScroll";
 
 type HighlightLayerProps = {
   text: string;
@@ -43,27 +44,22 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // Sync with textarea scroll position using direct DOM manipulation for smooth performance
+    // Sync with textarea scroll position using RAF coalescing for optimal performance
+    const handleScrollSync = useCallback((element: HTMLElement) => {
+      if (contentRef.current) {
+        const textarea = element as HTMLTextAreaElement;
+        contentRef.current.style.transform = `translateY(-${textarea.scrollTop}px)`;
+      }
+    }, []);
+
+    useRafScroll(textareaRef, handleScrollSync);
+
+    // Set initial scroll position
     useEffect(() => {
-      if (!textareaRef?.current || !contentRef.current) return;
-      
-      const textarea = textareaRef.current;
-      const content = contentRef.current;
-      
-      const handleScroll = () => {
-        // Use requestAnimationFrame for smooth sync without React re-renders
-        requestAnimationFrame(() => {
-          if (content) {
-            content.style.transform = `translateY(-${textarea.scrollTop}px)`;
-          }
-        });
-      };
-      
-      // Set initial scroll position
-      handleScroll();
-      
-      textarea.addEventListener('scroll', handleScroll, { passive: true });
-      return () => textarea.removeEventListener('scroll', handleScroll);
+      if (textareaRef?.current && contentRef.current) {
+        const textarea = textareaRef.current;
+        contentRef.current.style.transform = `translateY(-${textarea.scrollTop}px)`;
+      }
     }, [textareaRef]);
 
     // Track previous segment metadata for exit animations with reverse stagger
@@ -160,7 +156,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
           }
         }}
         className={cn(
-          "absolute inset-0 pointer-events-none z-15 overflow-hidden",
+          "absolute inset-0 pointer-events-none z-15 overflow-hidden overlay-container",
           className
         )}
       >
@@ -170,7 +166,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
           data-highlight-content
           className={cn(
             `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex`,
-            "py-6 h-full"
+            "py-6 h-full overlay-content"
           )}
           style={{
             caretColor: "transparent",

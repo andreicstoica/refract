@@ -20,6 +20,18 @@
 html,
 body {
 	@apply bg-white dark:bg-gray-950;
+	/* Prevent unwanted mobile scroll behaviors */
+	touch-action: none;
+	overscroll-behavior: none;
+}
+
+/* Allow touch-action only on scrollable elements */
+textarea {
+	touch-action: pan-y;
+}
+
+.scrollable {
+	touch-action: pan-x pan-y;
 }
 
 :root {
@@ -113,4 +125,50 @@ body {
 .scrollbar-thin::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+}
+
+/* Mobile performance optimizations */
+.overlay-container {
+  /* CSS containment for performance - isolates layout/paint/size calculations */
+  contain: layout paint size;
+}
+
+.overlay-content {
+  /* Only apply will-change when elements are actively being transformed */
+  will-change: transform;
+}
+
+.overlay-content.static {
+  /* Remove will-change when not actively scrolling to save memory */
+  will-change: auto;
+}
+
+/* Keyboard-safe spacing utilities */
+.keyboard-safe-bottom {
+  /* Use the larger of safe-area-inset-bottom or our computed keyboard height */
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--kb-safe, 0px));
+}
+
+.scroll-keyboard-safe {
+  /* Add keyboard-safe scroll margin to prevent caret from being hidden */
+  scroll-margin-bottom: var(--kb-safe, 0px);
+}
+
+/* Dynamic viewport height classes with progressive enhancement */
+.full-vh {
+  /* Prefer dynamic viewport units where supported */
+  height: 100dvh;
+}
+
+/* Fallback for older iOS versions */
+@supports not (height: 100dvh) {
+  .full-vh {
+    height: -webkit-fill-available;
+    min-height: 100vh;
+  }
+}
+
+/* Chip gutter spacing for edge-clipping prevention */
+:root {
+  --chip-gutter: 8px; /* Consistent gutter for chip edge spacing */
 }

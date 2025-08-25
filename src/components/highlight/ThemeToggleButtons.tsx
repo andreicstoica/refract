@@ -26,7 +26,13 @@ export function ThemeToggleButtons({
       <div className="relative">
         <div
           ref={scrollContainerRef}
-          className={cn("flex gap-2 overflow-x-auto scrollbar-hide", noXPad ? undefined : "px-4")}
+          className={cn(
+            "flex gap-2 overflow-x-auto scrollbar-hide scroll-px-3 scrollable", 
+            noXPad ? undefined : "px-4"
+          )}
+          style={{
+            scrollPaddingInline: 'var(--chip-gutter, 8px)',
+          }}
         >
           {themes.map((theme) => {
             const isSelected = selectedThemeIds.includes(theme.id);
