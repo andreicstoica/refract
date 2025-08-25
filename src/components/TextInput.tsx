@@ -169,10 +169,10 @@ export function TextInput({
   return (
     <div className="relative h-full w-full">
       {/* Static centered container */}
-      <div className="mx-auto max-w-2xl w-full h-full px-4 keyboard-safe-bottom">
+      <div className="mx-auto max-w-2xl w-full h-full px-4">
         <div className={cn("h-full overflow-hidden flex flex-col min-h-0")}>
           {/* Scrollable writing area fills remaining height */}
-          <div className="relative flex-1 min-h-0">
+          <div className="relative flex-1 min-h-0 keyboard-safe-bottom">
             <textarea
               ref={textareaRef}
               value={text}

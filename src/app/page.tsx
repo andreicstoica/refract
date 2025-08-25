@@ -137,13 +137,13 @@ export default function HomePage() {
     }
   }, [isGenerating, generate, currentSentences, currentText]);
 
-  // Lock body scroll and set keyboard-safe full height
+  // Lock body scroll with proper height handling
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     const originalClasses = document.body.className;
     
     document.body.style.overflow = "hidden";
-    document.body.classList.add("full-vh", "keyboard-safe-bottom");
+    document.body.classList.add("full-vh");
     
     return () => {
       document.body.style.overflow = originalOverflow;
