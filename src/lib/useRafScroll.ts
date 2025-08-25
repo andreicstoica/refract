@@ -114,11 +114,11 @@ export function useRafScroll<T extends HTMLElement>(
 ) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stableHandler = React.useCallback(handler, deps);
-  
+
   React.useEffect(() => {
     const element = elementRef.current;
     if (!element) return;
-    
+
     return subscribe(element, stableHandler);
   }, [elementRef, stableHandler]);
 }
