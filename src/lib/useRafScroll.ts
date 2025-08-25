@@ -108,7 +108,7 @@ export function subscribe(element: HTMLElement, handler: ScrollHandler): () => v
  * @param deps - Dependencies array (similar to useEffect)
  */
 export function useRafScroll<T extends HTMLElement>(
-  elementRef: React.RefObject<T | null>,
+  elementRef: React.RefObject<T | null> | undefined,
   handler: ScrollHandler,
   deps: React.DependencyList = []
 ) {
@@ -116,6 +116,7 @@ export function useRafScroll<T extends HTMLElement>(
   const stableHandler = React.useCallback(handler, deps);
 
   React.useEffect(() => {
+    if (!elementRef) return;
     const element = elementRef.current;
     if (!element) return;
 
