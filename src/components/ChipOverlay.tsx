@@ -113,20 +113,33 @@ export function ChipOverlay({
       let v = needsSecondRow ? rowGap : 0;
       let h = startX - (pos.left + contentLeftPad);
 
-      // Collision detection: adjust position if overlapping
+      // Collision detection: horizontal shift first, then vertical if no room
       let positionKey = `${Math.round(pos.top)}-${Math.round(startX)}-${v}`;
       let horizontalOffset = 0;
+      let currentStartX = startX;
 
       while (usedPositions.has(positionKey)) {
         horizontalOffset += 32;
-        const adjustedStartX = startX + horizontalOffset;
-        h = adjustedStartX - (pos.left + contentLeftPad);
-        positionKey = `${Math.round(pos.top)}-${Math.round(adjustedStartX)}-${v}`;
+        currentStartX = startX + horizontalOffset;
+        
+        // Check if shifted position would overflow right boundary
+        if (currentStartX + estW > rightLimit) {
+          // Reset horizontal offset and move to next row
+          horizontalOffset = 0;
+          currentStartX = startX;
+          v += rowGap;
+          h = currentStartX - (pos.left + contentLeftPad);
+          positionKey = `${Math.round(pos.top)}-${Math.round(currentStartX)}-${v}`;
+          // If this row position is also taken, continue the loop to try next horizontal shift
+        } else {
+          h = currentStartX - (pos.left + contentLeftPad);
+          positionKey = `${Math.round(pos.top)}-${Math.round(currentStartX)}-${v}`;
+        }
       }
 
       usedPositions.add(positionKey);
 
-      const maxWidth = Math.max(0, rightLimit - (startX + horizontalOffset));
+      const maxWidth = Math.max(0, rightLimit - currentStartX);
       result.set(prod.id, { h, v, maxWidth });
     }
 
