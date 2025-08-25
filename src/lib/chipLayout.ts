@@ -13,7 +13,8 @@ export interface LayoutBounds {
     rightPad: number;
 }
 
-// Simple chip positioning - just place chips below their sentences
+// Simple chip positioning - align chip end with sentence end
+// Since we should never have multiple prods per sentence, this is straightforward
 export function computeChipLayout(
     prods: Prod[],
     sentencePositions: Map<string, SentencePosition>,
@@ -22,56 +23,40 @@ export function computeChipLayout(
     const result = new Map<string, ChipPlacement>();
     if (!bounds.containerWidth || bounds.containerWidth <= 0) return result;
 
-    // Group prods by sentence to handle multiple chips per sentence
-    const prodsBySentence = new Map<string, Prod[]>();
     for (const prod of prods) {
-        if (!prodsBySentence.has(prod.sentenceId)) {
-            prodsBySentence.set(prod.sentenceId, []);
-        }
-        prodsBySentence.get(prod.sentenceId)!.push(prod);
-    }
-
-    // Process each sentence's prods
-    for (const [sentenceId, sentenceProds] of prodsBySentence) {
-        const pos = sentencePositions.get(sentenceId);
+        const pos = sentencePositions.get(prod.sentenceId);
         if (!pos) continue;
 
-        // Sort prods by timestamp for consistent ordering
-        const sortedProds = sentenceProds.sort((a, b) => a.timestamp - b.timestamp);
+        // Estimate chip width based on text length
+        const chipWidth = Math.max(120, prod.text.length * 7.5 + 40);
 
-        // Position each prod for this sentence
-        for (let i = 0; i < sortedProds.length; i++) {
-            const prod = sortedProds[i];
-            const chipWidth = Math.max(120, prod.text.length * 7.5 + 40); // Estimate width
+        // Position chip so its end aligns with sentence end
+        const sentenceEnd = pos.left + pos.width;
+        const chipEnd = sentenceEnd;
+        const chipStart = chipEnd - chipWidth;
 
-            // Simple horizontal positioning: first chip near sentence end, others to the right
-            let horizontalOffset = 0;
-            if (i === 0) {
-                // First chip: try to position near sentence end
-                const sentenceEnd = pos.left + pos.width;
-                const preferredLeft = sentenceEnd - chipWidth;
-                horizontalOffset = Math.max(0, preferredLeft - pos.left);
-            } else {
-                // Additional chips: stack to the right with gap
-                horizontalOffset = i * (chipWidth + 16);
-            }
+        // Calculate horizontal offset (chip start relative to sentence start)
+        let horizontalOffset = chipStart - pos.left;
 
-            // Ensure chip doesn't overflow right boundary
-            const maxOffset = bounds.containerWidth - bounds.rightPad - chipWidth - pos.left;
-            horizontalOffset = Math.min(horizontalOffset, Math.max(0, maxOffset));
-
-            // Ensure chip doesn't go too far left
-            horizontalOffset = Math.max(horizontalOffset, bounds.leftPad - pos.left);
-
-            // Vertical offset: all chips below the sentence
-            const verticalOffset = 24; // Fixed gap below sentence
-
-            result.set(prod.id, {
-                h: horizontalOffset,
-                v: verticalOffset,
-                maxWidth: chipWidth,
-            });
+        // Ensure chip doesn't overflow left boundary
+        if (chipStart < bounds.leftPad) {
+            horizontalOffset = bounds.leftPad - pos.left;
         }
+
+        // Ensure chip doesn't overflow right boundary
+        const maxChipStart = bounds.containerWidth - bounds.rightPad - chipWidth;
+        if (chipStart > maxChipStart) {
+            horizontalOffset = maxChipStart - pos.left;
+        }
+
+        // Vertical offset: chips appear below the sentence
+        const verticalOffset = 24; // Fixed gap below sentence
+
+        result.set(prod.id, {
+            h: horizontalOffset,
+            v: verticalOffset,
+            maxWidth: chipWidth,
+        });
     }
 
     return result;

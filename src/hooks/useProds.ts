@@ -255,6 +255,14 @@ export function useProds(options: UseProdsOptions = {}) {
             return;
         }
 
+        // Simple duplicate check: if we already have a prod for this exact sentence text, skip
+        const existingProd = prods.find(p => p.sentenceId === sentence.id);
+
+        if (existingProd) {
+            console.log("🔄 Prod already exists for this sentence, skipping:", sentence.text.substring(0, 50) + "...");
+            return;
+        }
+
         // Check if we already have this exact sentence in the queue
         const existingInQueue = queueState.items.some(
             item => item.sentence.text === sentence.text &&
@@ -266,11 +274,14 @@ export function useProds(options: UseProdsOptions = {}) {
             return;
         }
 
-        // Simple duplicate check: if we already have a prod for this exact sentence text, skip
-        const existingProd = prods.find(p => p.sentenceId === sentence.id);
+        // Additional safety check: if we have any recent prod for this sentence ID, skip
+        const recentProdForSentence = prods.find(p =>
+            p.sentenceId === sentence.id &&
+            Date.now() - p.timestamp < 10000 // Within last 10 seconds
+        );
 
-        if (existingProd) {
-            console.log("🔄 Prod already exists for this sentence, skipping:", sentence.text.substring(0, 50) + "...");
+        if (recentProdForSentence) {
+            console.log("🔄 Recent prod exists for this sentence ID, skipping:", sentence.text.substring(0, 50) + "...");
             return;
         }
 
