@@ -20,6 +20,18 @@
 html,
 body {
 	@apply bg-white dark:bg-gray-950;
+	/* Prevent unwanted mobile scroll behaviors */
+	touch-action: none;
+	overscroll-behavior: none;
+}
+
+/* Allow touch-action only on scrollable elements */
+textarea {
+	touch-action: pan-y;
+}
+
+.scrollable {
+	touch-action: pan-x pan-y;
 }
 
 :root {

@@ -27,7 +27,7 @@ export function ThemeToggleButtons({
         <div
           ref={scrollContainerRef}
           className={cn(
-            "flex gap-2 overflow-x-auto scrollbar-hide scroll-px-3", 
+            "flex gap-2 overflow-x-auto scrollbar-hide scroll-px-3 scrollable", 
             noXPad ? undefined : "px-4"
           )}
           style={{

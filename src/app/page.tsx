@@ -139,15 +139,26 @@ export default function HomePage() {
 
   // Lock body scroll with proper height handling
   useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    const originalClasses = document.body.className;
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalBodyClasses = document.body.className;
+    const originalDocumentElementOverflow = document.documentElement.style.overflow;
+    const originalBodyPosition = document.body.style.position;
     
+    // Aggressive scroll lock for mobile
     document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.width = "100%";
+    document.body.style.height = "100%";
+    document.documentElement.style.overflow = "hidden";
     document.body.classList.add("full-vh");
     
     return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.className = originalClasses;
+      document.body.style.overflow = originalBodyOverflow;
+      document.body.style.position = originalBodyPosition;
+      document.body.style.width = "";
+      document.body.style.height = "";
+      document.documentElement.style.overflow = originalDocumentElementOverflow;
+      document.body.className = originalBodyClasses;
     };
   }, []);
 
@@ -335,7 +346,7 @@ export default function HomePage() {
       </AnimatePresence>
 
       {/* Writing Surface with highlight layer */}
-      <div className="flex-1 min-h-0 px-4 max-w-6xl mx-auto w-full">
+      <div className="flex-1 min-h-0 max-w-6xl mx-auto w-full overflow-hidden">
         <TextInput
           onTextUpdate={handleTextUpdate}
           onTextareaRef={handleTextareaRef}
