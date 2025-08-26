@@ -1,6 +1,7 @@
 import type { ProdRequest, ProdResponse } from "@/types/api";
 
-const REQUEST_TIMEOUT_MS = 10000; // 10 seconds (2s less than server timeout)
+// Keep aligned with server maxDuration (15s) with a tiny buffer
+const REQUEST_TIMEOUT_MS = 15000; // 15 seconds
 
 /**
  * Generate a prod suggestion with built-in timeout and cancellation support
@@ -72,7 +73,7 @@ export async function generateProd(
         // Check if it was an abort/timeout
         if (error instanceof Error && error.name === 'AbortError') {
             console.warn(`⏱️ /api/prod timed out after ${Math.round(elapsed)}ms (soft-skip)`);
-            // Soft-skip on timeout so upstream can continue without error noise
+            // Soft skip: do not surface a chip on timeout
             const softSkip: ProdResponse = { confidence: 0.1 };
             return softSkip;
         }

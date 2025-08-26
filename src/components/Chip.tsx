@@ -51,7 +51,7 @@ export function Chip({
     return Math.max(16, baseLeft);
   }, [position.left, horizontalOffset]);
 
-  // Start fade after 8 seconds
+  // Start fade after 12 seconds (keep chips visible longer)
   useEffect(() => {
     // Skip scheduling fade if pinned
     if (pinned) return;
@@ -59,7 +59,7 @@ export function Chip({
     const id = window.setTimeout(() => {
       // Only start fading if not pinned at that moment
       setShouldFade((prev) => (pinned ? prev : true));
-    }, 8000);
+    }, 12000);
     fadeTimerRef.current = id;
     return () => {
       if (fadeTimerRef.current) {

@@ -17,13 +17,13 @@ interface UseTextProcessingOptions {
     prodsEnabled?: boolean;
 }
 
-const COOLDOWN_MS = 900;
-// With comma soft-punct, raise char trigger slightly
-const CHAR_TRIGGER = 55;
-const TRAILING_DEBOUNCE_MS = 800;
-// Soft punctuation guards
-const SOFT_PUNCT_MIN_LEN = 40; // require enough context
-const SOFT_PUNCT_MIN_CHARS_SINCE = 12; // avoid firing too often on short pauses
+const COOLDOWN_MS = 500; // allow more frequent triggers
+// Lower character threshold so mid-sentence nudges appear sooner
+const CHAR_TRIGGER = 30;
+const TRAILING_DEBOUNCE_MS = 700;
+// Soft punctuation guards (more permissive)
+const SOFT_PUNCT_MIN_LEN = 25; // require some context
+const SOFT_PUNCT_MIN_CHARS_SINCE = 8; // avoid over-firing on tiny pauses
 
 export function useTextProcessing({
     onProdTrigger,

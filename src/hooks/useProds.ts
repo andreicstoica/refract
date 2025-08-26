@@ -166,7 +166,7 @@ export function useProds(options: UseProdsOptions = {}) {
                 return;
             }
 
-            // Confidence gating: require confidence > 0.5 if provided
+            // Confidence gating: require confidence > 0.5
             if (typeof data?.confidence === 'number' && data.confidence <= 0.5) {
                 if (isDev) console.log(`🔕 Low confidence (${data.confidence.toFixed(2)}) – skipping prod for sentence:`, sentence.text);
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
@@ -192,6 +192,16 @@ export function useProds(options: UseProdsOptions = {}) {
             };
 
             if (isDev) console.log(`✅ Completed | api: ${Math.round(apiElapsed)}ms | prod:`, newProd);
+            // Mark this sentence text as recently produced to avoid overlaps
+            const norm = sentence.text.trim().toLowerCase();
+            const nowTs = Date.now();
+            try {
+                // Clean old entries (>2 minutes)
+                for (const [k, ts] of recentSentenceTextMapRef.current.entries()) {
+                    if (nowTs - ts > 120000) recentSentenceTextMapRef.current.delete(k);
+                }
+                recentSentenceTextMapRef.current.set(norm, nowTs);
+            } catch {}
             setProds((prev) => [...prev, newProd]);
             queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
             ongoingRequestsRef.current.delete(requestId);
@@ -211,7 +221,7 @@ export function useProds(options: UseProdsOptions = {}) {
         }
     }, [waitForRateLimit, prods, options.topicKeywords]);
 
-    // Process queue sequentially with cancellation support
+    // Process queue sequentially with cancellation support (single-flight)
     useEffect(() => {
         const processQueue = async () => {
             if (queueState.isProcessing) {
@@ -238,6 +248,8 @@ export function useProds(options: UseProdsOptions = {}) {
     }, [queueState.items, queueState.isProcessing, processSingleItem]);
 
     // Public API to add sentences to queue
+    const recentSentenceTextMapRef = useRef<Map<string, number>>(new Map());
+
     const callProdAPI = useCallback((fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
         console.log("📝 callProdAPI called for sentence:", sentence.text.substring(0, 50) + "...");
 
@@ -247,7 +259,17 @@ export function useProds(options: UseProdsOptions = {}) {
             return;
         }
 
-        // Simple duplicate check: if we already have a prod for this exact sentence text, skip
+        // Normalize sentence text for robust de-duplication (across regenerated IDs)
+        const normalized = sentence.text.trim().toLowerCase();
+
+        // Skip if we've produced for this text recently
+        const lastProducedAt = recentSentenceTextMapRef.current.get(normalized);
+        if (lastProducedAt && Date.now() - lastProducedAt < 30000) { // 30s
+            console.log("🔄 Recent prod already shown for this sentence text, skipping:", sentence.text.substring(0, 50) + "...");
+            return;
+        }
+
+        // Simple duplicate check: if we already have a prod for this exact sentence id, skip
         const existingProd = prods.find(p => p.sentenceId === sentence.id);
 
         if (existingProd) {
@@ -255,10 +277,9 @@ export function useProds(options: UseProdsOptions = {}) {
             return;
         }
 
-        // Check if we already have this exact sentence in the queue
+        // Check if we already have this normalized text in the queue (pending or processing)
         const existingInQueue = queueState.items.some(
-            item => item.sentence.text === sentence.text &&
-                Date.now() - item.timestamp < 2000 // Within last 2 seconds
+            item => item.sentence.text.trim().toLowerCase() === normalized
         );
 
         if (existingInQueue) {
@@ -269,7 +290,7 @@ export function useProds(options: UseProdsOptions = {}) {
         // Additional safety check: if we have any recent prod for this sentence ID, skip
         const recentProdForSentence = prods.find(p =>
             p.sentenceId === sentence.id &&
-            Date.now() - p.timestamp < 10000 // Within last 10 seconds
+            Date.now() - p.timestamp < 5000 // Within last 5 seconds
         );
 
         if (recentProdForSentence) {
@@ -306,12 +327,12 @@ export function useProds(options: UseProdsOptions = {}) {
 
     // Handle topic shift - cancel relevant requests
     const handleTopicShift = useCallback(() => {
-        if (isDev) console.log("🌟 Topic shift detected - cancelling relevant requests");
-        // For now, cancel all ongoing requests on topic shift
-        // In the future, we could be smarter about which requests to cancel
-        cancelAllRequests();
+        if (isDev) console.log("🌟 Topic shift detected");
+        // Do not cancel in-flight requests here.
+        // We already have a staleness gate that discards results if the topic changed.
+        // This avoids aborting near-complete requests that would otherwise yield good prods.
         options.onTopicShift?.();
-    }, [cancelAllRequests, options.onTopicShift]);
+    }, [options.onTopicShift]);
 
     // Clear cached sentences (for new writing sessions)
     const clearFilteredSentences = useCallback(() => {

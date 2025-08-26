@@ -4,7 +4,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { createHash } from "crypto";
 
-export const maxDuration = 12;
+export const maxDuration = 15;
 
 // Simple in-memory cache for request deduplication
 const requestCache = new Map<string, { timestamp: number; response: any }>();
@@ -196,8 +196,8 @@ Generate a response that would genuinely help this person understand themselves 
 
 		// Return thoughtful fallback response if generation fails
 		return Response.json({
-			selectedProd: "What made this significant to you?",
-			confidence: 0.5
+			selectedProd: "What stands out most about this?",
+			confidence: 0.6
 		});
 	}
 }
