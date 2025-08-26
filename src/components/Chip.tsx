@@ -51,7 +51,7 @@ export function Chip({
     return Math.max(16, baseLeft);
   }, [position.left, horizontalOffset]);
 
-  // Start fade after 12 seconds (keep chips visible longer)
+  // Start fade after 8 seconds
   useEffect(() => {
     // Skip scheduling fade if pinned
     if (pinned) return;
@@ -59,7 +59,7 @@ export function Chip({
     const id = window.setTimeout(() => {
       // Only start fading if not pinned at that moment
       setShouldFade((prev) => (pinned ? prev : true));
-    }, 12000);
+    }, 8000);
     fadeTimerRef.current = id;
     return () => {
       if (fadeTimerRef.current) {
@@ -79,7 +79,7 @@ export function Chip({
   };
 
   // Debug positioning in development
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEBUG_CHIPS === '1') {
     console.log("🎯 Chip positioning:", {
       text: text.substring(0, 30) + "...",
       position,

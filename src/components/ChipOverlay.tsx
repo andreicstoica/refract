@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Chip } from "./Chip";
 import type { Prod } from "@/types/prod";
-import type { SentencePosition } from "@/types/sentence";
+import type { Sentence, SentencePosition } from "@/types/sentence";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
 import { cn } from "@/lib/helpers";
 import { useRafScroll } from "@/lib/useRafScroll";
@@ -11,6 +11,7 @@ import { useRafScroll } from "@/lib/useRafScroll";
 interface ChipOverlayProps {
   visibleProds: Prod[];
   sentencePositions: SentencePosition[];
+  sentences?: Sentence[];
   className?: string;
   onChipFade?: (prodId: string) => void;
   onChipKeep?: (prod: Prod) => void;
@@ -21,6 +22,7 @@ interface ChipOverlayProps {
 export function ChipOverlay({
   visibleProds,
   sentencePositions,
+  sentences = [],
   className,
   onChipFade,
   onChipKeep,
@@ -31,6 +33,32 @@ export function ChipOverlay({
     () => new Map(sentencePositions.map((pos) => [pos.sentenceId, pos])),
     [sentencePositions]
   );
+
+  const sentencesById = useMemo(() => {
+    const map = new Map<string, Sentence>();
+    for (const s of sentences) map.set(s.id, s);
+    return map;
+  }, [sentences]);
+
+  const findFallbackPosition = useCallback((prod: Prod): SentencePosition | undefined => {
+    if (!prod.sourceText) return undefined as any;
+    // Try to find a sentence with matching text if ID lookup failed
+    const norm = prod.sourceText.trim().toLowerCase();
+    let match: Sentence | undefined = undefined;
+    // Exact match
+    match = sentences.find(s => s.text.trim().toLowerCase() === norm);
+    if (!match) {
+      // Prefix match (first 30 chars)
+      const head = norm.slice(0, 30);
+      match = sentences.find(s => s.text.trim().toLowerCase().startsWith(head));
+    }
+    if (!match) {
+      // Substring match as last resort
+      match = sentences.find(s => s.text.toLowerCase().includes(norm.slice(0, Math.min(20, norm.length))));
+    }
+    if (!match) return undefined;
+    return positionMap.get(match.id);
+  }, [sentences, positionMap]);
 
   // Measure container width to enforce left/right boundaries
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -182,7 +210,7 @@ export function ChipOverlay({
         }}
       >
         {visibleProds.map((prod) => {
-          const sentencePosition = positionMap.get(prod.sentenceId);
+          const sentencePosition = positionMap.get(prod.sentenceId) || findFallbackPosition(prod);
           if (!sentencePosition) return null;
           const offsets = layoutByProdId.get(prod.id) || { h: 0, v: 0 };
 

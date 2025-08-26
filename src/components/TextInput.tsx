@@ -60,7 +60,7 @@ export function TextInput({
     }
   }, []);
 
-  const { prods, callProdAPI, handleTopicShift } = useProds({
+  const { prods, callProdAPI, handleTopicShift, pinProd, removeProd } = useProds({
     onTopicShift: onProdTopicShift,
     topicKeywords: currentKeywordsRef.current,
     topicVersion,
@@ -240,8 +240,11 @@ export function TextInput({
             <ChipOverlay
               visibleProds={prods}
               sentencePositions={sentencePositions}
+              sentences={sentences}
               textareaRef={textareaRef}
               extraTopPaddingPx={extraTopPaddingPx}
+              onChipKeep={(prod) => pinProd(prod.id)}
+              onChipFade={(id) => removeProd(id)}
             />
           </div>
         </div>

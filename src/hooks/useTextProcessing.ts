@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { splitIntoSentences } from "@/lib/sentences";
 import type { Sentence } from "@/types/sentence";
 import { measureSentencePositions, clearPositionCache } from "@/lib/sentences";
 import type { SentencePosition } from "@/types/sentence";
 import { useRafScroll } from "@/lib/useRafScroll";
+import { useDemoMode, getTimingConfig } from "@/lib/demoMode";
 
 
 interface UseTextProcessingOptions {
@@ -17,10 +18,6 @@ interface UseTextProcessingOptions {
     prodsEnabled?: boolean;
 }
 
-const COOLDOWN_MS = 500; // allow more frequent triggers
-// Lower character threshold so mid-sentence nudges appear sooner
-const CHAR_TRIGGER = 30;
-const TRAILING_DEBOUNCE_MS = 700;
 // Soft punctuation guards (more permissive)
 const SOFT_PUNCT_MIN_LEN = 25; // require some context
 const SOFT_PUNCT_MIN_CHARS_SINCE = 8; // avoid over-firing on tiny pauses
@@ -35,9 +32,13 @@ export function useTextProcessing({
     const [sentences, setSentences] = useState<Sentence[]>([]);
     const [sentencePositions, setSentencePositions] = useState<SentencePosition[]>([]);
 
+    const isDemoMode = useDemoMode();
+    const config = useMemo(() => getTimingConfig(isDemoMode), [isDemoMode]);
+
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const sentencesDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const settlingTimerRef = useRef<NodeJS.Timeout | null>(null);
     const watchdogTimerRef = useRef<NodeJS.Timeout | null>(null);
     const lastWatchdogFireRef = useRef<number>(0);
 
@@ -87,28 +88,34 @@ export function useTextProcessing({
         const now = Date.now();
 
         // Check cooldown
-        if (now - lastTriggerAtRef.current < COOLDOWN_MS) {
-            console.log("⏰ Cooldown active, skipping trigger for:", lastSentence.text.substring(0, 30) + "...");
+        if (now - lastTriggerAtRef.current < config.cooldownMs) {
+            if (process.env.NODE_ENV !== "production") {
+                console.log(`${config.emoji} ⏰ Cooldown active, skipping trigger for:`, lastSentence.text.substring(0, 30) + "...");
+            }
             return false;
         }
 
-        console.log("✅ Should trigger prod for:", lastSentence.text.substring(0, 30) + "...");
+        if (process.env.NODE_ENV !== "production") {
+            console.log(`${config.emoji} ✅ Should trigger prod for:`, lastSentence.text.substring(0, 30) + "...");
+        }
         return true;
-    }, []);
+    }, [config]);
 
     // Helper to trigger prod and update tracking state
     const triggerProd = useCallback((currentText: string, lastSentence: Sentence, opts?: { force?: boolean }) => {
-        console.log("🚀 Triggering prod for sentence:", lastSentence.text);
+        if (process.env.NODE_ENV !== "production") {
+            console.log(`${config.emoji} 🚀 Triggering prod for sentence:`, lastSentence.text);
+        }
         if (prodsEnabled) {
             onProdTrigger(currentText, lastSentence, opts);
         } else {
-            if (process.env.NODE_ENV !== "production") console.log("⏸️ Prods disabled; skipping trigger");
+            if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⏸️ Prods disabled; skipping trigger`);
         }
 
         // Update tracking state
         lastTriggerAtRef.current = Date.now();
         lastTriggerCharPosRef.current = currentText.length;
-    }, [onProdTrigger, prodsEnabled]);
+    }, [onProdTrigger, prodsEnabled, config]);
 
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const newText = e.target.value;
@@ -122,6 +129,9 @@ export function useTextProcessing({
             clearTimeout(sentencesDebounceRef.current);
         }
 
+        // Extract trimmed text to avoid duplicate trimEnd() calls
+        const trimmedNewText = newText.trimEnd();
+        
         const runSplitAndTriggers = () => {
             const currentText = textareaRef.current?.value ?? newText;
             const newSentences = splitIntoSentences(currentText);
@@ -130,7 +140,7 @@ export function useTextProcessing({
             if (newSentences.length === 0) return;
 
             const lastSentence = newSentences[newSentences.length - 1];
-            const trimmed = currentText.trimEnd();
+            const trimmed = currentText === newText ? trimmedNewText : currentText.trimEnd();
             const hasPunctuation = /[.!?;:]$/.test(trimmed);
             const hasSoftComma = /[,]$/.test(trimmed);
             const charsSince = currentText.length - lastTriggerCharPosRef.current;
@@ -150,19 +160,25 @@ export function useTextProcessing({
                 clearTimeout(debounceTimerRef.current);
             }
 
+            // Clear any existing settling timer
+            if (settlingTimerRef.current) {
+                clearTimeout(settlingTimerRef.current);
+            }
+
             if (shouldTriggerProd(currentText, lastSentence)) {
                 if (hasPunctuation) {
-                    if (process.env.NODE_ENV !== "production") console.log("⚙️ Punctuation trigger detected");
+                    if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⚙️ Punctuation trigger detected`);
                     triggerProd(currentText, lastSentence);
                 } else if (hasSoftComma && lastSentence.text.length >= SOFT_PUNCT_MIN_LEN && charsSince >= SOFT_PUNCT_MIN_CHARS_SINCE) {
-                    if (process.env.NODE_ENV !== "production") console.log("⚙️ Soft comma trigger detected");
+                    if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⚙️ Soft comma trigger detected`);
                     triggerProd(currentText, lastSentence);
-                } else if (charsSince >= CHAR_TRIGGER) {
-                    if (process.env.NODE_ENV !== "production") console.log("⚙️ Character threshold trigger detected");
+                } else if (charsSince >= config.charTrigger) {
+                    if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⚙️ Character threshold trigger detected`);
                     triggerProd(currentText, lastSentence);
                 } else {
-                    if (process.env.NODE_ENV !== "production") console.log("⏳ Setting trailing debounce timer");
-                    debounceTimerRef.current = setTimeout(() => {
+                    // Set settling timer - trigger when user stops typing for a bit
+                    if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⏳ Setting settling timer (${config.settlingMs}ms)`);
+                    settlingTimerRef.current = setTimeout(() => {
                         const latestText = textareaRef.current?.value || "";
                         const currentSentences = splitIntoSentences(latestText);
                         if (currentSentences.length > 0) {
@@ -171,10 +187,10 @@ export function useTextProcessing({
                                 triggerProd(latestText, lastSentence2);
                             }
                         }
-                    }, TRAILING_DEBOUNCE_MS);
+                    }, config.settlingMs);
                 }
             } else {
-                if (process.env.NODE_ENV !== "production") console.log("❌ Trigger conditions not met for:", lastSentence.text.substring(0, 30) + "...");
+                if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ❌ Trigger conditions not met for:`, lastSentence.text.substring(0, 30) + "...");
             }
 
             // Update positions immediately
@@ -184,8 +200,7 @@ export function useTextProcessing({
         };
 
         // If terminal punctuation, flush immediately; else debounce splitting
-        const trimmed = newText.trimEnd();
-        const endsWithPunct = /[.!?;:]$/.test(trimmed);
+        const endsWithPunct = /[.!?;:]$/.test(trimmedNewText);
         if (endsWithPunct) {
             runSplitAndTriggers();
         } else {
@@ -226,6 +241,9 @@ export function useTextProcessing({
             }
             if (sentencesDebounceRef.current) {
                 clearTimeout(sentencesDebounceRef.current);
+            }
+            if (settlingTimerRef.current) {
+                clearTimeout(settlingTimerRef.current);
             }
             if (watchdogTimerRef.current) {
                 clearTimeout(watchdogTimerRef.current);
