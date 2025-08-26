@@ -20,10 +20,11 @@ interface OngoingRequest {
 export function queueReducer(state: QueueState, action: QueueAction): QueueState {
     switch (action.type) {
         case 'ENQUEUE': {
-            // Keep all existing items and append the new pending item
+            // Keep all existing items except pending ones, then append the new pending item
+            const nonPendingItems = state.items.filter(item => item.status !== 'pending');
             return {
                 ...state,
-                items: [...state.items, { ...action.payload, status: 'pending' }]
+                items: [...nonPendingItems, { ...action.payload, status: 'pending' }]
             };
         }
         case 'START_PROCESSING':
@@ -80,7 +81,7 @@ export function useProds(options: UseProdsOptions = {}) {
 
     const isDemoMode = useDemoMode();
     const config = useMemo(() => getTimingConfig(isDemoMode), [isDemoMode]);
-    
+
     const nextAvailableAtRef = useRef<number>(0);
     const ongoingRequestsRef = useRef<Map<string, OngoingRequest>>(new Map());
     const latestTopicVersionRef = useRef<number>(options.topicVersion ?? 0);
@@ -214,7 +215,7 @@ export function useProds(options: UseProdsOptions = {}) {
                     recentSentenceTextMapRef.current.set(k, ts);
                 }
                 recentSentenceTextMapRef.current.set(norm, nowTs);
-            } catch {}
+            } catch { }
             setProds((prev) => {
                 const keepPinned = prev.filter(p => pinnedIdsRef.current.has(p.id));
                 // More aggressive clearing: keep only pinned prods and the new one
@@ -296,7 +297,7 @@ export function useProds(options: UseProdsOptions = {}) {
         // Create sentence fingerprint for deduplication
         const sentenceText = sentence.text.trim();
         const fingerprint = `${sentenceText.substring(0, 30).toLowerCase()}-${sentenceText.length}`;
-        
+
         // Skip if we've processed this fingerprint recently
         const lastProcessedAt = sentenceFingerprintsRef.current.get(fingerprint);
         if (lastProcessedAt && now - lastProcessedAt < 20000) { // 20s
@@ -344,7 +345,7 @@ export function useProds(options: UseProdsOptions = {}) {
         }
 
         // Additional safety check: if we have any recent prod for this sentence ID, skip
-        const recentProdForSentence = prods.find(p => 
+        const recentProdForSentence = prods.find(p =>
             p.sentenceId === sentence.id && now - p.timestamp < 5000
         );
         if (recentProdForSentence) {
@@ -408,11 +409,11 @@ export function useProds(options: UseProdsOptions = {}) {
         // Cancel all in-flight requests and clear pending items so no stale prods surface
         cancelAllRequests();
         queueDispatch({ type: 'CLEAR_QUEUE' });
-        
+
         // Clear fingerprints and recent sentence maps for fresh start
         sentenceFingerprintsRef.current.clear();
         recentSentenceTextMapRef.current.clear();
-        
+
         if (isDev && DEBUG_PRODS) console.log(`${config.emoji} 🗑️ Cleared all prod-related state for topic shift`);
         options.onTopicShift?.();
     }, [cancelAllRequests, options.onTopicShift, config]);

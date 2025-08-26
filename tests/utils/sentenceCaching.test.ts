@@ -8,16 +8,16 @@ describe("Sentence Caching Logic", () => {
     // Check if sentence already exists to avoid duplicates
     const exists = cache.some(s => s.id === sentence.id);
     if (exists) return cache;
-    
+
     return [...cache, sentence];
   };
 
   test("filters out short sentences", () => {
     const shortSentence: Sentence = {
       id: "short",
-      text: "Too short to pass.",
+      text: "Too short.",
       startIndex: 0,
-      endIndex: 19,
+      endIndex: 10,
     };
 
     expect(shouldProcessSentence(shortSentence)).toBe(false);
@@ -55,7 +55,7 @@ describe("Sentence Caching Logic", () => {
         endIndex: 44,
       },
       {
-        id: "thoughts", 
+        id: "thoughts",
         text: "I've been thinking about my career goals lately.",
         startIndex: 45,
         endIndex: 93,
@@ -75,7 +75,7 @@ describe("Sentence Caching Logic", () => {
 
   test("caching avoids duplicates", () => {
     let cache: Sentence[] = [];
-    
+
     const sentence: Sentence = {
       id: "test-1",
       text: "This is a meaningful sentence that should be cached.",
@@ -95,7 +95,7 @@ describe("Sentence Caching Logic", () => {
 
   test("caching accumulates different sentences", () => {
     let cache: Sentence[] = [];
-    
+
     const sentences: Sentence[] = [
       {
         id: "sentence-1",
@@ -104,7 +104,7 @@ describe("Sentence Caching Logic", () => {
         endIndex: 50,
       },
       {
-        id: "sentence-2", 
+        id: "sentence-2",
         text: "The weather has been absolutely beautiful lately.",
         startIndex: 51,
         endIndex: 100,
@@ -129,9 +129,9 @@ describe("Sentence Caching Logic", () => {
 
   test("filtering and caching workflow", () => {
     let cache: Sentence[] = [];
-    
+
     const mixedSentences: Sentence[] = [
-      { id: "short", text: "Quick one-liner.", startIndex: 0, endIndex: 15 },
+      { id: "short", text: "Quick one.", startIndex: 0, endIndex: 10 },
       { id: "meaningful-1", text: "I've been reflecting on my personal growth journey.", startIndex: 4, endIndex: 55 },
       { id: "punct", text: "...", startIndex: 56, endIndex: 59 },
       { id: "meaningful-2", text: "Today's meeting really challenged my perspective.", startIndex: 60, endIndex: 108 },
