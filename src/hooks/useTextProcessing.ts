@@ -3,7 +3,6 @@ import { splitIntoSentences } from "@/lib/sentences";
 import type { Sentence } from "@/types/sentence";
 import { measureSentencePositions, clearPositionCache } from "@/lib/sentences";
 import type { SentencePosition } from "@/types/sentence";
-import { useRafScroll } from "@/hooks/useRafScroll";
 import { useDemoMode, getTimingConfig } from "@/lib/demoMode";
 
 
@@ -38,7 +37,6 @@ export function useTextProcessing({
     const config = useMemo(() => getTimingConfig(isDemoMode), [isDemoMode]);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const sentencesDebounceRef = useRef<NodeJS.Timeout | null>(null);
     const settlingTimerRef = useRef<NodeJS.Timeout | null>(null);
     const watchdogTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -158,9 +156,10 @@ export function useTextProcessing({
             const lastSentence = newSentences[newSentences.length - 1];
 
             const trimmed = currentText === newText ? trimmedNewText : currentText.trimEnd();
-            const hasPunctuation = /[.!?;:]$/.test(trimmed);
+            // Treat newline as a commit signal along with terminal punctuation
+            const hasPunctuation = /[\n.!?;:]$/.test(trimmed);
             const hasSoftComma = /[,]$/.test(trimmed);
-            const charsSince = currentText.length - lastTriggerCharPosRef.current;
+            const charsSince = Math.max(0, currentText.length - lastTriggerCharPosRef.current);
 
             // No special demo scheduling/injection; rely on normal triggers with loose config
 
@@ -172,11 +171,6 @@ export function useTextProcessing({
                     sentenceLength: lastSentence.text.length,
                     shouldTrigger: shouldTriggerProd(currentText, lastSentence)
                 });
-            }
-
-            // Clear trailing debounce if any before setting a new one
-            if (debounceTimerRef.current) {
-                clearTimeout(debounceTimerRef.current);
             }
 
             // Clear any existing settling timer
@@ -220,7 +214,7 @@ export function useTextProcessing({
         };
 
         // If terminal punctuation, flush immediately; else debounce splitting
-        const endsWithPunct = /[.!?;:]$/.test(trimmedNewText);
+        const endsWithPunct = /[\n.!?;:]$/.test(trimmedNewText);
         if (endsWithPunct) {
             runSplitAndTriggers();
         } else {
@@ -228,16 +222,7 @@ export function useTextProcessing({
         }
     };
 
-    // Handle scroll events to reposition chips using RAF coalescing
-    const handleScrollReposition = useCallback((element: HTMLElement) => {
-        if (sentences.length > 0) {
-            clearPositionCache();
-            updatePositions(sentences, element as HTMLTextAreaElement);
-            if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after scroll (RAF)");
-        }
-    }, [sentences, updatePositions]);
-
-    useRafScroll(textareaRef, handleScrollReposition, [sentences, updatePositions]);
+    // Removed scroll re-measure. Overlays translate with RAF for scroll sync.
 
     // Handle resize events to reposition chips
     useEffect(() => {
@@ -256,17 +241,11 @@ export function useTextProcessing({
     // Cleanup timers on unmount
     useEffect(() => {
         return () => {
-            if (debounceTimerRef.current) {
-                clearTimeout(debounceTimerRef.current);
-            }
             if (sentencesDebounceRef.current) {
                 clearTimeout(sentencesDebounceRef.current);
             }
             if (settlingTimerRef.current) {
                 clearTimeout(settlingTimerRef.current);
-            }
-            if (watchdogTimerRef.current) {
-                clearTimeout(watchdogTimerRef.current);
             }
         };
     }, []);

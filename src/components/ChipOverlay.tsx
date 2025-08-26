@@ -7,6 +7,7 @@ import type { Sentence, SentencePosition } from "@/types/sentence";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
 import { cn } from "@/lib/helpers";
 import { useRafScroll } from "@/hooks/useRafScroll";
+import { calculateChipLayout } from "@/services/chipLayoutService";
 
 interface ChipOverlayProps {
   visibleProds: Prod[];
@@ -128,96 +129,16 @@ export function ChipOverlay({
     }
   }, [textareaRef]);
 
-  // Simple collision system based on main branch with pinned chip priority
+  // Sentence-aware chip layout with overflow handling
   const layoutByProdId = useMemo(() => {
-    if (contentWidth <= 0)
-      return new Map<string, { h: number; v: number; maxWidth?: number }>();
+    if (contentWidth <= 0) return new Map();
 
-    // Read responsive chip gutter from CSS
-    const chipGutter =
-      typeof window !== "undefined"
-        ? parseInt(
-            getComputedStyle(document.documentElement).getPropertyValue(
-              "--chip-gutter"
-            )
-          ) || 8
-        : 8;
-
-    const contentLeftPad = 16;
-    const rightPad = chipGutter + 8;
-    const rightLimit = contentWidth - rightPad;
-    const rowGap = 20;
-    const minChipPx = 120;
-
-    const result = new Map<
-      string,
-      { h: number; v: number; maxWidth?: number }
-    >();
-    const usedPositions = new Set<string>();
-
-    // Sort prods: pinned chips first for priority positioning
-    const pinnedProds = visibleProds.filter((p) => pinnedProdIds.has(p.id));
-    const unpinnedProds = visibleProds.filter((p) => !pinnedProdIds.has(p.id));
-    const sortedProds = [
-      ...pinnedProds.sort((a, b) => a.timestamp - b.timestamp),
-      ...unpinnedProds.sort((a, b) => a.timestamp - b.timestamp),
-    ];
-
-    for (const prod of sortedProds) {
-      const pos = positionMap.get(prod.sentenceId);
-      if (!pos) continue;
-
-      // Estimate width
-      const estW = Math.max(minChipPx, Math.round(prod.text.length * 7.5) + 40);
-
-      // End-align: chip's right edge should match sentence end (main branch logic)
-      const sentenceEndX = contentLeftPad + pos.left + pos.width;
-      let startX = sentenceEndX - estW;
-
-      // Clamp to bounds
-      startX = Math.max(contentLeftPad, Math.min(startX, rightLimit - estW));
-
-      const available = rightLimit - startX;
-      const needsSecondRow = available < Math.min(minChipPx, estW * 0.7);
-
-      let v = needsSecondRow ? rowGap : 44; // Simple logic with preferred spacing
-
-      let h = startX - (pos.left + contentLeftPad);
-
-      // Simple collision detection from main branch
-      let positionKey = `${Math.round(pos.top)}-${Math.round(startX)}-${v}`;
-      let horizontalOffset = 0;
-      let currentStartX = startX;
-
-      while (usedPositions.has(positionKey)) {
-        horizontalOffset += 32;
-        currentStartX = startX + horizontalOffset;
-
-        // Check if shifted position would overflow right boundary
-        if (currentStartX + estW > rightLimit) {
-          // Reset horizontal offset and move to next row
-          horizontalOffset = 0;
-          currentStartX = startX;
-          v += rowGap;
-          h = currentStartX - (pos.left + contentLeftPad);
-          positionKey = `${Math.round(pos.top)}-${Math.round(
-            currentStartX
-          )}-${v}`;
-        } else {
-          h = currentStartX - (pos.left + contentLeftPad);
-          positionKey = `${Math.round(pos.top)}-${Math.round(
-            currentStartX
-          )}-${v}`;
-        }
-      }
-
-      usedPositions.add(positionKey);
-
-      const maxWidth = Math.max(0, rightLimit - currentStartX);
-      result.set(prod.id, { h, v, maxWidth });
-    }
-
-    return result;
+    return calculateChipLayout(
+      visibleProds,
+      positionMap,
+      contentWidth,
+      pinnedProdIds
+    );
   }, [visibleProds, positionMap, contentWidth, pinnedProdIds]);
 
   return (
@@ -262,7 +183,12 @@ export function ChipOverlay({
             }
             return null;
           }
-          const offsets = layoutByProdId.get(prod.id) || { h: 0, v: 0 };
+          const offsets = layoutByProdId.get(prod.id);
+
+          // Skip rendering if chip was filtered out by layout system
+          if (!offsets) {
+            return null;
+          }
 
           return (
             <Chip
@@ -271,7 +197,7 @@ export function ChipOverlay({
               position={sentencePosition}
               horizontalOffset={offsets.h}
               verticalOffset={offsets.v}
-              maxWidthPx={(offsets as any).maxWidth}
+              maxWidthPx={offsets.maxWidth}
               containerWidth={contentWidth}
               onFadeComplete={() => onChipFade?.(prod.id)}
               onKeepChip={() => onChipKeep?.(prod)}
