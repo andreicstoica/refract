@@ -362,6 +362,7 @@ export function ChipOverlay({
               horizontalOffset={offsets.h}
               verticalOffset={offsets.v}
               maxWidthPx={(offsets as any).maxWidth}
+              containerWidth={contentWidth}
               onFadeComplete={() => onChipFade?.(prod.id)}
               onKeepChip={() => onChipKeep?.(prod)}
             />

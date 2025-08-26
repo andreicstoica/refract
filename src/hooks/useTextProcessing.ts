@@ -169,13 +169,14 @@ export function useTextProcessing({
             const hasSoftComma = /[,]$/.test(trimmed);
             const charsSince = currentText.length - lastTriggerCharPosRef.current;
 
-            // Demo route: if the user finishes typing the target sentence, inject the demo chip after delay
-            if (isDemoMode && onImmediateProd && hasPunctuation) {
+            // Demo route: if the user types the target sentence, inject the demo chip after delay
+            if (isDemoMode && onImmediateProd) {
                 const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
                 const targetNorm = normalize(DEMO_CHIP_CONFIG.targetSentence);
-                const lastNorm = normalize(lastSentence.text);
-                // Only trigger for exact matches when sentence is finished (has punctuation)
-                if (lastNorm === targetNorm) {
+                const currentTextNorm = normalize(currentText);
+
+                // Check if the target sentence appears anywhere in the current text
+                if (currentTextNorm.includes(targetNorm) && !demoFirstImmediateTimerRef.current) {
                     if (demoFirstImmediateTimerRef.current) {
                         clearTimeout(demoFirstImmediateTimerRef.current);
                         demoFirstImmediateTimerRef.current = null;
@@ -196,7 +197,7 @@ export function useTextProcessing({
                     // Nudge internal timers so normal triggers don't immediately double-fire
                     lastTriggerAtRef.current = Date.now();
                     if (process.env.NODE_ENV !== "production") {
-                        console.log("🎬 Demo target sentence finished, scheduling chip");
+                        console.log("🎬 Demo target sentence detected, scheduling chip");
                     }
                 }
             }

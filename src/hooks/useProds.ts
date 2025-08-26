@@ -174,8 +174,8 @@ export function useProds(options: UseProdsOptions = {}) {
                 return;
             }
 
-            // Confidence gating: more permissive in demo mode, but bypass if force is true
-            const confidenceThreshold = isDemoMode ? 0.1 : 0.5; // Lower threshold for demo mode to handle timeouts
+            // Confidence gating: very permissive in demo mode, but bypass if force is true
+            const confidenceThreshold = isDemoMode ? 0.05 : 0.5; // Even lower threshold for demo mode
             if (!item.force && typeof data?.confidence === 'number' && data.confidence <= confidenceThreshold) {
                 if (isDev && DEBUG_PRODS) console.log(`🔕 Low confidence (${data.confidence.toFixed(2)}) – skipping prod for sentence:`, sentence.text);
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
@@ -260,8 +260,8 @@ export function useProds(options: UseProdsOptions = {}) {
                 return;
             }
 
-            // Implement max queue size - keep only the 3 most recent items
-            const MAX_QUEUE_SIZE = 3;
+            // Implement max queue size - keep only the most recent items (more in demo mode)
+            const MAX_QUEUE_SIZE = isDemoMode ? 5 : 3; // Allow more queued items in demo mode
             if (pendingItems.length > MAX_QUEUE_SIZE) {
                 const itemsToRemove = pendingItems.slice(0, pendingItems.length - MAX_QUEUE_SIZE);
                 itemsToRemove.forEach(item => {
@@ -340,9 +340,10 @@ export function useProds(options: UseProdsOptions = {}) {
         const sentenceText = sentence.text.trim();
         const fingerprint = `${sentenceText.substring(0, 30).toLowerCase()}-${sentenceText.length}`;
 
-        // Skip if we've processed this fingerprint recently
+        // Skip if we've processed this fingerprint recently (less aggressive in demo mode)
         const lastProcessedAt = sentenceFingerprintsRef.current.get(fingerprint);
-        if (lastProcessedAt && now - lastProcessedAt < 20000) { // 20s
+        const fingerprintTimeout = isDemoMode ? 5000 : 10000; // 5s in demo vs 10s in prod
+        if (lastProcessedAt && now - lastProcessedAt < fingerprintTimeout) {
             if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Similar sentence processed recently, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
@@ -356,9 +357,10 @@ export function useProds(options: UseProdsOptions = {}) {
         // Normalize sentence text for robust de-duplication
         const normalized = sentenceText.toLowerCase();
 
-        // Skip if we've produced for this text recently
+        // Skip if we've produced for this text recently (less aggressive in demo mode)
         const lastProducedAt = recentSentenceTextMapRef.current.get(normalized);
-        if (lastProducedAt && now - lastProducedAt < 30000) { // 30s
+        const textTimeout = isDemoMode ? 10000 : 20000; // 10s in demo vs 20s in prod
+        if (lastProducedAt && now - lastProducedAt < textTimeout) {
             if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
@@ -386,9 +388,9 @@ export function useProds(options: UseProdsOptions = {}) {
             return;
         }
 
-        // Additional safety check: if we have any recent prod for this sentence ID, skip
+        // Additional safety check: if we have any recent prod for this sentence ID, skip (less aggressive in demo mode)
         const recentProdForSentence = prods.find(p =>
-            p.sentenceId === sentence.id && now - p.timestamp < 5000
+            p.sentenceId === sentence.id && now - p.timestamp < (isDemoMode ? 2000 : 5000) // 2s in demo vs 5s in prod
         );
         if (recentProdForSentence) {
             if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Recent prod exists for this sentence ID, skipping:`, sentence.text.substring(0, 50) + "...");

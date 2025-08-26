@@ -20,7 +20,7 @@ export const DEMO_CHIP_CONFIG = {
 	// The chip text to show
 	chipText: "What exactly changes for you?",
 	// Delay in milliseconds after finishing the sentence
-	delayMs: 3000,
+	delayMs: 1000, // Reduced from 3000
 } as const;
 
 /**
@@ -29,12 +29,12 @@ export const DEMO_CHIP_CONFIG = {
 export function getTimingConfig(isDemoMode: boolean) {
 	if (isDemoMode) {
 		return {
-			// Demo mode: More eager for showcasing
-			cooldownMs: 200,
-			charTrigger: 20,
-			settlingMs: 500,
-			rateLimitMs: 50,
-			trailingDebounceMs: 400,
+			// Demo mode: Much more eager for showcasing
+			cooldownMs: 100, // Reduced from 200
+			charTrigger: 15, // Reduced from 20
+			settlingMs: 200, // Reduced from 500
+			rateLimitMs: 25, // Reduced from 50
+			trailingDebounceMs: 200, // Reduced from 400
 			emoji: '🎬'
 		};
 	}

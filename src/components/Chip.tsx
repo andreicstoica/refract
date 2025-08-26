@@ -17,6 +17,7 @@ interface ChipProps {
   horizontalOffset?: number;
   verticalOffset?: number;
   maxWidthPx?: number;
+  containerWidth?: number;
   className?: string;
   onFadeComplete?: () => void;
   onKeepChip?: () => void;
@@ -28,6 +29,7 @@ export function Chip({
   horizontalOffset = 0,
   verticalOffset = 0,
   maxWidthPx,
+  containerWidth,
   className,
   onFadeComplete,
   onKeepChip,
@@ -67,9 +69,18 @@ export function Chip({
     // Apply horizontal offset after calculating preferred position
     const offsetLeft = preferredLeft + horizontalOffset;
 
-    // Clamp to the start of the textarea content (px-4 => 16px)
-    return Math.max(16, offsetLeft);
-  }, [position.left, position.width, horizontalOffset, maxWidthPx]);
+    // Clamp to ensure chip stays within container bounds
+    const minLeft = 16; // left boundary (px-4)
+    const maxLeft = containerWidth ? containerWidth - chipWidth - 16 : 1000; // right boundary
+
+    return Math.max(minLeft, Math.min(maxLeft, offsetLeft));
+  }, [
+    position.left,
+    position.width,
+    horizontalOffset,
+    maxWidthPx,
+    containerWidth,
+  ]);
 
   // Start fade after 8 seconds
   useEffect(() => {
@@ -155,6 +166,8 @@ export function Chip({
                   maxWidthPx
                 )}px, calc(100% - 2 * var(--chip-gutter)))`
               : `calc(100% - 2 * var(--chip-gutter))`,
+            // Ensure chip doesn't overflow right boundary
+            right: "var(--chip-gutter)",
           }}
           onClick={handleTap}
         >
