@@ -101,30 +101,48 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
         // Skip if no state change
         if (isActive === wasActive) continue;
 
-        const delay = (isActive ? chunkIndex[i] : prevIdx) >= 0
-          ? ((isActive ? chunkIndex[i] : prevIdx) as number) * STAGGER_PER_CHUNK
-          : 0;
+        // Calculate delay with reversed order for exit animations (bottom-up)
+        let delay = 0;
+        if (isActive) {
+          // Entry: top-down order (normal chunk index)
+          delay = chunkIndex[i] >= 0 ? chunkIndex[i] * STAGGER_PER_CHUNK : 0;
+        } else {
+          // Exit: bottom-up order (reverse chunk index)
+          const maxChunkIndex = Math.max(...chunkIndex.filter(idx => idx >= 0));
+          const reversedIdx = prevIdx >= 0 ? maxChunkIndex - prevIdx : -1;
+          delay = reversedIdx >= 0 ? reversedIdx * STAGGER_PER_CHUNK : 0;
+        }
 
         // Find the corresponding DOM node
         const node = el.querySelector<HTMLElement>(`span[data-segment="${i}"]`);
         if (node) {
-          // Simple LTR on enter, RTL on exit with slight stagger
-          const fromPos = isActive ? "left top" : "right top";
-          const toPos = isActive ? "left top" : "right top";
-          const fromSize = isActive ? "0% 100%" : "100% 100%";
-          const toSize = isActive ? "100% 100%" : "0% 100%";
-
-          gsap.fromTo(
-            node,
-            { backgroundSize: fromSize, backgroundPosition: fromPos },
-            {
-              backgroundSize: toSize,
-              backgroundPosition: toPos,
-              duration: HIGHLIGHT_ANIM_TIME,
-              delay: delay.toString(),
-              ease: "power2.out",
-            }
-          );
+          if (isActive) {
+            // Entry animation: left to right (top-down, left-to-right)
+            gsap.fromTo(
+              node,
+              { backgroundSize: "0% 100%", backgroundPosition: "left top" },
+              {
+                backgroundSize: "100% 100%",
+                backgroundPosition: "left top",
+                duration: HIGHLIGHT_ANIM_TIME,
+                delay: delay.toString(),
+                ease: "power2.out",
+              }
+            );
+          } else {
+            // Exit animation: left to right reveal (bottom-up, end-to-start within chunk)
+            gsap.fromTo(
+              node,
+              { backgroundSize: "100% 100%", backgroundPosition: "left top" },
+              {
+                backgroundSize: "0% 100%",
+                backgroundPosition: "left top",
+                duration: HIGHLIGHT_ANIM_TIME,
+                delay: delay.toString(),
+                ease: "power2.out",
+              }
+            );
+          }
         }
       }
 
