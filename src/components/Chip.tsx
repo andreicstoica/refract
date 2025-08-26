@@ -108,16 +108,15 @@ export function Chip({
   };
 
   // Debug positioning in development
-  if (
-    process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_DEBUG_CHIPS === "1"
-  ) {
+  if (process.env.NODE_ENV !== "production") {
     console.log("🎯 Chip positioning:", {
       text: text.substring(0, 30) + "...",
       position,
       horizontalOffset,
+      verticalOffset,
       chipTop,
       chipLeft,
+      maxWidthPx,
     });
   }
 
@@ -154,8 +153,8 @@ export function Chip({
             top: chipTop,
             left: chipLeft,
             // Simplified width control - trust the layout system
-            maxWidth: maxWidthPx ? `${Math.floor(maxWidthPx)}px` : '280px',
-            width: maxWidthPx ? `${Math.floor(maxWidthPx)}px` : 'auto',
+            maxWidth: maxWidthPx ? `${Math.floor(maxWidthPx)}px` : "280px",
+            width: maxWidthPx ? `${Math.floor(maxWidthPx)}px` : "auto",
           }}
           onClick={handleTap}
         >

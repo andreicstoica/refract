@@ -7,7 +7,7 @@ import type { Sentence, SentencePosition } from "@/types/sentence";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
 import { cn } from "@/lib/helpers";
 import { useRafScroll } from "@/hooks/useRafScroll";
-import { calculateChipLayout } from "@/lib/chipLayout";
+import { calculateChipLayout } from "@/services/chipLayoutService";
 
 interface ChipOverlayProps {
   visibleProds: Prod[];
@@ -132,7 +132,7 @@ export function ChipOverlay({
   // Sentence-aware chip layout with overflow handling
   const layoutByProdId = useMemo(() => {
     if (contentWidth <= 0) return new Map();
-    
+
     return calculateChipLayout(
       visibleProds,
       positionMap,
@@ -184,7 +184,7 @@ export function ChipOverlay({
             return null;
           }
           const offsets = layoutByProdId.get(prod.id);
-          
+
           // Skip rendering if chip was filtered out by layout system
           if (!offsets) {
             return null;
