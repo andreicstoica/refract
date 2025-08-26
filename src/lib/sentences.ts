@@ -173,7 +173,7 @@ export function measureSentencePositions(
       // Ensure left never falls before the start of textarea content
       left: Math.max(0, rawLeft),
       width: r.width,
-      height: parseFloat(styles.lineHeight.replace('px', '')) || 44,
+      height: parseFloat(styles.lineHeight.replace('px', '')) || 56,
     };
 
     results.push(position);

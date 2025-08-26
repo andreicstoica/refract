@@ -39,41 +39,39 @@ export function Chip({
   const [pinned, setPinned] = useState(false);
   const fadeTimerRef = useRef<number | null>(null);
 
-  // Memoize position calculations to avoid recalculation on every render
-  // Position is relative to textarea content area, chip overlay is relative to textarea container
-  // Position chip right under the sentence with horizontal offset for side-by-side layout
+  // Use position from ChipOverlay collision system when offsets are provided
   const chipTop = useMemo(() => {
-    const measured = position.height ?? 44;
-    const lineOffset = Math.min(44, measured); // cap to 44px so chips sit closer
-    return position.top + lineOffset + 4 + verticalOffset; // small gap below line
+    if (verticalOffset !== 0) {
+      // ChipOverlay has calculated the position - use it directly
+      return position.top + verticalOffset;
+    }
+    // Fallback for cases where ChipOverlay isn't managing positioning
+    const measured = position.height ?? 56;
+    const lineOffset = Math.min(56, measured);
+    return position.top + lineOffset; // Position chips at line offset
   }, [position.top, position.height, verticalOffset]);
   const chipLeft = useMemo(() => {
-    // Smart positioning based on sentence length and content
+    if (horizontalOffset !== 0) {
+      // ChipOverlay has calculated the position - use it directly
+      return position.left + horizontalOffset;
+    }
+    // Fallback positioning when ChipOverlay isn't managing positioning
     const sentenceLength = position.width;
-    const chipWidth = maxWidthPx || 200; // approximate chip width
+    const chipWidth = maxWidthPx || 200;
 
     let preferredLeft: number;
-
     if (sentenceLength < 100) {
-      // For short sentences, center the chip
       const sentenceCenter = position.left + sentenceLength / 2;
       preferredLeft = sentenceCenter - chipWidth / 2;
     } else if (sentenceLength < 300) {
-      // For medium sentences, position at 60% of sentence length (more natural reading flow)
       preferredLeft = position.left + sentenceLength * 0.6 - chipWidth / 2;
     } else {
-      // For long sentences, position at 70% of sentence length
       preferredLeft = position.left + sentenceLength * 0.7 - chipWidth / 2;
     }
 
-    // Apply horizontal offset after calculating preferred position
-    const offsetLeft = preferredLeft + horizontalOffset;
-
-    // Clamp to ensure chip stays within container bounds
-    const minLeft = 16; // left boundary (px-4)
-    const maxLeft = containerWidth ? containerWidth - chipWidth - 16 : 1000; // right boundary
-
-    return Math.max(minLeft, Math.min(maxLeft, offsetLeft));
+    const minLeft = 16;
+    const maxLeft = containerWidth ? containerWidth - chipWidth - 16 : 1000;
+    return Math.max(minLeft, Math.min(maxLeft, preferredLeft));
   }, [
     position.left,
     position.width,

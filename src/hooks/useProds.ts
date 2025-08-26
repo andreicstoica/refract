@@ -86,6 +86,8 @@ export function useProds(options: UseProdsOptions = {}) {
     const ongoingRequestsRef = useRef<Map<string, OngoingRequest>>(new Map());
     const latestTopicVersionRef = useRef<number>(options.topicVersion ?? 0);
     const sentenceFingerprintsRef = useRef<Map<string, number>>(new Map());
+    // Demo-only: block prefix for first sentence after injecting a demo chip
+    const demoBlockedPrefixRef = useRef<{ prefix: string; until: number } | null>(null);
 
     // Track latest topic version for staleness gating
     useEffect(() => {
@@ -295,9 +297,13 @@ export function useProds(options: UseProdsOptions = {}) {
         const recentProdForSentence = prods.find(p => p.sentenceId === sentence.id && now - p.timestamp < 5000);
         if (recentProdForSentence) return;
 
-        // Skip if we've produced for this exact text recently
+        // Skip if we've produced for this exact text recently (longer timeout for demo chips)
         const lastProducedAt = recentSentenceTextMapRef.current.get(normalized);
-        if (lastProducedAt && now - lastProducedAt < 30000) return;
+        const demoChipTimeout = isDemoMode ? 120000 : 30000; // 2min for demo chips vs 30s for normal prods
+        if (lastProducedAt && now - lastProducedAt < demoChipTimeout) {
+            if (DEBUG_PRODS) console.log(`${config.emoji} 🚫 Skipping duplicate prod for recently produced text:`, sentence.text.substring(0, 50) + "...");
+            return;
+        }
 
         const newProd: Prod = {
             id: `prod-${sentence.id}-${now}`,
@@ -316,6 +322,17 @@ export function useProds(options: UseProdsOptions = {}) {
             recentSentenceTextMapRef.current.clear();
             for (const [k, ts] of validEntries) recentSentenceTextMapRef.current.set(k, ts);
             recentSentenceTextMapRef.current.set(normalized, now);
+
+            // Also mark the fingerprint as processed to prevent normal prod system from processing it
+            const fingerprint = `${sentence.text.substring(0, 30).toLowerCase()}-${sentence.text.length}`;
+            sentenceFingerprintsRef.current.set(fingerprint, now);
+
+            // In demo mode, also block any future API prods for sentences that extend this prefix
+            if (isDemoMode) {
+                const prefix = sentence.text.trim().toLowerCase().slice(0, 60);
+                // Block for 90s to be safe during demo
+                demoBlockedPrefixRef.current = { prefix, until: now + 90_000 };
+            }
         } catch { }
 
         setProds((prev) => {
@@ -330,6 +347,25 @@ export function useProds(options: UseProdsOptions = {}) {
         // Clean old fingerprints (>30s) periodically
         const now = Date.now();
         const cleanupThreshold = 30000;
+
+        // Demo-only: if we recently injected a demo chip for this sentence's prefix, skip API call
+        if (isDemoMode && demoBlockedPrefixRef.current && now < demoBlockedPrefixRef.current.until) {
+            const prefix = demoBlockedPrefixRef.current.prefix;
+            const sentenceNorm = sentence.text.trim().toLowerCase();
+            if (sentenceNorm.startsWith(prefix)) {
+                if (DEBUG_PRODS) console.log(`${config.emoji} 🎬 Skipping API due to demo prefix block`);
+                return;
+            }
+        }
+
+        // Early exit: check if this sentence text already has a recent prod
+        const normalizedText = sentence.text.trim().toLowerCase();
+        const lastProducedAtEarly = recentSentenceTextMapRef.current.get(normalizedText);
+        const recentProdTimeout = isDemoMode ? 120000 : 30000; // 2min in demo vs 30s in prod
+        if (lastProducedAtEarly && now - lastProducedAtEarly < recentProdTimeout) {
+            if (DEBUG_PRODS) console.log(`${config.emoji} 🚫 Prod already exists for this text recently, blocking:`, sentence.text.substring(0, 50) + "...");
+            return;
+        }
         for (const [fingerprint, timestamp] of sentenceFingerprintsRef.current.entries()) {
             if (now - timestamp > cleanupThreshold) {
                 sentenceFingerprintsRef.current.delete(fingerprint);
@@ -340,9 +376,9 @@ export function useProds(options: UseProdsOptions = {}) {
         const sentenceText = sentence.text.trim();
         const fingerprint = `${sentenceText.substring(0, 30).toLowerCase()}-${sentenceText.length}`;
 
-        // Skip if we've processed this fingerprint recently (less aggressive in demo mode)
+        // Skip if we've processed this fingerprint recently (much longer timeout in demo mode)
         const lastProcessedAt = sentenceFingerprintsRef.current.get(fingerprint);
-        const fingerprintTimeout = isDemoMode ? 5000 : 10000; // 5s in demo vs 10s in prod
+        const fingerprintTimeout = isDemoMode ? 60000 : 15000; // 60s in demo vs 15s in prod (prevent demo overlaps)
         if (lastProcessedAt && now - lastProcessedAt < fingerprintTimeout) {
             if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Similar sentence processed recently, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
@@ -357,9 +393,9 @@ export function useProds(options: UseProdsOptions = {}) {
         // Normalize sentence text for robust de-duplication
         const normalized = sentenceText.toLowerCase();
 
-        // Skip if we've produced for this text recently (less aggressive in demo mode)
+        // Skip if we've produced for this text recently (much longer timeout in demo mode)
         const lastProducedAt = recentSentenceTextMapRef.current.get(normalized);
-        const textTimeout = isDemoMode ? 10000 : 20000; // 10s in demo vs 20s in prod
+        const textTimeout = isDemoMode ? 60000 : 20000; // 60s in demo vs 20s in prod (prevent overlaps with demo chips)
         if (lastProducedAt && now - lastProducedAt < textTimeout) {
             if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
@@ -482,6 +518,7 @@ export function useProds(options: UseProdsOptions = {}) {
         queueState, // Expose queue state for UI feedback
         filteredSentences, // Expose cached sentences for embeddings
         clearFilteredSentences, // Allow clearing cache for new sessions
+        pinnedIds, // Expose pinned prod IDs for collision system
         prodMetrics: {
             durations: prodDurations,
             slowCount: prodDurations.filter((ms) => ms >= 5000).length,

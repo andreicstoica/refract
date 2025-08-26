@@ -3,7 +3,7 @@ import { splitIntoSentences } from "@/lib/sentences";
 import type { Sentence } from "@/types/sentence";
 import { measureSentencePositions, clearPositionCache } from "@/lib/sentences";
 import type { SentencePosition } from "@/types/sentence";
-import { useRafScroll } from "@/lib/useRafScroll";
+import { useRafScroll } from "@/hooks/useRafScroll";
 import { useDemoMode, getTimingConfig, DEMO_CHIP_CONFIG } from "@/lib/demoMode";
 
 
@@ -54,6 +54,11 @@ export function useTextProcessing({
     const demoStartTimeRef = useRef<number>(0);
     const demoProdShownRef = useRef<boolean>(false);
     const demoFirstImmediateTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const demoChipInjectedRef = useRef<boolean>(false);
+    const demoTargetCompletedRef = useRef<boolean>(false); // Finished target sentence, awaiting next
+    const demoTimerPinnedRef = useRef<boolean>(false); // Do not auto-cancel timer while typing next sentence
+    const demoFirstSentenceIdRef = useRef<string | null>(null);  // Track the specific first sentence ID (legacy)
+    const demoFirstSentenceStartRef = useRef<number | null>(null); // Track by stable startIndex to avoid ID churn
 
     // Position measurement with memoization
     const measurePositions = useCallback(
@@ -121,6 +126,14 @@ export function useTextProcessing({
 
     // Helper to trigger prod and update tracking state
     const triggerProd = useCallback((currentText: string, lastSentence: Sentence, opts?: { force?: boolean }) => {
+        // Block prod triggers in demo mode for the demo sentence by startIndex (more stable than ID)
+        if (isDemoMode && demoFirstSentenceStartRef.current !== null && demoFirstSentenceStartRef.current === lastSentence.startIndex) {
+            if (process.env.NODE_ENV !== "production") {
+                console.log("🎬 Blocking prod trigger - this is the demo sentence:", lastSentence.id);
+            }
+            return;
+        }
+
         if (process.env.NODE_ENV !== "production") {
             console.log(`${config.emoji} 🚀 Triggering prod for sentence:`, lastSentence.text);
         }
@@ -147,10 +160,12 @@ export function useTextProcessing({
             clearTimeout(sentencesDebounceRef.current);
         }
         // Cancel pending demo timer on new input; will reschedule as needed
-        if (demoFirstImmediateTimerRef.current) {
+        if (demoFirstImmediateTimerRef.current && !demoTimerPinnedRef.current) {
             clearTimeout(demoFirstImmediateTimerRef.current);
             demoFirstImmediateTimerRef.current = null;
         }
+        // If user types again, consider the chip not injected yet for rescheduling logic
+        // (It will be set to true once actually injected.)
 
         // Extract trimmed text to avoid duplicate trimEnd() calls
         const trimmedNewText = newText.trimEnd();
@@ -169,40 +184,43 @@ export function useTextProcessing({
             const hasSoftComma = /[,]$/.test(trimmed);
             const charsSince = currentText.length - lastTriggerCharPosRef.current;
 
-            // Demo route: if the user types the target sentence, inject the demo chip after delay
+            // Demo route logic
+            let demoChipScheduled = false;
             if (isDemoMode && onImmediateProd) {
                 const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
                 const targetNorm = normalize(DEMO_CHIP_CONFIG.targetSentence);
-                const currentTextNorm = normalize(currentText);
 
-                // Check if the target sentence appears anywhere in the current text
-                if (currentTextNorm.includes(targetNorm) && !demoFirstImmediateTimerRef.current) {
-                    if (demoFirstImmediateTimerRef.current) {
-                        clearTimeout(demoFirstImmediateTimerRef.current);
-                        demoFirstImmediateTimerRef.current = null;
+                // Phase 1: detect exact completion of the target sentence and inject immediately
+                const lastSentenceNorm = normalize(lastSentence.text);
+                if (!demoTargetCompletedRef.current && lastSentenceNorm === targetNorm) {
+                    demoTargetCompletedRef.current = true;
+                    demoFirstSentenceIdRef.current = lastSentence.id;
+                    demoFirstSentenceStartRef.current = lastSentence.startIndex;
+                    if (process.env.NODE_ENV !== "production") {
+                        console.log("🎬 Demo target sentence completed; scheduling immediate chip injection");
                     }
-                    // Schedule the demo chip with the configured delay
+
+                    // Schedule demo chip immediately after the configured delay
+                    const totalDelay = DEMO_CHIP_CONFIG.delayMs;
+                    demoTimerPinnedRef.current = true; // don't cancel this timer on further typing
                     demoFirstImmediateTimerRef.current = setTimeout(() => {
                         const latestText = textareaRef.current?.value || currentText;
-                        const currentSentences = splitIntoSentences(latestText);
-                        if (currentSentences.length > 0) {
-                            const last = currentSentences[currentSentences.length - 1];
-                            onImmediateProd(latestText, last, DEMO_CHIP_CONFIG.chipText);
+                        const currentSentences2 = splitIntoSentences(latestText);
+                        if (currentSentences2.length > 0) {
+                            // Inject on the demo sentence
+                            const targetSentence = currentSentences2.find(s => normalize(s.text) === targetNorm) || lastSentence;
+                            onImmediateProd(latestText, targetSentence, DEMO_CHIP_CONFIG.chipText);
+                            demoChipInjectedRef.current = true;
                             if (process.env.NODE_ENV !== "production") {
-                                console.log(`🎬 Demo chip injected after ${DEMO_CHIP_CONFIG.delayMs}ms delay`);
+                                console.log(`🎬 Demo chip injected immediately (delay ${totalDelay}ms)`);
                             }
                         }
                         demoFirstImmediateTimerRef.current = null;
-                    }, DEMO_CHIP_CONFIG.delayMs);
-                    // Nudge internal timers so normal triggers don't immediately double-fire
-                    lastTriggerAtRef.current = Date.now();
-                    if (process.env.NODE_ENV !== "production") {
-                        console.log("🎬 Demo target sentence detected, scheduling chip");
-                    }
+                        demoTimerPinnedRef.current = false;
+                    }, totalDelay);
+                    demoChipScheduled = true;
                 }
             }
-
-
 
             if (process.env.NODE_ENV !== "production") {
                 console.log("🔍 Trigger analysis:", {
@@ -210,7 +228,8 @@ export function useTextProcessing({
                     hasPunctuation,
                     charsSince,
                     sentenceLength: lastSentence.text.length,
-                    shouldTrigger: shouldTriggerProd(currentText, lastSentence)
+                    shouldTrigger: shouldTriggerProd(currentText, lastSentence),
+                    demoChipScheduled
                 });
             }
 
@@ -224,8 +243,8 @@ export function useTextProcessing({
                 clearTimeout(settlingTimerRef.current);
             }
 
-            // Normal trigger logic - existing sentence deduplication will prevent duplicates
-            if (shouldTriggerProd(currentText, lastSentence)) {
+            // Normal trigger logic - skip if demo chip is scheduled for this sentence
+            if (shouldTriggerProd(currentText, lastSentence) && !demoChipScheduled) {
                 if (hasPunctuation) {
                     if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⚙️ Punctuation trigger detected`);
                     triggerProd(currentText, lastSentence);
@@ -324,6 +343,22 @@ export function useTextProcessing({
             const idleMs = now - lastInputAtRef.current;
 
             if (idleMs >= 6000 && watchdogArmedRef.current) {
+                // Skip watchdog in demo mode only for the demo sentence
+                if (isDemoMode && demoFirstSentenceStartRef.current !== null) {
+                    const latestText = textareaRef.current?.value || text;
+                    const currentSentences = sentences.length > 0 ? sentences : splitIntoSentences(latestText);
+                    if (currentSentences.length > 0) {
+                        const lastSentence = currentSentences[currentSentences.length - 1];
+                        // Only skip if this is the demo sentence (by startIndex)
+                        if (demoFirstSentenceStartRef.current === lastSentence.startIndex) {
+                            if (process.env.NODE_ENV !== "production") {
+                                console.log("🎬 Skipping watchdog - this is the demo sentence");
+                            }
+                            return;
+                        }
+                    }
+                }
+
                 const latestText = textareaRef.current?.value || text;
                 const currentSentences = sentences.length > 0 ? sentences : splitIntoSentences(latestText);
                 if (currentSentences.length > 0) {

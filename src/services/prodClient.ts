@@ -80,11 +80,24 @@ export async function generateProd(
         if (error instanceof Error && error.name === 'AbortError') {
             console.warn(`⏱️ /api/prod timed out after ${Math.round(elapsed)}ms (soft-skip)`);
             // Soft skip: do not surface a chip on timeout
-            const softSkip: ProdResponse = { confidence: 0.1 };
+            const softSkip: ProdResponse = { confidence: 0 };
             return softSkip;
         }
 
         console.error(`⏱️ /api/prod error after ${Math.round(elapsed)}ms`, error);
         throw error;
+    }
+}
+
+/**
+ * Warm up the prod pipeline (edge route + optional provider) to reduce demo latency.
+ * Fire-and-forget; safe to call on mount or first input in demo mode.
+ */
+export async function prewarmProd(): Promise<void> {
+    try {
+        // Use GET to keep it simple and cache-friendly
+        await fetch("/api/prod/warmup", { method: "GET", keepalive: true });
+    } catch {
+        // Ignore errors — warmup is best-effort
     }
 }

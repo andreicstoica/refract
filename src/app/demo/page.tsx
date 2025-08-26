@@ -19,8 +19,10 @@ import { RefreshCw, Clipboard } from "lucide-react";
 import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
-import { gsap } from "gsap";
 import { AnimatePresence, motion } from "framer-motion";
+import { prewarmProd } from "@/services/prodClient";
+import { useAggressiveScrollLock } from "@/hooks/useAggressiveScrollLock";
+import { useHeaderRevealAnimation } from "@/hooks/useHeaderRevealAnimation";
 
 // Sample journaling content for demo
 const DEMO_TEXT = `Bootcamp mode again. Demo in less than two weeks now. Time moves fast, but also slow. App works in chunks. Each piece fine on its own. Together? Still messy. Not a story yet. Needs arc. Needs one clear takeaway. Judges won’t remember the tech stack. They’ll remember how it felt.
@@ -55,7 +57,7 @@ export default function DemoPage() {
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
-  const prevHasThemesRef = useRef(false);
+  useAggressiveScrollLock();
 
   // Pre-load demo content to clipboard
   useEffect(() => {
@@ -87,6 +89,9 @@ export default function DemoPage() {
     };
 
     loadClipboard();
+
+    // Warm the prod pipeline in demo to reduce first prod latency
+    prewarmProd();
   }, []);
 
   const handleTimerStart = (minutes: number) => {
@@ -173,77 +178,9 @@ export default function DemoPage() {
     }
   }, [isGenerating, generate, currentSentences, currentText]);
 
-  // Aggressive scroll lock for mobile
-  useEffect(() => {
-    const originalBodyOverflow = document.body.style.overflow;
-    const originalBodyClasses = document.body.className;
-    const originalDocumentElementOverflow =
-      document.documentElement.style.overflow;
-    const originalBodyPosition = document.body.style.position;
-
-    // CSS-based scroll lock
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.width = "100%";
-    document.body.style.height = "100%";
-    document.documentElement.style.overflow = "hidden";
-    document.body.classList.add("full-vh");
-
-    // JavaScript-based scroll prevention for stubborn mobile browsers
-    const preventScroll = (e: TouchEvent | WheelEvent) => {
-      const target = e.target as HTMLElement;
-
-      // Allow scrolling only on textarea and scrollable elements
-      if (target.tagName === "TEXTAREA" || target.closest(".scrollable")) {
-        return;
-      }
-
-      // Prevent all other scrolling
-      e.preventDefault();
-    };
-
-    const preventKeyboardScroll = (e: KeyboardEvent) => {
-      // Prevent arrow keys, page up/down, etc. from scrolling the page
-      if (
-        [
-          "ArrowUp",
-          "ArrowDown",
-          "PageUp",
-          "PageDown",
-          "Home",
-          "End",
-          "Space",
-        ].includes(e.key)
-      ) {
-        const target = e.target as HTMLElement;
-        if (target.tagName !== "TEXTAREA") {
-          e.preventDefault();
-        }
-      }
-    };
-
-    // Add passive: false to ensure preventDefault works
-    document.addEventListener("touchmove", preventScroll, { passive: false });
-    document.addEventListener("wheel", preventScroll, { passive: false });
-    document.addEventListener("keydown", preventKeyboardScroll);
-
-    // Prevent context menu which can interfere with touch handling
-    document.addEventListener("contextmenu", (e) => e.preventDefault());
-
-    return () => {
-      document.body.style.overflow = originalBodyOverflow;
-      document.body.style.position = originalBodyPosition;
-      document.body.style.width = "";
-      document.body.style.height = "";
-      document.documentElement.style.overflow = originalDocumentElementOverflow;
-      document.body.className = originalBodyClasses;
-
-      document.removeEventListener("touchmove", preventScroll);
-      document.removeEventListener("wheel", preventScroll);
-      document.removeEventListener("keydown", preventKeyboardScroll);
-      document.removeEventListener("contextmenu", (e) => e.preventDefault());
-    };
-  }, []);
+  // Header reveal animation when themes first appear
+  const hasThemes = Boolean(themes && themes.length > 0);
+  useHeaderRevealAnimation(hasThemes, chipsRef, reloadButtonRef);
 
   // Handle textarea ref for HighlightLayer
   const handleTextareaRef = useCallback((el: HTMLTextAreaElement | null) => {
@@ -252,70 +189,8 @@ export default function DemoPage() {
 
   // HighlightLayer handles its own scroll sync via useRafScroll - no manual sync needed
 
-  // Whether we have themes to reveal
-  const hasThemes = Boolean(themes && themes.length > 0);
-
   // Animate header transition: smooth layout change from center to space-between
-  useEffect(() => {
-    if (!hasThemes || prevHasThemesRef.current) return;
-    prevHasThemesRef.current = true;
-    const prefersReduced =
-      window.matchMedia &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) return;
-
-    const headerContainer = document.querySelector(
-      "[data-header-container]"
-    ) as HTMLElement;
-    const timerContainer = headerContainer?.querySelector(
-      "[data-timer-container]"
-    ) as HTMLElement;
-
-    if (headerContainer && timerContainer && chipsRef.current) {
-      // Create GSAP timeline for smooth layout transition
-      const tl = gsap.timeline();
-
-      // Phase 1: Switch to space-between layout immediately but keep timer centered with transforms
-      tl.call(() => {
-        if (headerContainer) {
-          headerContainer.classList.remove("justify-center");
-          headerContainer.classList.add("justify-between");
-          // Calculate how much to move timer to keep it centered initially
-          const containerWidth = headerContainer.offsetWidth;
-          // Get just the timer width (first child is the WritingTimer)
-          const timerEl = timerContainer.firstElementChild as HTMLElement;
-          const timerWidth = timerEl?.offsetWidth || 0;
-          const centerOffset = containerWidth / 2 - timerWidth / 2;
-          gsap.set(timerContainer, { x: centerOffset });
-
-          // Hide reload button initially
-          if (reloadButtonRef.current) {
-            gsap.set(reloadButtonRef.current, { opacity: 0, scale: 0.98 });
-          }
-        }
-      })
-        // Phase 2: Smoothly animate timer from center to left over 1 second
-        .to(timerContainer, {
-          x: 0, // Move to natural left position
-          duration: 1,
-          ease: "sine.inOut",
-        })
-        // Phase 3: Fade in reload button first
-        .fromTo(
-          reloadButtonRef.current,
-          { opacity: 0, scale: 0.98 },
-          { opacity: 1, scale: 1, duration: 0.9, ease: "sine.inOut" },
-          ">-0.25" // Start 0.75s after timer starts moving
-        )
-        // Phase 4: Gently fade/scale in theme buttons (no slide)
-        .fromTo(
-          chipsRef.current,
-          { opacity: 0, scale: 0.98 },
-          { opacity: 1, scale: 1, duration: 0.9, ease: "sine.inOut" },
-          "<" // Start at the same time as reload button
-        );
-    }
-  }, [hasThemes]);
+  // hasThemes computed above
 
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background text-foreground">

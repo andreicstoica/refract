@@ -12,6 +12,7 @@ describe("embeddingsClient", () => {
 
     it("generates embeddings successfully", async () => {
         const mockResponse = {
+            clusters: [],
             themes: [
                 {
                     id: "theme-1",
@@ -21,6 +22,7 @@ describe("embeddingsClient", () => {
                     sentenceIds: ["sentence-1", "sentence-2"],
                 },
             ],
+            usage: { tokens: 0 },
         };
 
         (fetch as any).mockResolvedValueOnce({
@@ -87,7 +89,7 @@ describe("embeddingsClient", () => {
     });
 
     it("handles empty sentences array", async () => {
-        const mockResponse = { themes: [] };
+        const mockResponse = { clusters: [], themes: [], usage: { tokens: 0 } };
 
         (fetch as any).mockResolvedValueOnce({
             ok: true,

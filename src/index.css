@@ -20,8 +20,8 @@
 html,
 body {
 	@apply bg-white dark:bg-gray-950;
-	/* Prevent unwanted mobile scroll behaviors */
-	touch-action: none;
+	/* Relaxed global touch handling; page-level scroll lock is done via hooks */
+	touch-action: auto;
 	overscroll-behavior: none;
 }
 

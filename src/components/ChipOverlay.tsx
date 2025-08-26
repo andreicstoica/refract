@@ -6,7 +6,7 @@ import type { Prod } from "@/types/prod";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
 import { cn } from "@/lib/helpers";
-import { useRafScroll } from "@/lib/useRafScroll";
+import { useRafScroll } from "@/hooks/useRafScroll";
 
 interface ChipOverlayProps {
   visibleProds: Prod[];
@@ -17,6 +17,7 @@ interface ChipOverlayProps {
   onChipKeep?: (prod: Prod) => void;
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
   extraTopPaddingPx?: number;
+  pinnedProdIds?: Set<string>;
 }
 
 export function ChipOverlay({
@@ -28,17 +29,12 @@ export function ChipOverlay({
   onChipKeep,
   textareaRef,
   extraTopPaddingPx = 0,
+  pinnedProdIds = new Set(),
 }: ChipOverlayProps) {
   const positionMap = useMemo(
     () => new Map(sentencePositions.map((pos) => [pos.sentenceId, pos])),
     [sentencePositions]
   );
-
-  const sentencesById = useMemo(() => {
-    const map = new Map<string, Sentence>();
-    for (const s of sentences) map.set(s.id, s);
-    return map;
-  }, [sentences]);
 
   const findFallbackPosition = useCallback(
     (prod: Prod): SentencePosition | undefined => {
@@ -132,12 +128,12 @@ export function ChipOverlay({
     }
   }, [textareaRef]);
 
-  // End-aligned with clamping; mobile-friendly via CSS --chip-gutter
+  // Simple collision system based on main branch with pinned chip priority
   const layoutByProdId = useMemo(() => {
     if (contentWidth <= 0)
       return new Map<string, { h: number; v: number; maxWidth?: number }>();
 
-    // Read responsive chip gutter from CSS. On mobile, CSS can override this var.
+    // Read responsive chip gutter from CSS
     const chipGutter =
       typeof window !== "undefined"
         ? parseInt(
@@ -147,13 +143,11 @@ export function ChipOverlay({
           ) || 8
         : 8;
 
-    // Content padding used in Chip.tsx left calculation (px-4 => 16)
     const contentLeftPad = 16;
-    const rightPad = chipGutter + 8; // small extra for pin/icon space
-
+    const rightPad = chipGutter + 8;
     const rightLimit = contentWidth - rightPad;
     const rowGap = 20;
-    const minChipPx = 120; // can tune for mobile via CSS var if needed
+    const minChipPx = 120;
 
     const result = new Map<
       string,
@@ -161,112 +155,67 @@ export function ChipOverlay({
     >();
     const usedPositions = new Set<string>();
 
-    // Sort prods by timestamp to ensure consistent positioning order
-    const sortedProds = [...visibleProds].sort(
-      (a, b) => a.timestamp - b.timestamp
-    );
+    // Sort prods: pinned chips first for priority positioning
+    const pinnedProds = visibleProds.filter((p) => pinnedProdIds.has(p.id));
+    const unpinnedProds = visibleProds.filter((p) => !pinnedProdIds.has(p.id));
+    const sortedProds = [
+      ...pinnedProds.sort((a, b) => a.timestamp - b.timestamp),
+      ...unpinnedProds.sort((a, b) => a.timestamp - b.timestamp),
+    ];
 
     for (const prod of sortedProds) {
-      // Special handling for demo prod - give it a fixed position
+      // Special handling for demo prod
       if (prod.sentenceId === "demo-special-fixed") {
-        result.set(prod.id, { h: 0, v: 100, maxWidth: 300 }); // Fixed position
+        result.set(prod.id, { h: 0, v: 100, maxWidth: 300 });
         continue;
       }
 
       const pos = positionMap.get(prod.sentenceId);
-      if (!pos) {
-        if (
-          process.env.NODE_ENV !== "production" &&
-          process.env.NEXT_PUBLIC_DEBUG_CHIPS === "1"
-        ) {
-          console.warn(
-            "🎯 No position found for sentence ID:",
-            prod.sentenceId,
-            "prod:",
-            prod.text.slice(0, 30)
-          );
-          console.log(
-            "🎯 Available positions:",
-            Array.from(positionMap.keys())
-          );
-        }
-        continue;
-      }
+      if (!pos) continue;
 
-      // Estimate width quickly (avoid layout thrash)
+      // Estimate width
       const estW = Math.max(minChipPx, Math.round(prod.text.length * 7.5) + 40);
 
-      // Flexible positioning: allow chips anywhere within the sentence bounds
-      const sentenceStartX = contentLeftPad + pos.left;
+      // End-align: chip's right edge should match sentence end (main branch logic)
       const sentenceEndX = contentLeftPad + pos.left + pos.width;
-      const sentenceWidth = sentenceEndX - sentenceStartX;
+      let startX = sentenceEndX - estW;
 
-      // Position chips toward the end of sentences with some variation
-      const timeVariation = (prod.timestamp % 200) / 200; // 0-1 range
-      const positionRatio = 0.7 + timeVariation * 0.25; // 70%-95% toward end of sentence
-
-      let startX = sentenceStartX + sentenceWidth * positionRatio - estW / 2;
-
-      // Ensure chip fits within sentence bounds and screen bounds
-      startX = Math.max(sentenceStartX, Math.min(startX, sentenceEndX - estW));
+      // Clamp to bounds
       startX = Math.max(contentLeftPad, Math.min(startX, rightLimit - estW));
 
       const available = rightLimit - startX;
       const needsSecondRow = available < Math.min(minChipPx, estW * 0.7);
 
-      let v = needsSecondRow ? rowGap : 0;
+      let v = needsSecondRow ? rowGap : 44; // Simple logic with preferred spacing
+
       let h = startX - (pos.left + contentLeftPad);
 
-      // Stagger multiple prods on same sentence
-      const prodsOnSentence = sortedProds.filter(
-        (p) => p.sentenceId === prod.sentenceId
-      );
-      const prodIndex = prodsOnSentence.indexOf(prod);
-      if (prodIndex > 0) {
-        h += prodIndex * 16; // Horizontal stagger
-        v += prodIndex * 8; // Vertical stagger
-      }
-
-      // Better collision detection with multiple attempts
+      // Simple collision detection from main branch
+      let positionKey = `${Math.round(pos.top)}-${Math.round(startX)}-${v}`;
+      let horizontalOffset = 0;
       let currentStartX = startX;
-      let attempts = 0;
-      const maxAttempts = 6;
-      let positionKey = `${Math.round(pos.top)}-${Math.round(
-        currentStartX
-      )}-${v}`;
 
-      // Try to find a position that doesn't collide
-      while (usedPositions.has(positionKey) && attempts < maxAttempts) {
-        if (attempts < 3) {
-          // Try shifting horizontally within sentence bounds
-          const shift = (attempts + 1) * 24;
-          currentStartX = startX + shift;
-          if (currentStartX + estW > sentenceEndX) {
-            currentStartX = Math.max(sentenceStartX, startX - shift);
-          }
-        } else {
-          // Move to next row
+      while (usedPositions.has(positionKey)) {
+        horizontalOffset += 32;
+        currentStartX = startX + horizontalOffset;
+
+        // Check if shifted position would overflow right boundary
+        if (currentStartX + estW > rightLimit) {
+          // Reset horizontal offset and move to next row
+          horizontalOffset = 0;
           currentStartX = startX;
           v += rowGap;
+          h = currentStartX - (pos.left + contentLeftPad);
+          positionKey = `${Math.round(pos.top)}-${Math.round(
+            currentStartX
+          )}-${v}`;
+        } else {
+          h = currentStartX - (pos.left + contentLeftPad);
+          positionKey = `${Math.round(pos.top)}-${Math.round(
+            currentStartX
+          )}-${v}`;
         }
-        positionKey = `${Math.round(pos.top)}-${Math.round(
-          currentStartX
-        )}-${v}`;
-        attempts++;
       }
-
-      // Final bounds check
-      currentStartX = Math.max(
-        sentenceStartX,
-        Math.min(currentStartX, sentenceEndX - estW)
-      );
-      currentStartX = Math.max(
-        contentLeftPad,
-        Math.min(currentStartX, rightLimit - estW)
-      );
-
-      // Update h for final position
-      h = currentStartX - (pos.left + contentLeftPad);
 
       usedPositions.add(positionKey);
 
@@ -275,7 +224,7 @@ export function ChipOverlay({
     }
 
     return result;
-  }, [visibleProds, positionMap, contentWidth]);
+  }, [visibleProds, positionMap, contentWidth, pinnedProdIds]);
 
   return (
     <div
@@ -285,7 +234,6 @@ export function ChipOverlay({
         className
       )}
     >
-      {/* Inner content translated to mirror textarea scroll - same approach as HighlightLayer */}
       <div
         ref={contentRef}
         data-chip-content
@@ -307,7 +255,7 @@ export function ChipOverlay({
         }}
       >
         {visibleProds.map((prod) => {
-          // Special handling for demo prod - use fixed position
+          // Special handling for demo prod
           if (prod.sentenceId === "demo-special-fixed") {
             return (
               <Chip
@@ -337,22 +285,6 @@ export function ChipOverlay({
             return null;
           }
           const offsets = layoutByProdId.get(prod.id) || { h: 0, v: 0 };
-
-          if (
-            process.env.NODE_ENV !== "production" &&
-            process.env.NEXT_PUBLIC_DEBUG_CHIPS === "1"
-          ) {
-            console.log("🎯 Rendering chip:", {
-              prodText: prod.text.slice(0, 20) + "...",
-              sentenceId: prod.sentenceId,
-              position: {
-                top: sentencePosition.top,
-                left: sentencePosition.left,
-                width: sentencePosition.width,
-              },
-              offsets: { h: offsets.h, v: offsets.v },
-            });
-          }
 
           return (
             <Chip
