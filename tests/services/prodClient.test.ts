@@ -28,8 +28,7 @@ describe("prodClient", () => {
         if (signal) {
           const onAbort = () => {
             const err = new Error("Aborted");
-            // @ts-expect-error add name to mimic AbortError
-            err.name = "AbortError";
+            (err as any).name = "AbortError";
             reject(err);
           };
           if (signal.aborted) onAbort();

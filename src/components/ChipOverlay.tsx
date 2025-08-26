@@ -122,19 +122,30 @@ export function ChipOverlay({
       { h: number; v: number; maxWidth?: number }
     >();
     const usedPositions = new Set<string>();
+    
+    // Sort prods by timestamp to ensure consistent positioning order
+    const sortedProds = [...visibleProds].sort((a, b) => a.timestamp - b.timestamp);
 
-    for (const prod of visibleProds) {
+    for (const prod of sortedProds) {
       const pos = positionMap.get(prod.sentenceId);
       if (!pos) continue;
 
       // Estimate width quickly (avoid layout thrash)
       const estW = Math.max(minChipPx, Math.round(prod.text.length * 7.5) + 40);
 
-      // End-align: chip's right edge should match sentence end
+      // Flexible positioning: allow chips anywhere within the sentence bounds
+      const sentenceStartX = contentLeftPad + pos.left;
       const sentenceEndX = contentLeftPad + pos.left + pos.width;
-      let startX = sentenceEndX - estW;
-
-      // Clamp to bounds
+      const sentenceWidth = sentenceEndX - sentenceStartX;
+      
+      // Simple end-aligned positioning with small variation
+      const timeVariation = (prod.timestamp % 100) / 100; // Smaller variation range
+      const positionRatio = 0.75 + (timeVariation * 0.2); // 75%-95% toward end of sentence
+      
+      let startX = sentenceStartX + (sentenceWidth * positionRatio) - (estW / 2);
+      
+      // Ensure chip fits within sentence bounds and screen bounds
+      startX = Math.max(sentenceStartX, Math.min(startX, sentenceEndX - estW));
       startX = Math.max(contentLeftPad, Math.min(startX, rightLimit - estW));
 
       const available = rightLimit - startX;
@@ -142,34 +153,27 @@ export function ChipOverlay({
 
       let v = needsSecondRow ? rowGap : 0;
       let h = startX - (pos.left + contentLeftPad);
-
-      // Collision detection: horizontal shift first, then vertical if no room
-      let positionKey = `${Math.round(pos.top)}-${Math.round(startX)}-${v}`;
-      let horizontalOffset = 0;
-      let currentStartX = startX;
-
-      while (usedPositions.has(positionKey)) {
-        horizontalOffset += 32;
-        currentStartX = startX + horizontalOffset;
-
-        // Check if shifted position would overflow right boundary
-        if (currentStartX + estW > rightLimit) {
-          // Reset horizontal offset and move to next row
-          horizontalOffset = 0;
-          currentStartX = startX;
-          v += rowGap;
-          h = currentStartX - (pos.left + contentLeftPad);
-          positionKey = `${Math.round(pos.top)}-${Math.round(
-            currentStartX
-          )}-${v}`;
-          // If this row position is also taken, continue the loop to try next horizontal shift
-        } else {
-          h = currentStartX - (pos.left + contentLeftPad);
-          positionKey = `${Math.round(pos.top)}-${Math.round(
-            currentStartX
-          )}-${v}`;
-        }
+      
+      // Simple staggering for prods on same sentence only
+      const prodsOnSentence = sortedProds.filter(p => p.sentenceId === prod.sentenceId);
+      const prodIndex = prodsOnSentence.indexOf(prod);
+      if (prodIndex > 0) {
+        h += prodIndex * 20; // Small horizontal stagger
+        v += prodIndex * 10; // Small vertical stagger
       }
+
+      // Simplified collision detection
+      let currentStartX = startX;
+      
+      // Final bounds check
+      currentStartX = Math.max(sentenceStartX, Math.min(currentStartX, sentenceEndX - estW));
+      currentStartX = Math.max(contentLeftPad, Math.min(currentStartX, rightLimit - estW));
+
+      // Update h for final position
+      h = currentStartX - (pos.left + contentLeftPad);
+      const positionKey = `${prod.sentenceId}-${Math.round(h)}-${v}`;
+
+      // Store position for this chip
 
       usedPositions.add(positionKey);
 

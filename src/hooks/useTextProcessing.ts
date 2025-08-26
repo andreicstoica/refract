@@ -95,6 +95,15 @@ export function useTextProcessing({
             return false;
         }
 
+        // Early content filter: require more substantial content for first few prods
+        const charsSoFar = currentText.length;
+        if (charsSoFar < 50 && lastSentence.text.length < 20) {
+            if (process.env.NODE_ENV !== "production") {
+                console.log(`${config.emoji} ⏸️ Early content too short, waiting for more substantial text`);
+            }
+            return false;
+        }
+
         if (process.env.NODE_ENV !== "production") {
             console.log(`${config.emoji} ✅ Should trigger prod for:`, lastSentence.text.substring(0, 30) + "...");
         }

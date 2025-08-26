@@ -13,9 +13,17 @@ export function animateModalTransition(config: ModalAnimationConfig) {
 
     if (!contentRef.current || !modalRef.current || !stagingRef.current) return;
 
-    // Get current modal height and measure target height from staging div
-    const currentHeight = modalRef.current.offsetHeight;
-    const targetHeight = stagingRef.current.offsetHeight;
+    // Get current modal height and target height using precise bounding boxes
+    // to avoid integer rounding differences that can cause 1px flicker.
+    const currentHeightRaw = modalRef.current.getBoundingClientRect().height;
+    const targetHeightRaw = stagingRef.current.getBoundingClientRect().height;
+    // Snap to device pixels to avoid fractional rounding flicker
+    const currentHeight = Math.round(currentHeightRaw);
+    const targetHeight = Math.round(targetHeightRaw);
+    const modalStyles = getComputedStyle(modalRef.current);
+    const padTop = parseFloat(modalStyles.paddingTop || "0");
+    const padBottom = parseFloat(modalStyles.paddingBottom || "0");
+    const innerTargetHeight = Math.max(0, targetHeight - padTop - padBottom);
 
     // Set modal to fixed current height for smooth animation
     gsap.set(modalRef.current, { height: currentHeight });
@@ -61,10 +69,45 @@ export function animateModalTransition(config: ModalAnimationConfig) {
                         ease: "power2.out",
                         stagger: 0.1,
                         onComplete: () => {
-                            // Clear the fixed height to allow natural sizing
-                            if (modalRef.current)
-                                gsap.set(modalRef.current, { clearProps: "height" });
-                            onAnimationComplete();
+                            // Lock inner content height briefly to absorb any
+                            // internal control animations without affecting modal height.
+                            if (contentRef.current) {
+                                gsap.set(contentRef.current, { minHeight: innerTargetHeight });
+                            }
+                            // Decide whether it's safe to clear height to auto without a jump.
+                            // Measure natural height within the same frame to avoid paint.
+                            requestAnimationFrame(() => {
+                                const modalEl = modalRef.current;
+                                if (!modalEl) return onAnimationComplete();
+                                const prev = modalEl.style.height;
+                                // Temporarily set to auto to measure natural height, then revert immediately
+                                gsap.set(modalEl, { height: "auto" });
+                                const natural = Math.round(modalEl.getBoundingClientRect().height);
+                                gsap.set(modalEl, { height: prev });
+                                const diff = Math.abs(natural - targetHeight);
+                                if (diff <= 0.5) {
+                                    // Safe to clear next frame with no visible shift
+                                    requestAnimationFrame(() => {
+                                        gsap.set(modalEl, { height: "auto" });
+                                    });
+                                } else {
+                                    // Keep fixed height to avoid visible bottom shift; we'll clear later.
+                                    gsap.delayedCall(0.6, () => {
+                                        // Re-check and clear if stable
+                                        const stable = Math.round(modalEl.getBoundingClientRect().height);
+                                        if (Math.abs(stable - targetHeight) <= 0.5) {
+                                            gsap.set(modalEl, { height: "auto" });
+                                        }
+                                    });
+                                }
+                                // Clear min-height shortly after to restore natural flow
+                                gsap.delayedCall(0.25, () => {
+                                    if (contentRef.current) {
+                                        gsap.set(contentRef.current, { clearProps: "minHeight" });
+                                    }
+                                    onAnimationComplete();
+                                });
+                            });
                         },
                     });
                 });

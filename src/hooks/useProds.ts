@@ -217,6 +217,10 @@ export function useProds(options: UseProdsOptions = {}) {
             } catch {}
             setProds((prev) => {
                 const keepPinned = prev.filter(p => pinnedIdsRef.current.has(p.id));
+                // More aggressive clearing: keep only pinned prods and the new one
+                if (DEBUG_PRODS && prev.length > keepPinned.length + 1) {
+                    console.log(`${config.emoji} 🗑️ Clearing ${prev.length - keepPinned.length - 1} old prods`);
+                }
                 return [...keepPinned, newProd];
             });
             queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
@@ -314,6 +318,15 @@ export function useProds(options: UseProdsOptions = {}) {
         if (lastProducedAt && now - lastProducedAt < 30000) { // 30s
             if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
+        }
+
+        // Cancel any existing requests for this sentence to prevent stale prods
+        for (const [requestId, request] of ongoingRequestsRef.current.entries()) {
+            if (request.sentenceId === sentence.id) {
+                if (DEBUG_PRODS) console.log(`${config.emoji} 🚫 Cancelling existing request for sentence:`, sentence.text.substring(0, 50) + "...");
+                request.controller.abort();
+                ongoingRequestsRef.current.delete(requestId);
+            }
         }
 
         // Simple duplicate check: if we already have a prod for this exact sentence id, skip
