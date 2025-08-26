@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { extractKeywords, jaccardOverlap, updateTopicState } from "@/lib/topic";
+import { extractKeywords, jaccardOverlap, updateTopicState } from "../../src/lib/topic";
 
 describe("topicDetection", () => {
     describe("extractKeywords", () => {

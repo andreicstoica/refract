@@ -12,20 +12,6 @@ export function useDemoMode(): boolean {
 }
 
 /**
- * Demo chip configuration - single source of truth
- */
-export const DEMO_CHIP_CONFIG = {
-	// The exact sentence to trigger the demo chip
-	targetSentence: "how i spend my time will rly change when i finish this bootcamp.",
-	// The chip text to show
-	chipText: "What exactly changes for you?",
-	// Base delay after finishing the sentence (ms)
-	delayMs: 2000,
-	// Require a minimum idle period before scheduling the chip (ms)
-	minIdleBeforeScheduleMs: 1200,
-} as const;
-
-/**
  * Get timing configuration based on demo mode
  */
 export function getTimingConfig(isDemoMode: boolean) {

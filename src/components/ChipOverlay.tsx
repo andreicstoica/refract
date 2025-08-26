@@ -164,12 +164,6 @@ export function ChipOverlay({
     ];
 
     for (const prod of sortedProds) {
-      // Special handling for demo prod
-      if (prod.sentenceId === "demo-special-fixed") {
-        result.set(prod.id, { h: 0, v: 100, maxWidth: 300 });
-        continue;
-      }
-
       const pos = positionMap.get(prod.sentenceId);
       if (!pos) continue;
 
@@ -255,22 +249,6 @@ export function ChipOverlay({
         }}
       >
         {visibleProds.map((prod) => {
-          // Special handling for demo prod
-          if (prod.sentenceId === "demo-special-fixed") {
-            return (
-              <Chip
-                key={prod.id}
-                text={prod.text}
-                position={{ top: 100, left: 0, width: 300, height: 44 }}
-                horizontalOffset={0}
-                verticalOffset={0}
-                maxWidthPx={300}
-                onFadeComplete={() => onChipFade?.(prod.id)}
-                onKeepChip={() => onChipKeep?.(prod)}
-              />
-            );
-          }
-
           const sentencePosition =
             positionMap.get(prod.sentenceId) || findFallbackPosition(prod);
           if (!sentencePosition) {

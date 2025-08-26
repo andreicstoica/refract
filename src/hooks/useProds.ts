@@ -86,8 +86,6 @@ export function useProds(options: UseProdsOptions = {}) {
     const ongoingRequestsRef = useRef<Map<string, OngoingRequest>>(new Map());
     const latestTopicVersionRef = useRef<number>(options.topicVersion ?? 0);
     const sentenceFingerprintsRef = useRef<Map<string, number>>(new Map());
-    // Demo-only: block prefix for first sentence after injecting a demo chip
-    const demoBlockedPrefixRef = useRef<{ prefix: string; until: number } | null>(null);
 
     // Track latest topic version for staleness gating
     useEffect(() => {
@@ -288,7 +286,7 @@ export function useProds(options: UseProdsOptions = {}) {
     // Public API to add sentences to queue
     const recentSentenceTextMapRef = useRef<Map<string, number>>(new Map());
 
-    // Demo/helper: directly inject a prod without hitting the API (e.g., for typed demo phrase)
+    // Helper: directly inject a prod without hitting the API (kept for flexibility)
     const injectProd = useCallback((fullText: string, sentence: Sentence, prodText: string) => {
         const now = Date.now();
         const normalized = sentence.text.trim().toLowerCase();
@@ -327,12 +325,7 @@ export function useProds(options: UseProdsOptions = {}) {
             const fingerprint = `${sentence.text.substring(0, 30).toLowerCase()}-${sentence.text.length}`;
             sentenceFingerprintsRef.current.set(fingerprint, now);
 
-            // In demo mode, also block any future API prods for sentences that extend this prefix
-            if (isDemoMode) {
-                const prefix = sentence.text.trim().toLowerCase().slice(0, 60);
-                // Block for 90s to be safe during demo
-                demoBlockedPrefixRef.current = { prefix, until: now + 90_000 };
-            }
+            // No demo-specific API blocking tied to injected prods
         } catch { }
 
         setProds((prev) => {
@@ -348,15 +341,7 @@ export function useProds(options: UseProdsOptions = {}) {
         const now = Date.now();
         const cleanupThreshold = 30000;
 
-        // Demo-only: if we recently injected a demo chip for this sentence's prefix, skip API call
-        if (isDemoMode && demoBlockedPrefixRef.current && now < demoBlockedPrefixRef.current.until) {
-            const prefix = demoBlockedPrefixRef.current.prefix;
-            const sentenceNorm = sentence.text.trim().toLowerCase();
-            if (sentenceNorm.startsWith(prefix)) {
-                if (DEBUG_PRODS) console.log(`${config.emoji} 🎬 Skipping API due to demo prefix block`);
-                return;
-            }
-        }
+        // No demo-specific prefix blocking; rely on general de-duplication
 
         // Early exit: check if this sentence text already has a recent prod
         const normalizedText = sentence.text.trim().toLowerCase();

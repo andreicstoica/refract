@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import type { Sentence } from "@/types/sentence";
-import { shouldProcessSentence } from "@/lib/shouldProcessSentence";
+import type { Sentence } from "../../src/types/sentence";
+import { shouldProcessSentence } from "../../src/lib/shouldProcessSentence";
 
 describe("Sentence Caching Logic", () => {
   // Simulate the caching logic from useProdsEnhanced (unique by sentence.id)

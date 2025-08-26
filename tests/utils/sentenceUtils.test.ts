@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { splitIntoSentences } from "@/lib/sentences";
+import { splitIntoSentences } from "../../src/lib/sentences";
 
 describe("splitIntoSentences", () => {
 	it("returns empty array for empty or whitespace-only input", () => {
