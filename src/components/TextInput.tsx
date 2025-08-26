@@ -60,7 +60,7 @@ export function TextInput({
     }
   }, []);
 
-  const { prods, callProdAPI, handleTopicShift, pinProd, removeProd } = useProds({
+  const { prods, callProdAPI, injectProd, handleTopicShift, pinProd, removeProd } = useProds({
     onTopicShift: onProdTopicShift,
     topicKeywords: currentKeywordsRef.current,
     topicVersion,
@@ -70,6 +70,7 @@ export function TextInput({
   const { text, sentences, sentencePositions, textareaRef, handleTextChange } =
     useTextProcessing({
       onProdTrigger: callProdAPI,
+      onImmediateProd: (fullText, sentence, prodText) => injectProd(fullText, sentence, prodText),
       onTextChange: (newText) => {
         setCurrentText(newText);
         onTextChange?.(newText);

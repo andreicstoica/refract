@@ -45,9 +45,15 @@ export async function generateProd(
     let response: Response | undefined;
 
     try {
+        // Add demo mode detection
+        const isDemoMode = typeof window !== 'undefined' && window.location.pathname === '/demo';
+
         response = await fetch("/api/prod", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                "X-Demo-Mode": isDemoMode ? "true" : "false"
+            },
             body: JSON.stringify(input),
             signal: opts?.signal,
         });

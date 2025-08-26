@@ -174,27 +174,31 @@ export function useProds(options: UseProdsOptions = {}) {
                 return;
             }
 
-            // Confidence gating: require confidence > 0.5
-            if (typeof data?.confidence === 'number' && data.confidence <= 0.5) {
+            // Confidence gating: more permissive in demo mode, but bypass if force is true
+            const confidenceThreshold = isDemoMode ? 0.4 : 0.5;
+            if (!item.force && typeof data?.confidence === 'number' && data.confidence <= confidenceThreshold) {
                 if (isDev && DEBUG_PRODS) console.log(`🔕 Low confidence (${data.confidence.toFixed(2)}) – skipping prod for sentence:`, sentence.text);
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
                 ongoingRequestsRef.current.delete(requestId);
                 return;
             }
 
-            // Ensure we have valid selected prod text
+            // Ensure we have valid selected prod text (unless force is true)
             const selectedProdText = data?.selectedProd;
-            if (!selectedProdText || typeof selectedProdText !== 'string' || !selectedProdText.trim()) {
+            if (!item.force && (!selectedProdText || typeof selectedProdText !== 'string' || !selectedProdText.trim())) {
                 if (isDev) console.log(`⚠️ No valid selected prod text | api: ${Math.round(apiElapsed)}ms`);
                 queueDispatch({ type: 'FAIL_PROCESSING', payload: id });
                 ongoingRequestsRef.current.delete(requestId);
                 return;
             }
 
-            // Create final prod with selected text
+
+
+            // Create final prod with selected text (or fallback for forced prods)
+            const prodText = selectedProdText?.trim() || (item.force ? "Demo prod triggered!" : "");
             const newProd: Prod = {
                 id: `prod-${sentence.id}-${Date.now()}`,
-                text: selectedProdText.trim(),
+                text: prodText,
                 sentenceId: sentence.id,
                 sourceText: sentence.text,
                 timestamp: Date.now(),
@@ -281,6 +285,44 @@ export function useProds(options: UseProdsOptions = {}) {
 
     // Public API to add sentences to queue
     const recentSentenceTextMapRef = useRef<Map<string, number>>(new Map());
+
+    // Demo/helper: directly inject a prod without hitting the API (e.g., for typed demo phrase)
+    const injectProd = useCallback((fullText: string, sentence: Sentence, prodText: string) => {
+        const now = Date.now();
+        const normalized = sentence.text.trim().toLowerCase();
+
+        // Skip if a prod already exists for this sentence id very recently
+        const recentProdForSentence = prods.find(p => p.sentenceId === sentence.id && now - p.timestamp < 5000);
+        if (recentProdForSentence) return;
+
+        // Skip if we've produced for this exact text recently
+        const lastProducedAt = recentSentenceTextMapRef.current.get(normalized);
+        if (lastProducedAt && now - lastProducedAt < 30000) return;
+
+        const newProd: Prod = {
+            id: `prod-${sentence.id}-${now}`,
+            text: prodText.trim(),
+            sentenceId: sentence.id,
+            sourceText: sentence.text,
+            timestamp: now,
+        };
+
+        // Mark this sentence text as recently produced to avoid overlaps
+        try {
+            const validEntries: Array<[string, number]> = [];
+            for (const [k, ts] of recentSentenceTextMapRef.current.entries()) {
+                if (now - ts <= 120000) validEntries.push([k, ts]);
+            }
+            recentSentenceTextMapRef.current.clear();
+            for (const [k, ts] of validEntries) recentSentenceTextMapRef.current.set(k, ts);
+            recentSentenceTextMapRef.current.set(normalized, now);
+        } catch {}
+
+        setProds((prev) => {
+            const keepPinned = prev.filter(p => pinnedIdsRef.current.has(p.id));
+            return [...keepPinned, newProd];
+        });
+    }, [prods]);
 
     const callProdAPI = useCallback((fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
         if (DEBUG_PRODS) console.log(`${config.emoji} 📝 callProdAPI called for sentence:`, sentence.text.substring(0, 50) + "...");
@@ -371,6 +413,7 @@ export function useProds(options: UseProdsOptions = {}) {
             fullText,
             sentence,
             timestamp: Date.now(),
+            force: opts?.force,
         };
 
         if (DEBUG_PRODS) console.log(`${config.emoji} 📝 Adding to queue:`, sentence.text.substring(0, 50) + "...");
@@ -429,6 +472,7 @@ export function useProds(options: UseProdsOptions = {}) {
     return {
         prods,
         callProdAPI,
+        injectProd,
         pinProd,
         removeProd,
         clearQueue,

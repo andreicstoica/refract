@@ -9,6 +9,7 @@ import { useDemoMode, getTimingConfig } from "@/lib/demoMode";
 
 interface UseTextProcessingOptions {
     onProdTrigger: (fullText: string, lastSentence: Sentence, opts?: { force?: boolean }) => void;
+    onImmediateProd?: (fullText: string, sentence: Sentence, prodText: string) => void;
     onTextChange?: (text: string) => void;
     onTextUpdate?: (
         text: string,
@@ -24,6 +25,7 @@ const SOFT_PUNCT_MIN_CHARS_SINCE = 8; // avoid over-firing on tiny pauses
 
 export function useTextProcessing({
     onProdTrigger,
+    onImmediateProd,
     onTextChange,
     onTextUpdate,
     prodsEnabled = true,
@@ -47,6 +49,13 @@ export function useTextProcessing({
     const lastTriggerCharPosRef = useRef<number>(0);
     const lastInputAtRef = useRef<number>(Date.now());
     const watchdogArmedRef = useRef<boolean>(true);
+
+    // Demo mode special handling
+    const demoStartTimeRef = useRef<number>(0);
+    const demoProdShownRef = useRef<boolean>(false);
+    const demoPhraseShownRef = useRef<boolean>(false);
+    const demoFirstImmediateShownRef = useRef<boolean>(false);
+    const demoFirstImmediateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Position measurement with memoization
     const measurePositions = useCallback(
@@ -82,6 +91,8 @@ export function useTextProcessing({
             textarea.scrollTop = textarea.scrollHeight;
         }
     }, [text]);
+
+    // Removed: previous 6s demo countdown prod (replaced by first-sentence delayed inject)
 
     // Helper to check if we should trigger a prod
     const shouldTriggerProd = useCallback((currentText: string, lastSentence: Sentence) => {
@@ -137,10 +148,15 @@ export function useTextProcessing({
         if (sentencesDebounceRef.current) {
             clearTimeout(sentencesDebounceRef.current);
         }
+        // Cancel pending first-sentence demo timer on new input; will reschedule as needed
+        if (demoFirstImmediateTimerRef.current) {
+            clearTimeout(demoFirstImmediateTimerRef.current);
+            demoFirstImmediateTimerRef.current = null;
+        }
 
         // Extract trimmed text to avoid duplicate trimEnd() calls
         const trimmedNewText = newText.trimEnd();
-        
+
         const runSplitAndTriggers = () => {
             const currentText = textareaRef.current?.value ?? newText;
             const newSentences = splitIntoSentences(currentText);
@@ -149,6 +165,61 @@ export function useTextProcessing({
             if (newSentences.length === 0) return;
 
             const lastSentence = newSentences[newSentences.length - 1];
+
+            // Demo route: if the user types a specific phrase, inject a prod immediately (no API)
+            if (isDemoMode && !demoPhraseShownRef.current && onImmediateProd) {
+                const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+                const TARGET = normalize("a lot - but especially prepping for this demo i have tonight.");
+                const lastNorm = normalize(lastSentence.text);
+                if (lastNorm === TARGET || lastNorm.endsWith(TARGET)) {
+                    demoPhraseShownRef.current = true;
+                    demoFirstImmediateShownRef.current = true; // treat as first demo prod
+                    if (demoFirstImmediateTimerRef.current) {
+                        clearTimeout(demoFirstImmediateTimerRef.current);
+                        demoFirstImmediateTimerRef.current = null;
+                    }
+                    // Nudge internal timers so normal triggers don't immediately double-fire
+                    lastTriggerAtRef.current = Date.now();
+                    onImmediateProd(currentText, lastSentence, "What does prepping mean to you?");
+                    // After injecting, continue to measure/update but skip normal triggering branch this cycle
+                    if (process.env.NODE_ENV !== "production") {
+                        console.log("🎬 Demo typed-phrase immediate prod injected");
+                    }
+                }
+            }
+
+            // Demo route: ensure the first sentence produces an immediate prod without API
+            if (
+                isDemoMode &&
+                !demoFirstImmediateShownRef.current &&
+                onImmediateProd &&
+                newSentences.length === 1 &&
+                lastSentence.text.trim().length >= 24 &&
+                hasPunctuation // only after the sentence finishes
+            ) {
+                // Schedule a 1s delayed injection; cancel/restart on further keystrokes
+                demoFirstImmediateTimerRef.current = setTimeout(() => {
+                    // Re-check state at fire time
+                    const latestText = textareaRef.current?.value || currentText;
+                    const currentSentences = splitIntoSentences(latestText);
+                    if (
+                        isDemoMode &&
+                        !demoFirstImmediateShownRef.current &&
+                        currentSentences.length === 1
+                    ) {
+                        const last = currentSentences[0];
+                        demoFirstImmediateShownRef.current = true;
+                        lastTriggerAtRef.current = Date.now(); // cool down
+                        onImmediateProd(latestText, last, "What stands out most right now?");
+                        if (process.env.NODE_ENV !== "production") {
+                            console.log("🎬 Demo first-sentence immediate prod injected (1s delay)");
+                        }
+                    }
+                    demoFirstImmediateTimerRef.current = null;
+                }, 1000);
+                // Skip remaining triggering paths for now; if typing resumes, this timer is cleared
+                return;
+            }
             const trimmed = currentText === newText ? trimmedNewText : currentText.trimEnd();
             const hasPunctuation = /[.!?;:]$/.test(trimmed);
             const hasSoftComma = /[,]$/.test(trimmed);
@@ -256,6 +327,9 @@ export function useTextProcessing({
             }
             if (watchdogTimerRef.current) {
                 clearTimeout(watchdogTimerRef.current);
+            }
+            if (demoFirstImmediateTimerRef.current) {
+                clearTimeout(demoFirstImmediateTimerRef.current);
             }
         };
     }, []);

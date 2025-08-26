@@ -19,10 +19,23 @@ const ProdResponseSchema = z.object({
 export async function POST(req: Request) {
 	const { lastParagraph, fullText }: { lastParagraph: string; fullText?: string } = await req.json();
 
+	// Check if we're in demo mode (demo route)
+	const isDemoMode = req.headers.get('X-Demo-Mode') === 'true' || req.headers.get('referer')?.includes('/demo') || false;
+
 	try {
 		// API-level deduplication: check if we've already processed this exact text
 		const requestHash = createHash("md5").update(lastParagraph).digest("hex");
 		const now = Date.now();
+
+		// Special demo prod for demo mode - only for the first call
+		if (isDemoMode && lastParagraph.length > 30 && !requestCache.has('demo-special-sent')) {
+			console.log("🎬 Returning special demo prod");
+			requestCache.set('demo-special-sent', { timestamp: now, response: { sent: true } });
+			return Response.json({
+				selectedProd: "What does prepping mean to you?",
+				confidence: 0.9
+			});
+		}
 
 		// Clean up expired cache entries
 		for (const [key, value] of requestCache.entries()) {
@@ -38,8 +51,8 @@ export async function POST(req: Request) {
 			return Response.json(cached.response);
 		}
 
-		// Truncate fullText to last 400 characters for efficiency
-		const truncatedContext = fullText ? fullText.slice(-400) : "";
+		// Use full text for complete context
+		const truncatedContext = fullText || "";
 
 		// Comprehensive system prompt for thoughtful prod generation
 		const systemPrompt = `You are a thoughtful mentor who helps people explore their inner world with curiosity, empathy, and wisdom. Your role is to generate gentle, insightful questions (called "prods") that encourage deeper self-reflection and understanding.
@@ -131,7 +144,14 @@ export async function POST(req: Request) {
 5. **Select the single best prod** that would be most valuable for this specific writer in this moment
 6. **Assess confidence** based on clarity and potential impact
 
-**Variety Guidelines**: Aim to use different question starters across different responses. If the writer has received several "What" questions recently, prefer "Why", "How", or "When" questions. This creates a more engaging and varied experience.
+**Variety Guidelines**: 
+- Aim to use different question starters across different responses. If the writer has received several "What" questions recently, prefer "Why", "How", or "When" questions.
+- **CRITICAL**: Avoid generating questions that are nearly identical to common patterns. For example, if you see "What would make this feel unforgettable?" don't generate "What would make this feel unforgettable for you?" - these are essentially the same question.
+- **Diversity Rules**: 
+  - Use different question structures: "What patterns do you notice?" vs "How does this connect to..." vs "When did you first realize..."
+  - Vary emotional focus: some on feelings, some on insights, some on future implications
+  - Mix concrete vs abstract: "What specific moment..." vs "What does this reveal about..."
+- **Similarity Check**: Before generating, mentally check if your question is just a slight variation of a very common pattern. If so, choose a completely different angle.
 
 Your goal is to help writers develop a deeper understanding of themselves through gentle, curious questioning.`;
 
@@ -153,6 +173,7 @@ Analyze this sentence in context and determine the best approach:
    - Encourages deeper self-reflection
    - Feels natural and conversational
    - Could reveal meaningful patterns or understanding
+   - **IMPORTANT**: Avoid common question patterns. Don't generate questions like "What would make this feel unforgettable?" if you might generate "What would make this feel unforgettable for you?" later. Choose a completely different angle.
 
 3. **If the sentence is too mundane or factual**: Set confidence to 0.1-0.3
 
@@ -160,12 +181,18 @@ Analyze this sentence in context and determine the best approach:
 
 Generate a response that would genuinely help this person understand themselves better.`;
 
-		const result = await generateObject({
-			model: openai("gpt-5-mini"),
-			system: systemPrompt,
-			prompt: userPrompt,
-			schema: ProdResponseSchema,
-		});
+		let result;
+		try {
+			result = await generateObject({
+				model: openai("gpt-5-mini"),
+				system: systemPrompt,
+				prompt: userPrompt,
+				schema: ProdResponseSchema,
+			});
+		} catch (aiError) {
+			console.error("❌ AI generation failed:", aiError);
+			throw aiError;
+		}
 
 		const response = {
 			selectedProd: result.object.selectedProd || "",
@@ -194,7 +221,7 @@ Generate a response that would genuinely help this person understand themselves 
 	} catch (error) {
 		console.error("❌ Prod API Error:", error);
 
-		// Return thoughtful fallback response if generation fails
+		// Return a simple fallback response if generation fails
 		return Response.json({
 			selectedProd: "What stands out most about this?",
 			confidence: 0.6

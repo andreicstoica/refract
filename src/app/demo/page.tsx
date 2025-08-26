@@ -50,7 +50,7 @@ export default function DemoPage() {
   const [themes, setThemes] = useState<Theme[] | null>(null);
   const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
 
-  // Create textarea ref for HighlightLayer  
+  // Create textarea ref for HighlightLayer
   const textareaRefObject = useRef<HTMLTextAreaElement>(null as any);
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
@@ -63,14 +63,26 @@ export default function DemoPage() {
       try {
         setClipboardStatus("loading");
         if (navigator.clipboard && navigator.clipboard.writeText) {
+          // Try to write to clipboard immediately
           await navigator.clipboard.writeText(DEMO_TEXT);
           setClipboardStatus(null); // Hide status silently on success
         } else {
           setClipboardStatus("error");
         }
       } catch (error) {
-        console.error("Failed to load demo content to clipboard:", error);
-        setClipboardStatus("error");
+        // If it fails, try again after a short delay (common during page load)
+        setTimeout(async () => {
+          try {
+            await navigator.clipboard.writeText(DEMO_TEXT);
+            setClipboardStatus(null);
+          } catch (retryError) {
+            console.error(
+              "Failed to load demo content to clipboard:",
+              retryError
+            );
+            setClipboardStatus("error");
+          }
+        }, 500);
       }
     };
 
@@ -110,7 +122,11 @@ export default function DemoPage() {
     [currentSentences, currentText, generate, themes, isGenerating]
   );
 
-  const handleTextUpdate = (text: string, sentences: Sentence[]) => {
+  const handleTextUpdate = (
+    text: string,
+    sentences: Sentence[],
+    positions: SentencePosition[]
+  ) => {
     setCurrentText(text);
     setCurrentSentences(sentences);
   };
