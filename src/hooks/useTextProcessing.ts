@@ -4,7 +4,7 @@ import type { Sentence } from "@/types/sentence";
 import { measureSentencePositions, clearPositionCache } from "@/lib/sentences";
 import type { SentencePosition } from "@/types/sentence";
 import { useRafScroll } from "@/lib/useRafScroll";
-import { useDemoMode, getTimingConfig } from "@/lib/demoMode";
+import { useDemoMode, getTimingConfig, DEMO_CHIP_CONFIG } from "@/lib/demoMode";
 
 
 interface UseTextProcessingOptions {
@@ -53,8 +53,6 @@ export function useTextProcessing({
     // Demo mode special handling
     const demoStartTimeRef = useRef<number>(0);
     const demoProdShownRef = useRef<boolean>(false);
-    const demoPhraseShownRef = useRef<boolean>(false);
-    const demoFirstImmediateShownRef = useRef<boolean>(false);
     const demoFirstImmediateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Position measurement with memoization
@@ -148,7 +146,7 @@ export function useTextProcessing({
         if (sentencesDebounceRef.current) {
             clearTimeout(sentencesDebounceRef.current);
         }
-        // Cancel pending first-sentence demo timer on new input; will reschedule as needed
+        // Cancel pending demo timer on new input; will reschedule as needed
         if (demoFirstImmediateTimerRef.current) {
             clearTimeout(demoFirstImmediateTimerRef.current);
             demoFirstImmediateTimerRef.current = null;
@@ -166,65 +164,44 @@ export function useTextProcessing({
 
             const lastSentence = newSentences[newSentences.length - 1];
 
-            // Demo route: if the user types a specific phrase, inject a prod immediately (no API)
-            if (isDemoMode && !demoPhraseShownRef.current && onImmediateProd) {
-                const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-                const TARGET = normalize("how i spend my time will change once i finish this bootcamp.");
-                const lastNorm = normalize(lastSentence.text);
-                if (lastNorm === TARGET || lastNorm.endsWith(TARGET)) {
-                    demoPhraseShownRef.current = true;
-                    demoFirstImmediateShownRef.current = true; // treat as first demo prod
-                    if (demoFirstImmediateTimerRef.current) {
-                        clearTimeout(demoFirstImmediateTimerRef.current);
-                        demoFirstImmediateTimerRef.current = null;
-                    }
-                    // Nudge internal timers so normal triggers don't immediately double-fire
-                    lastTriggerAtRef.current = Date.now();
-                    onImmediateProd(currentText, lastSentence, "What does prepping mean to you?");
-                    // After injecting, continue to measure/update but skip normal triggering branch this cycle
-                    if (process.env.NODE_ENV !== "production") {
-                        console.log("🎬 Demo typed-phrase immediate prod injected");
-                    }
-                }
-            }
-
             const trimmed = currentText === newText ? trimmedNewText : currentText.trimEnd();
             const hasPunctuation = /[.!?;:]$/.test(trimmed);
             const hasSoftComma = /[,]$/.test(trimmed);
             const charsSince = currentText.length - lastTriggerCharPosRef.current;
 
-            // Demo route: ensure the first sentence produces an immediate prod without API
-            if (
-                isDemoMode &&
-                !demoFirstImmediateShownRef.current &&
-                onImmediateProd &&
-                newSentences.length === 1 &&
-                lastSentence.text.trim().length >= 24 &&
-                hasPunctuation // only after the sentence finishes
-            ) {
-                // Schedule a 1s delayed injection; cancel/restart on further keystrokes
-                demoFirstImmediateTimerRef.current = setTimeout(() => {
-                    // Re-check state at fire time
-                    const latestText = textareaRef.current?.value || currentText;
-                    const currentSentences = splitIntoSentences(latestText);
-                    if (
-                        isDemoMode &&
-                        !demoFirstImmediateShownRef.current &&
-                        currentSentences.length === 1
-                    ) {
-                        const last = currentSentences[0];
-                        demoFirstImmediateShownRef.current = true;
-                        lastTriggerAtRef.current = Date.now(); // cool down
-                        onImmediateProd(latestText, last, "What stands out most right now?");
-                        if (process.env.NODE_ENV !== "production") {
-                            console.log("🎬 Demo first-sentence immediate prod injected (1s delay)");
-                        }
+            // Demo route: if the user finishes typing the target sentence, inject the demo chip after delay
+            if (isDemoMode && onImmediateProd && hasPunctuation) {
+                const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+                const targetNorm = normalize(DEMO_CHIP_CONFIG.targetSentence);
+                const lastNorm = normalize(lastSentence.text);
+                // Only trigger for exact matches when sentence is finished (has punctuation)
+                if (lastNorm === targetNorm) {
+                    if (demoFirstImmediateTimerRef.current) {
+                        clearTimeout(demoFirstImmediateTimerRef.current);
+                        demoFirstImmediateTimerRef.current = null;
                     }
-                    demoFirstImmediateTimerRef.current = null;
-                }, 1000);
-                // Skip remaining triggering paths for now; if typing resumes, this timer is cleared
-                return;
+                    // Schedule the demo chip with the configured delay
+                    demoFirstImmediateTimerRef.current = setTimeout(() => {
+                        const latestText = textareaRef.current?.value || currentText;
+                        const currentSentences = splitIntoSentences(latestText);
+                        if (currentSentences.length > 0) {
+                            const last = currentSentences[currentSentences.length - 1];
+                            onImmediateProd(latestText, last, DEMO_CHIP_CONFIG.chipText);
+                            if (process.env.NODE_ENV !== "production") {
+                                console.log(`🎬 Demo chip injected after ${DEMO_CHIP_CONFIG.delayMs}ms delay`);
+                            }
+                        }
+                        demoFirstImmediateTimerRef.current = null;
+                    }, DEMO_CHIP_CONFIG.delayMs);
+                    // Nudge internal timers so normal triggers don't immediately double-fire
+                    lastTriggerAtRef.current = Date.now();
+                    if (process.env.NODE_ENV !== "production") {
+                        console.log("🎬 Demo target sentence finished, scheduling chip");
+                    }
+                }
             }
+
+
 
             if (process.env.NODE_ENV !== "production") {
                 console.log("🔍 Trigger analysis:", {
@@ -246,6 +223,7 @@ export function useTextProcessing({
                 clearTimeout(settlingTimerRef.current);
             }
 
+            // Normal trigger logic - existing sentence deduplication will prevent duplicates
             if (shouldTriggerProd(currentText, lastSentence)) {
                 if (hasPunctuation) {
                     if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⚙️ Punctuation trigger detected`);

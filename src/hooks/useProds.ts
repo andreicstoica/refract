@@ -175,7 +175,7 @@ export function useProds(options: UseProdsOptions = {}) {
             }
 
             // Confidence gating: more permissive in demo mode, but bypass if force is true
-            const confidenceThreshold = isDemoMode ? 0.4 : 0.5;
+            const confidenceThreshold = isDemoMode ? 0.1 : 0.5; // Lower threshold for demo mode to handle timeouts
             if (!item.force && typeof data?.confidence === 'number' && data.confidence <= confidenceThreshold) {
                 if (isDev && DEBUG_PRODS) console.log(`🔕 Low confidence (${data.confidence.toFixed(2)}) – skipping prod for sentence:`, sentence.text);
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
@@ -316,7 +316,7 @@ export function useProds(options: UseProdsOptions = {}) {
             recentSentenceTextMapRef.current.clear();
             for (const [k, ts] of validEntries) recentSentenceTextMapRef.current.set(k, ts);
             recentSentenceTextMapRef.current.set(normalized, now);
-        } catch {}
+        } catch { }
 
         setProds((prev) => {
             const keepPinned = prev.filter(p => pinnedIdsRef.current.has(p.id));

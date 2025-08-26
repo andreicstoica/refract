@@ -19,23 +19,10 @@ const ProdResponseSchema = z.object({
 export async function POST(req: Request) {
 	const { lastParagraph, fullText }: { lastParagraph: string; fullText?: string } = await req.json();
 
-	// Check if we're in demo mode (demo route)
-	const isDemoMode = req.headers.get('X-Demo-Mode') === 'true' || req.headers.get('referer')?.includes('/demo') || false;
-
 	try {
 		// API-level deduplication: check if we've already processed this exact text
 		const requestHash = createHash("md5").update(lastParagraph).digest("hex");
 		const now = Date.now();
-
-		// Special demo prod for demo mode - only for the first call
-		if (isDemoMode && lastParagraph.length > 30 && !requestCache.has('demo-special-sent')) {
-			console.log("🎬 Returning special demo prod");
-			requestCache.set('demo-special-sent', { timestamp: now, response: { sent: true } });
-			return Response.json({
-				selectedProd: "How can you prepare to adjust?",
-				confidence: 0.9
-			});
-		}
 
 		// Clean up expired cache entries
 		for (const [key, value] of requestCache.entries()) {

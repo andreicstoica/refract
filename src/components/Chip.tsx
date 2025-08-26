@@ -46,10 +46,30 @@ export function Chip({
     return position.top + lineOffset + 4 + verticalOffset; // small gap below line
   }, [position.top, position.height, verticalOffset]);
   const chipLeft = useMemo(() => {
+    // Smart positioning based on sentence length and content
+    const sentenceLength = position.width;
+    const chipWidth = maxWidthPx || 200; // approximate chip width
+
+    let preferredLeft: number;
+
+    if (sentenceLength < 100) {
+      // For short sentences, center the chip
+      const sentenceCenter = position.left + sentenceLength / 2;
+      preferredLeft = sentenceCenter - chipWidth / 2;
+    } else if (sentenceLength < 300) {
+      // For medium sentences, position at 60% of sentence length (more natural reading flow)
+      preferredLeft = position.left + sentenceLength * 0.6 - chipWidth / 2;
+    } else {
+      // For long sentences, position at 70% of sentence length
+      preferredLeft = position.left + sentenceLength * 0.7 - chipWidth / 2;
+    }
+
+    // Apply horizontal offset after calculating preferred position
+    const offsetLeft = preferredLeft + horizontalOffset;
+
     // Clamp to the start of the textarea content (px-4 => 16px)
-    const baseLeft = position.left + 16 + horizontalOffset;
-    return Math.max(16, baseLeft);
-  }, [position.left, horizontalOffset]);
+    return Math.max(16, offsetLeft);
+  }, [position.left, position.width, horizontalOffset, maxWidthPx]);
 
   // Start fade after 8 seconds
   useEffect(() => {
@@ -79,7 +99,10 @@ export function Chip({
   };
 
   // Debug positioning in development
-  if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEBUG_CHIPS === '1') {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_DEBUG_CHIPS === "1"
+  ) {
     console.log("🎯 Chip positioning:", {
       text: text.substring(0, 30) + "...",
       position,
