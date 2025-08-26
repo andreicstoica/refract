@@ -153,19 +153,9 @@ export function Chip({
           style={{
             top: chipTop,
             left: chipLeft,
-            // Use clamp to ensure chips respect gutters and don't overflow
-            maxWidth: maxWidthPx
-              ? `clamp(8ch, ${Math.floor(
-                  maxWidthPx
-                )}px, calc(100% - 2 * var(--chip-gutter)))`
-              : `calc(100% - 2 * var(--chip-gutter))`,
-            inlineSize: maxWidthPx
-              ? `clamp(8ch, ${Math.floor(
-                  maxWidthPx
-                )}px, calc(100% - 2 * var(--chip-gutter)))`
-              : `calc(100% - 2 * var(--chip-gutter))`,
-            // Ensure chip doesn't overflow right boundary
-            right: "var(--chip-gutter)",
+            // Simplified width control - trust the layout system
+            maxWidth: maxWidthPx ? `${Math.floor(maxWidthPx)}px` : '280px',
+            width: maxWidthPx ? `${Math.floor(maxWidthPx)}px` : 'auto',
           }}
           onClick={handleTap}
         >

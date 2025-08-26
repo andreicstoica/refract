@@ -5,6 +5,7 @@ import type { QueueItem, QueueState, QueueAction } from "@/types/queue";
 import { generateProdWithTimeout } from "@/services/prodClient";
 import { shouldProcessSentence } from "@/lib/shouldProcessSentence";
 import { useDemoMode, getTimingConfig } from "@/lib/demoMode";
+import { normalizeText, makeFingerprint, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
 
 const isDev = process.env.NODE_ENV !== "production";
 const DEBUG_PRODS = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEBUG_PRODS === '1';
@@ -70,7 +71,6 @@ interface UseProdsOptions {
 
 export function useProds(options: UseProdsOptions = {}) {
     const [prods, setProds] = useState<Prod[]>([]);
-    const [prodDurations, setProdDurations] = useState<number[]>([]);
     const [queueState, queueDispatch] = useReducer(queueReducer, {
         items: [],
         isProcessing: false
@@ -157,10 +157,6 @@ export function useProds(options: UseProdsOptions = {}) {
             }, { signal: controller.signal });
 
             const apiElapsed = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - apiStart;
-            setProdDurations(prev => {
-                const next = [...prev, apiElapsed];
-                return next.length > 20 ? next.slice(-20) : next;
-            });
 
             if (isDev && DEBUG_PRODS) console.log("🎯 Enhanced API result:", data);
 
@@ -206,19 +202,11 @@ export function useProds(options: UseProdsOptions = {}) {
 
             if (isDev && DEBUG_PRODS) console.log(`${config.emoji} ✅ Completed | api: ${Math.round(apiElapsed)}ms | prod:`, newProd);
             // Mark this sentence text as recently produced to avoid overlaps
-            const norm = sentence.text.trim().toLowerCase();
+            const norm = normalizeText(sentence.text);
             const nowTs = Date.now();
             try {
-                // Clean old entries (>2 minutes) - use Map.clear() + rebuild for better GC
-                const validEntries: Array<[string, number]> = [];
-                for (const [k, ts] of recentSentenceTextMapRef.current.entries()) {
-                    if (nowTs - ts <= 120000) validEntries.push([k, ts]);
-                }
-                recentSentenceTextMapRef.current.clear();
-                for (const [k, ts] of validEntries) {
-                    recentSentenceTextMapRef.current.set(k, ts);
-                }
-                recentSentenceTextMapRef.current.set(norm, nowTs);
+                cleanupOlderThan(recentSentenceTextMapRef.current, 120000, nowTs);
+                markNow(recentSentenceTextMapRef.current, norm, nowTs);
             } catch { }
             setProds((prev) => {
                 const keepPinned = prev.filter(p => pinnedIdsRef.current.has(p.id));
@@ -289,7 +277,7 @@ export function useProds(options: UseProdsOptions = {}) {
     // Helper: directly inject a prod without hitting the API (kept for flexibility)
     const injectProd = useCallback((fullText: string, sentence: Sentence, prodText: string) => {
         const now = Date.now();
-        const normalized = sentence.text.trim().toLowerCase();
+        const normalized = normalizeText(sentence.text);
 
         // Skip if a prod already exists for this sentence id very recently
         const recentProdForSentence = prods.find(p => p.sentenceId === sentence.id && now - p.timestamp < 5000);
@@ -313,19 +301,11 @@ export function useProds(options: UseProdsOptions = {}) {
 
         // Mark this sentence text as recently produced to avoid overlaps
         try {
-            const validEntries: Array<[string, number]> = [];
-            for (const [k, ts] of recentSentenceTextMapRef.current.entries()) {
-                if (now - ts <= 120000) validEntries.push([k, ts]);
-            }
-            recentSentenceTextMapRef.current.clear();
-            for (const [k, ts] of validEntries) recentSentenceTextMapRef.current.set(k, ts);
-            recentSentenceTextMapRef.current.set(normalized, now);
-
+            cleanupOlderThan(recentSentenceTextMapRef.current, 120000, now);
+            markNow(recentSentenceTextMapRef.current, normalized, now);
             // Also mark the fingerprint as processed to prevent normal prod system from processing it
-            const fingerprint = `${sentence.text.substring(0, 30).toLowerCase()}-${sentence.text.length}`;
-            sentenceFingerprintsRef.current.set(fingerprint, now);
-
-            // No demo-specific API blocking tied to injected prods
+            const fingerprint = makeFingerprint(sentence.text);
+            markNow(sentenceFingerprintsRef.current, fingerprint, now);
         } catch { }
 
         setProds((prev) => {
@@ -351,15 +331,11 @@ export function useProds(options: UseProdsOptions = {}) {
             if (DEBUG_PRODS) console.log(`${config.emoji} 🚫 Prod already exists for this text recently, blocking:`, sentence.text.substring(0, 50) + "...");
             return;
         }
-        for (const [fingerprint, timestamp] of sentenceFingerprintsRef.current.entries()) {
-            if (now - timestamp > cleanupThreshold) {
-                sentenceFingerprintsRef.current.delete(fingerprint);
-            }
-        }
+        cleanupOlderThan(sentenceFingerprintsRef.current, cleanupThreshold, now);
 
         // Create sentence fingerprint for deduplication
         const sentenceText = sentence.text.trim();
-        const fingerprint = `${sentenceText.substring(0, 30).toLowerCase()}-${sentenceText.length}`;
+        const fingerprint = makeFingerprint(sentenceText);
 
         // Skip if we've processed this fingerprint recently (much longer timeout in demo mode)
         const lastProcessedAt = sentenceFingerprintsRef.current.get(fingerprint);
@@ -376,12 +352,11 @@ export function useProds(options: UseProdsOptions = {}) {
         }
 
         // Normalize sentence text for robust de-duplication
-        const normalized = sentenceText.toLowerCase();
+        const normalized = normalizeText(sentenceText);
 
         // Skip if we've produced for this text recently (much longer timeout in demo mode)
-        const lastProducedAt = recentSentenceTextMapRef.current.get(normalized);
         const textTimeout = isDemoMode ? 60000 : 20000; // 60s in demo vs 20s in prod (prevent overlaps with demo chips)
-        if (lastProducedAt && now - lastProducedAt < textTimeout) {
+        if (hasRecent(recentSentenceTextMapRef.current, normalized, textTimeout, now)) {
             if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
@@ -419,7 +394,7 @@ export function useProds(options: UseProdsOptions = {}) {
         }
 
         // Mark this sentence fingerprint as being processed
-        sentenceFingerprintsRef.current.set(fingerprint, now);
+        markNow(sentenceFingerprintsRef.current, fingerprint, now);
 
         // Cache filtered sentence for embedding reuse
         setFilteredSentences(prev => {
@@ -504,10 +479,5 @@ export function useProds(options: UseProdsOptions = {}) {
         filteredSentences, // Expose cached sentences for embeddings
         clearFilteredSentences, // Allow clearing cache for new sessions
         pinnedIds, // Expose pinned prod IDs for collision system
-        prodMetrics: {
-            durations: prodDurations,
-            slowCount: prodDurations.filter((ms) => ms >= 5000).length,
-            last: prodDurations.length ? prodDurations[prodDurations.length - 1] : null,
-        },
     };
 }
