@@ -79,7 +79,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
       chunkIndex: number[] | null;
     }>({ meta: null, chunkIndex: null });
 
-    // Determine reverse-stagger baseline for exiting segments (matching TextWithHighlights)
+    // Determine reverse-stagger baseline for exiting segments
     const prevMeta = prevRef.current.meta;
     const prevIndex = prevRef.current.chunkIndex;
     let maxPrevExitingIdx = -1;
@@ -94,7 +94,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
       }
     }
 
-    // Animate highlights with exact same logic as TextWithHighlights
+    // Animate highlights with staggered entrance/exit timing
     useEffect(() => {
       if (prefersReduced || !containerRef.current) return;
 
@@ -123,18 +123,22 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
             : prevIdx * STAGGER_PER_CHUNK
           : 0;
 
+        // Calculate opacity for this segment
+        const currentSegment = meta[i];
+        const segmentOpacity = currentSegment.intensity != null 
+          ? Math.max(0.15, Math.min(0.4, 0.15 + currentSegment.intensity * 0.25))
+          : 0.25;
+
         // Find the corresponding DOM node
         const node = el.querySelector<HTMLElement>(`span[data-segment="${i}"]`);
         if (node) {
           gsap.fromTo(
             node,
             {
-              backgroundSize: isActive ? "0% 100%" : "100% 100%",
-              backgroundPosition: "left top",
+              "--hl-opacity": isActive ? "0" : segmentOpacity.toString(),
             },
             {
-              backgroundSize: isActive ? "100% 100%" : "0% 100%",
-              backgroundPosition: "left top",
+              "--hl-opacity": isActive ? segmentOpacity.toString() : "0",
               duration: HIGHLIGHT_ANIM_TIME,
               delay: delay.toString(),
               ease: "power2.out",
@@ -143,7 +147,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
         }
       }
 
-      // Update ref for next comparison (matching TextWithHighlights)
+      // Update ref for next comparison
       prevRef.current = { meta: [...meta], chunkIndex: [...chunkIndex] };
     }, [
       meta,
@@ -167,7 +171,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
           }
         }}
         className={cn(
-          // Ensure the overlay sits above the textarea (which uses z-10)
+          // Ensure the overlay sits above the textarea (which uses z-10) but allows text to be selectable
           "absolute inset-0 pointer-events-none z-20 overflow-hidden overlay-container",
           className
         )}
@@ -191,7 +195,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
             wordBreak: "break-word",
             overflowWrap: "anywhere",
             paddingTop: `${24 + extraTopPaddingPx}px`,
-            color: "transparent",
+            color: "inherit",
           }}
         >
           {meta.map(({ start, end, color, intensity, themeId }, i) => {
@@ -210,27 +214,22 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
               ? prevIntensity
               : null;
 
-            const opacity =
-              displayIntensity != null
-                ? Math.max(0.2, Math.min(0.7, 0.2 + displayIntensity * 0.5))
-                : undefined;
+            // Calculate intensity-based opacity
+            const opacity = displayIntensity != null 
+              ? Math.max(0.15, Math.min(0.4, 0.15 + displayIntensity * 0.25))
+              : 0.25;
+            
+            // Generate CSS class name for the color
+            const colorClass = displayColor ? `hl-${displayColor.toLowerCase()}` : '';
 
             return (
               <span
                 key={`${start}-${end}`}
-                className="inline"
+                className={cn("inline", colorClass)}
                 style={{
                   WebkitBoxDecorationBreak: "clone",
                   boxDecorationBreak: "clone",
-                  ["--hl-color" as any]: displayColor ?? undefined,
-                  backgroundImage:
-                    displayColor && opacity != null
-                      ? `linear-gradient(0deg, color-mix(in srgb, var(--hl-color) ${Math.round(
-                          opacity * 100
-                        )}%, transparent), color-mix(in srgb, var(--hl-color) ${Math.round(
-                          opacity * 100
-                        )}%, transparent))`
-                      : undefined,
+                  ["--hl-opacity" as any]: opacity,
                   backgroundRepeat: "no-repeat",
                   backgroundPosition: "left top",
                   display: "inline",

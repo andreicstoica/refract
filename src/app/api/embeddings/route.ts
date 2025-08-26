@@ -182,20 +182,20 @@ Choose labels that are:
 
 ## Technical Specifications
 
-**Colors**: Choose any hex color that best represents the emotional tone and significance of each theme. Consider color psychology and emotional associations. All colors below are light/translucent with excellent contrast for dark text:
+**Colors**: Choose semantic color names that adapt to light/dark themes for optimal contrast:
 
-- \`#DBEAFE\` (Light Blue) - Daily life, routine, neutral reflection, calmness
-- \`#E9D5FF\` (Light Purple) - Creativity, dreams, aspirations, spirituality
-- \`#D1FAE5\` (Light Green) - Growth, positive experiences, achievements, nature
-- \`#FED7AA\` (Light Amber) - Important memories, significant moments, warmth
-- \`#FECACA\` (Light Red) - Stress, challenges, intense emotions, passion
-- \`#FCE7F3\` (Light Pink) - Relationships, love, personal connections, tenderness
-- \`#CFFAFE\` (Light Cyan) - Clarity, insight, intellectual pursuits
-- \`#ECFCCB\` (Light Lime) - Energy, optimism, new beginnings
-- \`#FED7AA\` (Light Orange) - Enthusiasm, adventure, social connections
-- \`#E0E7FF\` (Light Indigo) - Depth, introspection, wisdom
-- \`#F3E8FF\` (Light Violet) - Imagination, mystery, transformation
-- \`#CCFBF1\` (Light Teal) - Balance, harmony, emotional stability
+- \`blue\` - Daily life, routine, neutral reflection, calmness
+- \`purple\` - Creativity, dreams, aspirations, spirituality  
+- \`green\` - Growth, positive experiences, achievements, nature
+- \`amber\` - Important memories, significant moments, warmth
+- \`red\` - Stress, challenges, intense emotions, passion
+- \`pink\` - Relationships, love, personal connections, tenderness
+- \`cyan\` - Clarity, insight, intellectual pursuits
+- \`lime\` - Energy, optimism, new beginnings
+- \`orange\` - Enthusiasm, adventure, social connections
+- \`indigo\` - Depth, introspection, wisdom
+- \`violet\` - Imagination, mystery, transformation
+- \`teal\` - Balance, harmony, emotional stability
 
 **Confidence Scale** (0.1-1.0):
 - 0.7-1.0: Very clear theme with strong coherence
@@ -268,11 +268,10 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
       hasFullText: !!fullText
     });
 
-    // Enhanced fallback with light colors for excellent contrast with dark text
+    // Enhanced fallback with semantic color names for theme adaptation
     const fallbackColors = [
-      "#DBEAFE", "#E9D5FF", "#D1FAE5", "#FED7AA", "#FECACA", "#FCE7F3",
-      "#CFFAFE", "#ECFCCB", "#FED7AA", "#E0E7FF", "#F3E8FF", "#CCFBF1",
-      "#FEF3C7", "#FEE2E2", "#E0F2FE", "#F0FDF4", "#FEF7CD", "#FDF2F8"
+      "blue", "purple", "green", "amber", "red", "pink",
+      "cyan", "lime", "orange", "indigo", "violet", "teal"
     ];
     const fallbackThemes = clusters.map((cluster, index) => ({
       clusterId: cluster.id,

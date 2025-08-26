@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 			console.log("🎬 Returning special demo prod");
 			requestCache.set('demo-special-sent', { timestamp: now, response: { sent: true } });
 			return Response.json({
-				selectedProd: "What does prepping mean to you?",
+				selectedProd: "How can you prepare to adjust?",
 				confidence: 0.9
 			});
 		}

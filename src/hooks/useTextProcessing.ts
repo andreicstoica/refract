@@ -169,7 +169,7 @@ export function useTextProcessing({
             // Demo route: if the user types a specific phrase, inject a prod immediately (no API)
             if (isDemoMode && !demoPhraseShownRef.current && onImmediateProd) {
                 const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-                const TARGET = normalize("a lot - but especially prepping for this demo i have tonight.");
+                const TARGET = normalize("how i spend my time will change once i finish this bootcamp.");
                 const lastNorm = normalize(lastSentence.text);
                 if (lastNorm === TARGET || lastNorm.endsWith(TARGET)) {
                     demoPhraseShownRef.current = true;
@@ -187,6 +187,11 @@ export function useTextProcessing({
                     }
                 }
             }
+
+            const trimmed = currentText === newText ? trimmedNewText : currentText.trimEnd();
+            const hasPunctuation = /[.!?;:]$/.test(trimmed);
+            const hasSoftComma = /[,]$/.test(trimmed);
+            const charsSince = currentText.length - lastTriggerCharPosRef.current;
 
             // Demo route: ensure the first sentence produces an immediate prod without API
             if (
@@ -220,10 +225,6 @@ export function useTextProcessing({
                 // Skip remaining triggering paths for now; if typing resumes, this timer is cleared
                 return;
             }
-            const trimmed = currentText === newText ? trimmedNewText : currentText.trimEnd();
-            const hasPunctuation = /[.!?;:]$/.test(trimmed);
-            const hasSoftComma = /[,]$/.test(trimmed);
-            const charsSince = currentText.length - lastTriggerCharPosRef.current;
 
             if (process.env.NODE_ENV !== "production") {
                 console.log("🔍 Trigger analysis:", {
