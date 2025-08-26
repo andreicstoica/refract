@@ -41,21 +41,48 @@ export function ChipOverlay({
   }, [sentences]);
 
   const findFallbackPosition = useCallback((prod: Prod): SentencePosition | undefined => {
-    if (!prod.sourceText) return undefined as any;
+    if (!prod.sourceText) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("🎯 No sourceText for prod:", prod.id, prod.text.slice(0, 30));
+      }
+      return undefined;
+    }
+    
     // Try to find a sentence with matching text if ID lookup failed
     const norm = prod.sourceText.trim().toLowerCase();
     let match: Sentence | undefined = undefined;
-    // Exact match
+    
+    // Exact match first
     match = sentences.find(s => s.text.trim().toLowerCase() === norm);
+    
     if (!match) {
-      // Prefix match (first 30 chars)
-      const head = norm.slice(0, 30);
+      // Prefix match (first 50 chars for better matching)
+      const head = norm.slice(0, 50);
       match = sentences.find(s => s.text.trim().toLowerCase().startsWith(head));
     }
-    if (!match) {
-      // Substring match as last resort
-      match = sentences.find(s => s.text.toLowerCase().includes(norm.slice(0, Math.min(20, norm.length))));
+    
+    if (!match && norm.length > 10) {
+      // Substring match as last resort, but only for longer text
+      const searchTerm = norm.slice(0, Math.min(30, norm.length));
+      match = sentences.find(s => s.text.toLowerCase().includes(searchTerm));
     }
+    
+    if (process.env.NODE_ENV !== "production") {
+      if (match) {
+        console.log("🎯 Fallback match found:", {
+          prodText: prod.text.slice(0, 30),
+          sourceText: prod.sourceText.slice(0, 30),
+          matchedSentence: match.text.slice(0, 30)
+        });
+      } else {
+        console.warn("🎯 No fallback match found for:", {
+          prodText: prod.text.slice(0, 30),
+          sourceText: prod.sourceText.slice(0, 30),
+          availableSentences: sentences.map(s => s.text.slice(0, 20))
+        });
+      }
+    }
+    
     if (!match) return undefined;
     return positionMap.get(match.id);
   }, [sentences, positionMap]);
@@ -128,7 +155,13 @@ export function ChipOverlay({
 
     for (const prod of sortedProds) {
       const pos = positionMap.get(prod.sentenceId);
-      if (!pos) continue;
+      if (!pos) {
+        if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEBUG_CHIPS === '1') {
+          console.warn("🎯 No position found for sentence ID:", prod.sentenceId, "prod:", prod.text.slice(0, 30));
+          console.log("🎯 Available positions:", Array.from(positionMap.keys()));
+        }
+        continue;
+      }
 
       // Estimate width quickly (avoid layout thrash)
       const estW = Math.max(minChipPx, Math.round(prod.text.length * 7.5) + 40);
@@ -138,9 +171,9 @@ export function ChipOverlay({
       const sentenceEndX = contentLeftPad + pos.left + pos.width;
       const sentenceWidth = sentenceEndX - sentenceStartX;
       
-      // Simple end-aligned positioning with small variation
-      const timeVariation = (prod.timestamp % 100) / 100; // Smaller variation range
-      const positionRatio = 0.75 + (timeVariation * 0.2); // 75%-95% toward end of sentence
+      // Position chips toward the end of sentences with some variation
+      const timeVariation = (prod.timestamp % 200) / 200; // 0-1 range
+      const positionRatio = 0.7 + (timeVariation * 0.25); // 70%-95% toward end of sentence
       
       let startX = sentenceStartX + (sentenceWidth * positionRatio) - (estW / 2);
       
@@ -154,16 +187,37 @@ export function ChipOverlay({
       let v = needsSecondRow ? rowGap : 0;
       let h = startX - (pos.left + contentLeftPad);
       
-      // Simple staggering for prods on same sentence only
+      // Stagger multiple prods on same sentence
       const prodsOnSentence = sortedProds.filter(p => p.sentenceId === prod.sentenceId);
       const prodIndex = prodsOnSentence.indexOf(prod);
       if (prodIndex > 0) {
-        h += prodIndex * 20; // Small horizontal stagger
-        v += prodIndex * 10; // Small vertical stagger
+        h += prodIndex * 16; // Horizontal stagger
+        v += prodIndex * 8;  // Vertical stagger
       }
 
-      // Simplified collision detection
+      // Better collision detection with multiple attempts
       let currentStartX = startX;
+      let attempts = 0;
+      const maxAttempts = 6;
+      let positionKey = `${Math.round(pos.top)}-${Math.round(currentStartX)}-${v}`;
+      
+      // Try to find a position that doesn't collide
+      while (usedPositions.has(positionKey) && attempts < maxAttempts) {
+        if (attempts < 3) {
+          // Try shifting horizontally within sentence bounds
+          const shift = (attempts + 1) * 24;
+          currentStartX = startX + shift;
+          if (currentStartX + estW > sentenceEndX) {
+            currentStartX = Math.max(sentenceStartX, startX - shift);
+          }
+        } else {
+          // Move to next row
+          currentStartX = startX;
+          v += rowGap;
+        }
+        positionKey = `${Math.round(pos.top)}-${Math.round(currentStartX)}-${v}`;
+        attempts++;
+      }
       
       // Final bounds check
       currentStartX = Math.max(sentenceStartX, Math.min(currentStartX, sentenceEndX - estW));
@@ -171,9 +225,6 @@ export function ChipOverlay({
 
       // Update h for final position
       h = currentStartX - (pos.left + contentLeftPad);
-      const positionKey = `${prod.sentenceId}-${Math.round(h)}-${v}`;
-
-      // Store position for this chip
 
       usedPositions.add(positionKey);
 
@@ -215,8 +266,27 @@ export function ChipOverlay({
       >
         {visibleProds.map((prod) => {
           const sentencePosition = positionMap.get(prod.sentenceId) || findFallbackPosition(prod);
-          if (!sentencePosition) return null;
+          if (!sentencePosition) {
+            if (process.env.NODE_ENV !== "production") {
+              console.warn("🎯 No sentence position found for prod:", {
+                prodId: prod.id,
+                sentenceId: prod.sentenceId,
+                prodText: prod.text.slice(0, 30) + "...",
+                sourceText: prod.sourceText?.slice(0, 30) + "..."
+              });
+            }
+            return null;
+          }
           const offsets = layoutByProdId.get(prod.id) || { h: 0, v: 0 };
+          
+          if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEBUG_CHIPS === '1') {
+            console.log("🎯 Rendering chip:", {
+              prodText: prod.text.slice(0, 20) + "...",
+              sentenceId: prod.sentenceId,
+              position: { top: sentencePosition.top, left: sentencePosition.left, width: sentencePosition.width },
+              offsets: { h: offsets.h, v: offsets.v }
+            });
+          }
 
           return (
             <Chip

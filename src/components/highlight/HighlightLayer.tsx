@@ -167,7 +167,8 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
           }
         }}
         className={cn(
-          "absolute inset-0 pointer-events-none z-15 overflow-hidden overlay-container",
+          // Ensure the overlay sits above the textarea (which uses z-10)
+          "absolute inset-0 pointer-events-none z-20 overflow-hidden overlay-container",
           className
         )}
       >

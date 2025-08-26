@@ -8,7 +8,6 @@ import { storage } from "@/services/storage";
 import { CornerDownLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { TimerControls } from "./TimerControls";
 import { Intro } from "./Intro";
-import { animateModalTransition } from "@/lib/modalAnimation";
 import { useModalKeyboard } from "@/hooks/useModalKeyboard";
 
 interface IntroModalProps {
@@ -71,18 +70,68 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
       tlRef.current = null;
     }
 
-    // Use the animation utility
-    const timeline = animateModalTransition({
-      contentRef,
-      modalRef,
-      stagingRef,
-      onPageChange: () => setCurrentPage(1),
-      onAnimationComplete: () => {
-        isTransitioningRef.current = false;
-        setIsPage1Entering(false);
-      },
-    });
-    tlRef.current = timeline || null;
+    // Inline transition: measure, animate out, resize, swap, animate in
+    const modalEl = modalRef.current;
+    const contentEl = contentRef.current;
+    const stageEl = stagingRef.current;
+    if (!modalEl || !contentEl || !stageEl) return;
+
+    const currentHeight = modalEl.offsetHeight;
+    const targetHeight = stageEl.offsetHeight;
+
+    // Fix current height so the card doesn’t jump while content animates out
+    gsap.set(modalEl, { height: currentHeight });
+
+    const tl = gsap
+      .timeline()
+      // Fade out current content to the left with slight stagger
+      .to(contentEl.children, {
+        opacity: 0,
+        x: -25,
+        duration: 0.4,
+        ease: "power2.inOut",
+        stagger: 0.08,
+      })
+      // Resize the modal to the target height
+      .to(
+        modalEl,
+        {
+          height: targetHeight,
+          duration: 0.4,
+          ease: "power2.out",
+        },
+        ">-0.1"
+      )
+      // Swap to page 1
+      .call(() => {
+        setCurrentPage(1);
+      })
+      // Animate new content in from the right after React commits
+      .call(() => {
+        // After React commits page 1, animate new content in
+        requestAnimationFrame(() => {
+          if (!contentRef.current || !modalRef.current) return;
+          const inner = contentRef.current;
+          const modalNow = modalRef.current;
+
+          // Initial state for children, then animate in
+          gsap.set(inner.children, { opacity: 0, x: 25 });
+          gsap.to(inner.children, {
+            opacity: 1,
+            x: 0,
+            duration: 0.5,
+            ease: "power2.out",
+            stagger: 0.1,
+            onComplete: () => {
+              gsap.set(modalNow, { height: "auto" });
+              isTransitioningRef.current = false;
+              setIsPage1Entering(false);
+            },
+          });
+        });
+      }, [], ">+0.15");
+
+    tlRef.current = tl;
   };
 
   const handlePrevious = () => {

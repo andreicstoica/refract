@@ -50,14 +50,8 @@ export default function DemoPage() {
   const [themes, setThemes] = useState<Theme[] | null>(null);
   const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
 
-  // Overlay scroll sync - direct DOM manipulation to avoid React re-renders
-  const [textareaEl, setTextareaEl] = useState<HTMLTextAreaElement | null>(
-    null
-  );
-  const textareaRefObject = useMemo(
-    () => ({ current: textareaEl } as React.RefObject<HTMLTextAreaElement>),
-    [textareaEl]
-  );
+  // Create textarea ref for HighlightLayer  
+  const textareaRefObject = useRef<HTMLTextAreaElement>(null as any);
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -235,41 +229,12 @@ export default function DemoPage() {
     };
   }, []);
 
-  // Observe textarea scroll for overlay sync
+  // Handle textarea ref for HighlightLayer
   const handleTextareaRef = useCallback((el: HTMLTextAreaElement | null) => {
-    setTextareaEl(el);
+    textareaRefObject.current = el!; // Non-null assertion since TextInput always provides valid element
   }, []);
 
-  // Direct DOM scroll sync without React state updates
-  useEffect(() => {
-    if (!textareaEl || !highlightLayerRef.current) return;
-
-    const highlightLayer = highlightLayerRef.current;
-    let rafId: number;
-
-    const handleScroll = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-
-      rafId = requestAnimationFrame(() => {
-        const scrollTop = Math.round(textareaEl.scrollTop);
-        const content = highlightLayer.querySelector(
-          "[data-highlight-content]"
-        ) as HTMLElement;
-        if (content) {
-          content.style.transform = `translate3d(0, ${-scrollTop}px, 0)`;
-        }
-      });
-    };
-
-    // Initialize position
-    handleScroll();
-
-    textareaEl.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      textareaEl.removeEventListener("scroll", handleScroll);
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [textareaEl]);
+  // HighlightLayer handles its own scroll sync via useRafScroll - no manual sync needed
 
   // Whether we have themes to reveal
   const hasThemes = Boolean(themes && themes.length > 0);
