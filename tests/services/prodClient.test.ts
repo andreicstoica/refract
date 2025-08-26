@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { generateProd, generateProdWithTimeout } from "@/services/prodClient";
+import { generateProd, generateProdWithTimeout } from "../../src/services/prodClient";
 
 // Helper to create an AbortController that aborts after ms
 function autoAbort(ms: number) {
@@ -28,8 +28,7 @@ describe("prodClient", () => {
         if (signal) {
           const onAbort = () => {
             const err = new Error("Aborted");
-            // @ts-expect-error add name to mimic AbortError
-            err.name = "AbortError";
+            (err as any).name = "AbortError";
             reject(err);
           };
           if (signal.aborted) onAbort();
@@ -40,7 +39,7 @@ describe("prodClient", () => {
 
     const external = autoAbort(5); // abort quickly
     const res = await generateProdWithTimeout({ lastParagraph: "...", fullText: "..." }, { signal: external.signal });
-    expect(res.confidence).toBe(0.1);
+    expect(res.confidence).toBe(0);
   });
 });
 

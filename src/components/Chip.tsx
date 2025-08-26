@@ -17,6 +17,7 @@ interface ChipProps {
   horizontalOffset?: number;
   verticalOffset?: number;
   maxWidthPx?: number;
+  containerWidth?: number;
   className?: string;
   onFadeComplete?: () => void;
   onKeepChip?: () => void;
@@ -28,6 +29,7 @@ export function Chip({
   horizontalOffset = 0,
   verticalOffset = 0,
   maxWidthPx,
+  containerWidth,
   className,
   onFadeComplete,
   onKeepChip,
@@ -37,19 +39,46 @@ export function Chip({
   const [pinned, setPinned] = useState(false);
   const fadeTimerRef = useRef<number | null>(null);
 
-  // Memoize position calculations to avoid recalculation on every render
-  // Position is relative to textarea content area, chip overlay is relative to textarea container
-  // Position chip right under the sentence with horizontal offset for side-by-side layout
+  // Use position from ChipOverlay collision system when offsets are provided
   const chipTop = useMemo(() => {
-    const measured = position.height ?? 44;
-    const lineOffset = Math.min(44, measured); // cap to 44px so chips sit closer
-    return position.top + lineOffset + 4 + verticalOffset; // small gap below line
+    if (verticalOffset !== 0) {
+      // ChipOverlay has calculated the position - use it directly
+      return position.top + verticalOffset;
+    }
+    // Fallback for cases where ChipOverlay isn't managing positioning
+    const measured = position.height ?? 56;
+    const lineOffset = Math.min(56, measured);
+    return position.top + lineOffset; // Position chips at line offset
   }, [position.top, position.height, verticalOffset]);
   const chipLeft = useMemo(() => {
-    // Clamp to the start of the textarea content (px-4 => 16px)
-    const baseLeft = position.left + 16 + horizontalOffset;
-    return Math.max(16, baseLeft);
-  }, [position.left, horizontalOffset]);
+    if (horizontalOffset !== 0) {
+      // ChipOverlay has calculated the position - use it directly
+      return position.left + horizontalOffset;
+    }
+    // Fallback positioning when ChipOverlay isn't managing positioning
+    const sentenceLength = position.width;
+    const chipWidth = maxWidthPx || 200;
+
+    let preferredLeft: number;
+    if (sentenceLength < 100) {
+      const sentenceCenter = position.left + sentenceLength / 2;
+      preferredLeft = sentenceCenter - chipWidth / 2;
+    } else if (sentenceLength < 300) {
+      preferredLeft = position.left + sentenceLength * 0.6 - chipWidth / 2;
+    } else {
+      preferredLeft = position.left + sentenceLength * 0.7 - chipWidth / 2;
+    }
+
+    const minLeft = 16;
+    const maxLeft = containerWidth ? containerWidth - chipWidth - 16 : 1000;
+    return Math.max(minLeft, Math.min(maxLeft, preferredLeft));
+  }, [
+    position.left,
+    position.width,
+    horizontalOffset,
+    maxWidthPx,
+    containerWidth,
+  ]);
 
   // Start fade after 8 seconds
   useEffect(() => {
@@ -79,7 +108,10 @@ export function Chip({
   };
 
   // Debug positioning in development
-  if (process.env.NODE_ENV !== "production") {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_DEBUG_CHIPS === "1"
+  ) {
     console.log("🎯 Chip positioning:", {
       text: text.substring(0, 30) + "...",
       position,
@@ -132,6 +164,8 @@ export function Chip({
                   maxWidthPx
                 )}px, calc(100% - 2 * var(--chip-gutter)))`
               : `calc(100% - 2 * var(--chip-gutter))`,
+            // Ensure chip doesn't overflow right boundary
+            right: "var(--chip-gutter)",
           }}
           onClick={handleTap}
         >

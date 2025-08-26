@@ -8,7 +8,7 @@ import { useProds } from "@/hooks/useProds";
 import { useTopicShiftDetection } from "@/hooks/useTopicShiftDetection";
 import { useTextProcessing } from "@/hooks/useTextProcessing";
 import { ChipOverlay } from "./ChipOverlay";
-import { TEXTAREA_CLASSES } from "@/lib/constants";
+import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/constants";
 
 interface TextInputProps {
   onTextChange?: (text: string) => void;
@@ -60,7 +60,7 @@ export function TextInput({
     }
   }, []);
 
-  const { prods, callProdAPI, handleTopicShift } = useProds({
+  const { prods, callProdAPI, injectProd, handleTopicShift, pinProd, removeProd, pinnedIds } = useProds({
     onTopicShift: onProdTopicShift,
     topicKeywords: currentKeywordsRef.current,
     topicVersion,
@@ -70,6 +70,7 @@ export function TextInput({
   const { text, sentences, sentencePositions, textareaRef, handleTextChange } =
     useTextProcessing({
       onProdTrigger: callProdAPI,
+      onImmediateProd: (fullText, sentence, prodText) => injectProd(fullText, sentence, prodText),
       onTextChange: (newText) => {
         setCurrentText(newText);
         onTextChange?.(newText);
@@ -180,22 +181,19 @@ export function TextInput({
               value={text}
               onChange={handleTextChange}
               placeholder={placeholder}
-              className={cn(
-                `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex relative z-10`,
-                "py-6 h-full scrollbar-thin scroll-keyboard-safe scrollable"
-              )}
-              style={{
-                caretColor: "currentColor",
-                overflowY: "auto",
-                overflowX: "hidden",
-                resize: "none",
-                lineHeight: "3.5rem",
-                fontSize: "1rem",
-                wordBreak: "break-word",
-                overflowWrap: "anywhere",
-                paddingTop: `${24 + (extraTopPaddingPx || 0)}px`,
-                transition: "padding-top 400ms ease-out", // CSS ease-out for consistency
-              }}
+            className={cn(
+              `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex relative z-10`,
+              "py-6 h-full scrollbar-thin scroll-keyboard-safe scrollable"
+            )}
+            style={{
+              caretColor: "currentColor",
+              overflowY: "auto",
+              overflowX: "hidden",
+              resize: "none",
+              ...TEXT_DISPLAY_STYLES.INLINE_STYLES,
+              paddingTop: `${24 + (extraTopPaddingPx || 0)}px`,
+              transition: "padding-top 400ms ease-out",
+            }}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -240,8 +238,12 @@ export function TextInput({
             <ChipOverlay
               visibleProds={prods}
               sentencePositions={sentencePositions}
+              sentences={sentences}
               textareaRef={textareaRef}
               extraTopPaddingPx={extraTopPaddingPx}
+              pinnedProdIds={pinnedIds}
+              onChipKeep={(prod) => pinProd(prod.id)}
+              onChipFade={(id) => removeProd(id)}
             />
           </div>
         </div>

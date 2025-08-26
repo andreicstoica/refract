@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, forwardRef, useCallback } from "react";
 import { cn } from "@/lib/helpers";
 import type { HighlightRange } from "@/types/highlight";
-import { TEXTAREA_CLASSES } from "@/lib/constants";
+import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/constants";
 import {
   buildCutPoints,
   createSegments,
@@ -11,7 +11,8 @@ import {
   assignChunkIndices,
 } from "@/lib/highlight";
 import { gsap } from "gsap";
-import { useRafScroll } from "@/lib/useRafScroll";
+import { STAGGER_PER_CHUNK } from "@/lib/highlight";
+import { useRafScroll } from "@/hooks/useRafScroll";
 
 type HighlightLayerProps = {
   text: string;
@@ -73,26 +74,14 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
       }
     }, [textareaRef]);
 
-    // Track previous segment metadata for exit animations with reverse stagger
+    // Track previous segment metadata for exit animations
     const prevRef = useRef<{
       meta: typeof meta | null;
       chunkIndex: number[] | null;
     }>({ meta: null, chunkIndex: null });
 
-    // Determine reverse-stagger baseline for exiting segments (matching TextWithHighlights)
     const prevMeta = prevRef.current.meta;
     const prevIndex = prevRef.current.chunkIndex;
-    let maxPrevExitingIdx = -1;
-    if (prevMeta && prevIndex) {
-      for (let i = 0; i < meta.length; i++) {
-        const wasActive = Boolean(prevMeta[i]?.color);
-        const isActive = Boolean(meta[i]?.color);
-        if (wasActive && !isActive) {
-          const p = prevIndex[i] ?? -1;
-          if (p > maxPrevExitingIdx) maxPrevExitingIdx = p;
-        }
-      }
-    }
 
     // Animate highlights with exact same logic as TextWithHighlights
     useEffect(() => {
@@ -100,7 +89,6 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
 
       const el = containerRef.current;
       const HIGHLIGHT_ANIM_TIME = 0.2;
-      const STAGGER_PER_CHUNK = 0.03;
 
       // Animate each segment based on its state change
       for (let i = 0; i < meta.length; i++) {
@@ -113,28 +101,25 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
         // Skip if no state change
         if (isActive === wasActive) continue;
 
-        const delay = isActive
-          ? chunkIndex[i] >= 0
-            ? chunkIndex[i] * STAGGER_PER_CHUNK
-            : 0
-          : exiting && prevIdx >= 0
-          ? maxPrevExitingIdx >= 0
-            ? (maxPrevExitingIdx - prevIdx) * STAGGER_PER_CHUNK
-            : prevIdx * STAGGER_PER_CHUNK
+        const delay = (isActive ? chunkIndex[i] : prevIdx) >= 0
+          ? ((isActive ? chunkIndex[i] : prevIdx) as number) * STAGGER_PER_CHUNK
           : 0;
 
         // Find the corresponding DOM node
         const node = el.querySelector<HTMLElement>(`span[data-segment="${i}"]`);
         if (node) {
+          // Simple LTR on enter, RTL on exit with slight stagger
+          const fromPos = isActive ? "left top" : "right top";
+          const toPos = isActive ? "left top" : "right top";
+          const fromSize = isActive ? "0% 100%" : "100% 100%";
+          const toSize = isActive ? "100% 100%" : "0% 100%";
+
           gsap.fromTo(
             node,
+            { backgroundSize: fromSize, backgroundPosition: fromPos },
             {
-              backgroundSize: isActive ? "0% 100%" : "100% 100%",
-              backgroundPosition: "left top",
-            },
-            {
-              backgroundSize: isActive ? "100% 100%" : "0% 100%",
-              backgroundPosition: "left top",
+              backgroundSize: toSize,
+              backgroundPosition: toPos,
               duration: HIGHLIGHT_ANIM_TIME,
               delay: delay.toString(),
               ease: "power2.out",
@@ -145,14 +130,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
 
       // Update ref for next comparison (matching TextWithHighlights)
       prevRef.current = { meta: [...meta], chunkIndex: [...chunkIndex] };
-    }, [
-      meta,
-      chunkIndex,
-      prefersReduced,
-      maxPrevExitingIdx,
-      prevMeta,
-      prevIndex,
-    ]);
+    }, [meta, chunkIndex, prefersReduced, prevMeta, prevIndex]);
 
     return (
       <div
@@ -167,7 +145,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
           }
         }}
         className={cn(
-          "absolute inset-0 pointer-events-none z-15 overflow-hidden overlay-container",
+          "absolute inset-0 pointer-events-none z-15 overflow-visible overlay-container",
           className
         )}
       >
@@ -181,14 +159,11 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
           )}
           style={{
             caretColor: "transparent",
-            overflowY: "hidden",
-            overflowX: "hidden",
+            overflowY: "visible",
+            overflowX: "visible",
             whiteSpace: "pre-wrap",
             resize: "none",
-            lineHeight: "3.5rem",
-            fontSize: "1rem",
-            wordBreak: "break-word",
-            overflowWrap: "anywhere",
+            ...TEXT_DISPLAY_STYLES.INLINE_STYLES,
             paddingTop: `${24 + extraTopPaddingPx}px`,
             color: "transparent",
           }}
@@ -232,6 +207,7 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
                       : undefined,
                   backgroundRepeat: "no-repeat",
                   backgroundPosition: "left top",
+                  backgroundSize: "100% 100%",
                   display: "inline",
                 }}
                 data-active={isActive ? "1" : "0"}

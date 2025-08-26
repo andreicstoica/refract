@@ -1,6 +1,7 @@
 import type { ProdRequest, ProdResponse } from "@/types/api";
 
-const REQUEST_TIMEOUT_MS = 10000; // 10 seconds (2s less than server timeout)
+// Keep aligned with server maxDuration (15s) with a tiny buffer
+const REQUEST_TIMEOUT_MS = 15000; // 15 seconds
 
 /**
  * Generate a prod suggestion with built-in timeout and cancellation support
@@ -44,9 +45,15 @@ export async function generateProd(
     let response: Response | undefined;
 
     try {
+        // Add demo mode detection
+        const isDemoMode = typeof window !== 'undefined' && window.location.pathname === '/demo';
+
         response = await fetch("/api/prod", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                "X-Demo-Mode": isDemoMode ? "true" : "false"
+            },
             body: JSON.stringify(input),
             signal: opts?.signal,
         });
@@ -72,12 +79,25 @@ export async function generateProd(
         // Check if it was an abort/timeout
         if (error instanceof Error && error.name === 'AbortError') {
             console.warn(`⏱️ /api/prod timed out after ${Math.round(elapsed)}ms (soft-skip)`);
-            // Soft-skip on timeout so upstream can continue without error noise
-            const softSkip: ProdResponse = { confidence: 0.1 };
+            // Soft skip: do not surface a chip on timeout
+            const softSkip: ProdResponse = { confidence: 0 };
             return softSkip;
         }
 
         console.error(`⏱️ /api/prod error after ${Math.round(elapsed)}ms`, error);
         throw error;
+    }
+}
+
+/**
+ * Warm up the prod pipeline (edge route + optional provider) to reduce demo latency.
+ * Fire-and-forget; safe to call on mount or first input in demo mode.
+ */
+export async function prewarmProd(): Promise<void> {
+    try {
+        // Use GET to keep it simple and cache-friendly
+        await fetch("/api/prod/warmup", { method: "GET", keepalive: true });
+    } catch {
+        // Ignore errors — warmup is best-effort
     }
 }

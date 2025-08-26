@@ -5,10 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 import { cn } from "@/lib/helpers";
 import { storage } from "@/services/storage";
-import { CornerDownLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { TimerControls } from "./TimerControls";
 import { Intro } from "./Intro";
-import { animateModalTransition } from "@/lib/modalAnimation";
 import { useModalKeyboard } from "@/hooks/useModalKeyboard";
 
 interface IntroModalProps {
@@ -71,18 +69,72 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
       tlRef.current = null;
     }
 
-    // Use the animation utility
-    const timeline = animateModalTransition({
-      contentRef,
-      modalRef,
-      stagingRef,
-      onPageChange: () => setCurrentPage(1),
-      onAnimationComplete: () => {
-        isTransitioningRef.current = false;
-        setIsPage1Entering(false);
-      },
-    });
-    tlRef.current = timeline || null;
+    // Inline transition: measure, animate out, resize, swap, animate in
+    const modalEl = modalRef.current;
+    const contentEl = contentRef.current;
+    const stageEl = stagingRef.current;
+    if (!modalEl || !contentEl || !stageEl) return;
+
+    const currentHeight = modalEl.offsetHeight;
+    const targetHeight = stageEl.offsetHeight;
+
+    // Fix current height so the card doesn’t jump while content animates out
+    gsap.set(modalEl, { height: currentHeight });
+
+    const tl = gsap
+      .timeline()
+      // Fade out current content to the left with slight stagger
+      .to(contentEl.children, {
+        opacity: 0,
+        x: -25,
+        duration: 0.4,
+        ease: "power2.inOut",
+        stagger: 0.08,
+      })
+      // Resize the modal to the target height
+      .to(
+        modalEl,
+        {
+          height: targetHeight,
+          duration: 0.4,
+          ease: "power2.out",
+        },
+        ">-0.1"
+      )
+      // Swap to page 1
+      .call(() => {
+        setCurrentPage(1);
+      })
+      // Animate new content in from the right after React commits
+      .call(
+        () => {
+          // After React commits page 1, animate new content in
+          requestAnimationFrame(() => {
+            if (!contentRef.current || !modalRef.current) return;
+            const inner = contentRef.current;
+            const modalNow = modalRef.current;
+
+            // Initial state for children, then animate in
+            gsap.set(inner.children, { opacity: 0, x: 25 });
+            gsap.to(inner.children, {
+              opacity: 1,
+              x: 0,
+              duration: 0.5,
+              ease: "power2.out",
+              stagger: 0.1,
+              onComplete: () => {
+                gsap.set(modalNow, { height: "auto" });
+                isTransitioningRef.current = false;
+                setIsPage1Entering(false);
+              },
+            });
+          });
+        },
+        [],
+        ">+0.15"
+      );
+
+    tlRef.current = tl;
   };
 
   const handlePrevious = () => {
@@ -148,43 +200,15 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
             {/* Hidden staging area to measure timer page height */}
             <div
               ref={stagingRef}
-              className="absolute -top-[9999px] left-0 text-center space-y-8 p-8 max-w-sm w-full opacity-0 pointer-events-none"
+              className="absolute -top-[9999px] left-0 text-center space-y-8 p-8 border border-border/50 rounded-md max-w-sm w-full opacity-0 pointer-events-none"
               aria-hidden="true"
             >
-              {/* Timer Setup Page - for height measurement */}
-              <div className="flex flex-col items-center justify-center gap-2">
-                <div className="text-muted-foreground text-md">
-                  How long would you like to write?
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  You can pause at any time. You can analyze your writing at the
-                  end of your session.
-                </p>
-              </div>
-
-              {/* Clock Display */}
-              <div className="flex items-center justify-center gap-6">
-                <div className="flex flex-col items-center gap-2">
-                  <button className="p-2 hover:bg-muted/70 rounded-full transition-all duration-200 ease-out">
-                    <ChevronUp className="w-5 h-5 text-foreground transition-transform duration-200 ease-out" />
-                  </button>
-                  <div className="text-4xl font-mono tabular-nums text-foreground transition-transform duration-200 ease-out">
-                    {selectedMinutes.toString().padStart(2, "0")}
-                  </div>
-                  <button className="p-2 rounded-full transition-all duration-200 ease-out">
-                    <ChevronDown className="w-5 h-5 text-foreground transition-transform duration-200 ease-out" />
-                  </button>
-                  <div className="text-xs text-muted-foreground">
-                    {selectedMinutes === 1 ? "minute" : "minutes"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Start Button */}
-              <button className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-all duration-150">
-                Start Writing
-                <CornerDownLeft className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
-              </button>
+              <TimerControls
+                selectedMinutes={selectedMinutes}
+                onMinutesChange={() => {}}
+                onStart={() => {}}
+                isEnterPressed={false}
+              />
             </div>
 
             <div ref={contentRef} className="text-center space-y-8">

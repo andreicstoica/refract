@@ -6,6 +6,7 @@ export interface QueueItem {
     sentence: Sentence;
     timestamp: number;
     status: 'pending' | 'processing' | 'completed' | 'failed';
+    force?: boolean;
 }
 
 export interface QueueState {

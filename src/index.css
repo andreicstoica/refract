@@ -20,8 +20,8 @@
 html,
 body {
 	@apply bg-white dark:bg-gray-950;
-	/* Prevent unwanted mobile scroll behaviors */
-	touch-action: none;
+	/* Relaxed global touch handling; page-level scroll lock is done via hooks */
+	touch-action: auto;
 	overscroll-behavior: none;
 }
 
@@ -178,3 +178,48 @@ textarea {
 		--chip-gutter: 6px;
 	}
 } */
+
+/* Theme-aware highlight colors */
+:root {
+  --hl-blue: 219 234 254;    /* blue-100 */
+  --hl-purple: 233 213 255;  /* purple-100 */
+  --hl-green: 209 250 229;   /* green-100 */
+  --hl-amber: 254 215 170;   /* amber-100 */
+  --hl-red: 254 202 202;     /* red-100 */
+  --hl-pink: 252 231 243;    /* pink-100 */
+  --hl-cyan: 207 250 254;    /* cyan-100 */
+  --hl-lime: 236 252 203;    /* lime-100 */
+  --hl-orange: 255 237 213;  /* orange-100 */
+  --hl-indigo: 224 231 255;  /* indigo-100 */
+  --hl-violet: 243 232 255;  /* violet-100 */
+  --hl-teal: 204 251 241;    /* teal-100 */
+}
+
+.dark {
+  --hl-blue: 30 58 138;      /* blue-800 */
+  --hl-purple: 91 33 182;    /* purple-800 */
+  --hl-green: 22 101 52;     /* green-800 */
+  --hl-amber: 146 64 14;     /* amber-800 */
+  --hl-red: 153 27 27;       /* red-800 */
+  --hl-pink: 157 23 77;      /* pink-800 */
+  --hl-cyan: 21 94 117;      /* cyan-800 */
+  --hl-lime: 77 124 15;      /* lime-800 */
+  --hl-orange: 154 52 18;    /* orange-800 */
+  --hl-indigo: 55 48 163;    /* indigo-800 */
+  --hl-violet: 91 33 182;    /* violet-800 */
+  --hl-teal: 17 94 89;       /* teal-800 */
+}
+
+/* Highlight color utility classes */
+.hl-blue { background-color: rgb(var(--hl-blue) / var(--hl-opacity, 0.25)); }
+.hl-purple { background-color: rgb(var(--hl-purple) / var(--hl-opacity, 0.25)); }
+.hl-green { background-color: rgb(var(--hl-green) / var(--hl-opacity, 0.25)); }
+.hl-amber { background-color: rgb(var(--hl-amber) / var(--hl-opacity, 0.25)); }
+.hl-red { background-color: rgb(var(--hl-red) / var(--hl-opacity, 0.25)); }
+.hl-pink { background-color: rgb(var(--hl-pink) / var(--hl-opacity, 0.25)); }
+.hl-cyan { background-color: rgb(var(--hl-cyan) / var(--hl-opacity, 0.25)); }
+.hl-lime { background-color: rgb(var(--hl-lime) / var(--hl-opacity, 0.25)); }
+.hl-orange { background-color: rgb(var(--hl-orange) / var(--hl-opacity, 0.25)); }
+.hl-indigo { background-color: rgb(var(--hl-indigo) / var(--hl-opacity, 0.25)); }
+.hl-violet { background-color: rgb(var(--hl-violet) / var(--hl-opacity, 0.25)); }
+.hl-teal { background-color: rgb(var(--hl-teal) / var(--hl-opacity, 0.25)); }

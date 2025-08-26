@@ -81,7 +81,7 @@ export function TimerControls({
         </div>
         <p className="text-xs text-muted-foreground">
           You can pause at any time. You can analyze your writing at the end of
-          your session.
+          the session.
         </p>
       </div>
 

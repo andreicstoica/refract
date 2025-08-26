@@ -1,9 +1,10 @@
 // Text styling constants that affect layout and positioning
 export const TEXT_STYLES = {
 	// Line height used in textarea - affects chip positioning
-	LINE_HEIGHT: "", // Will use inline style for better v3 compatibility
-	// Font size and other text properties
-	FONT_SIZE: "text-xl",
+	LINE_HEIGHT: "", // Keep inline line-height to ensure exact measurement parity
+	// Font size and other text properties (single source of truth)
+	// Use text-base (1rem) to match measurement logic
+	FONT_SIZE: "text-base",
 	// Padding that affects positioning calculations
 	PADDING: "px-4",
 } as const;

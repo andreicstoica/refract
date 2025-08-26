@@ -25,10 +25,14 @@ export function splitIntoSentences(inputText: string): Sentence[] {
         const leadingWs = raw.match(/^\s+/)?.[0].length ?? 0;
         const sentenceText = raw.slice(leadingWs);
         if (sentenceText.length > 0) {
+          // Create stable ID based on content and position, not timestamp
+          const normalizedText = sentenceText.trim().toLowerCase().replace(/\s+/g, ' ');
+          const contentHash = normalizedText.slice(0, 20); // First 20 chars for uniqueness
+          const startPos = start + leadingWs;
           sentences.push({
-            id: `sentence-${sentences.length}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            id: `sentence-${startPos}-${contentHash.replace(/[^\w]/g, '').slice(0, 10)}`,
             text: sentenceText,
-            startIndex: start + leadingWs,
+            startIndex: startPos,
             endIndex: start + leadingWs + sentenceText.length,
           });
         }
@@ -40,9 +44,11 @@ export function splitIntoSentences(inputText: string): Sentence[] {
 
   // Remainder (no terminal punctuation): treat as a single sentence
   if (sentences.length === 0) {
+    const normalizedText = text.trim().toLowerCase().replace(/\s+/g, ' ');
+    const contentHash = normalizedText.slice(0, 20);
     return [
       {
-        id: `sentence-0-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        id: `sentence-0-${contentHash.replace(/[^\w]/g, '').slice(0, 10)}`,
         text,
         startIndex: 0,
         endIndex: text.length,
@@ -167,7 +173,7 @@ export function measureSentencePositions(
       // Ensure left never falls before the start of textarea content
       left: Math.max(0, rawLeft),
       width: r.width,
-      height: parseFloat(styles.lineHeight.replace('px', '')) || 44,
+      height: parseFloat(styles.lineHeight.replace('px', '')) || 56,
     };
 
     results.push(position);
