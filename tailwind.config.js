@@ -79,6 +79,54 @@ module.exports = {
       zIndex: {
         '60': '60',
       },
+      keyframes: {
+        spotlight: {
+          '0%': {
+            opacity: '0',
+            transform: 'translate(-110%, -100%) scale(0.3)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translate(-30%, -45%) scale(1)',
+          },
+        },
+        'spotlight-mobile': {
+          '0%': {
+            opacity: '0',
+            transform: 'translate(-30%, -30%) scale(0.3)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translate(-40%, -30%) scale(.9)',
+          },
+        },
+        'spotlight-out': {
+          '0%': {
+            opacity: '0',
+            transform: 'translate(-5%, -5%) scale(0.2)',
+          },
+          '100%': {
+            opacity: '0.6',
+            transform: 'translate(20%, 30%) scale(1.1)',
+          },
+        },
+        'spotlight-out-mobile': {
+          '0%': {
+            opacity: '0',
+            transform: 'translate(0%, 0%) scale(0.2)',
+          },
+          '100%': {
+            opacity: '0.7',
+            transform: 'translate(20%, 5%) scale(1.2)',
+          },
+        },
+      },
+      animation: {
+        spotlight: 'spotlight 1s ease 0.75s 1 forwards',
+        'spotlight-mobile': 'spotlight-mobile 1s ease 0.75s 1 forwards',
+        'spotlight-out': 'spotlight-out 1s ease 1.75s 1 forwards',
+        'spotlight-out-mobile': 'spotlight-out-mobile 1s ease 1.75s 1 forwards',
+      },
     },
   },
   plugins: [],
