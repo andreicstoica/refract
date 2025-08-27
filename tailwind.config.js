@@ -94,10 +94,21 @@ module.exports = {
             transform: 'translate(-20%, -35%) scale(1)',
           },
         },
+        'spotlight-out': {
+          '0%': {
+            opacity: '0',
+            transform: 'translate(-20%, -35%) scale(0.3)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translate(60%, 15%) scale(1)',
+          },
+        },
       },
       animation: {
         shine: 'shine 6s linear infinite',
         spotlight: 'spotlight 2s ease 0.75s 1 forwards',
+        'spotlight-out': 'spotlight-out 2s ease 2.75s 1 forwards',
       },
     },
   },
