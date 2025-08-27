@@ -131,7 +131,7 @@ export function Hero() {
 
       <h1 className="text-6xl font-bold mb-8 relative z-10">Refract</h1>
       <h2 className="text-lg text-muted-foreground max-w-md mb-8 relative z-10">
-        The journal the nudges you deeper
+        The journal that nudges you deeper
       </h2>
       <Link href="/write">
         <Button
