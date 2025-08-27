@@ -10,7 +10,7 @@ export const SpotlightOut = ({ className, fill }: SpotlightOutProps) => {
   return (
     <svg
       className={cn(
-        "animate-spotlight-out pointer-events-none absolute z-[1] h-[100vh] w-[100vw] opacity-0",
+        "animate-spotlight-out-mobile md:animate-spotlight-out pointer-events-none absolute z-[1] h-[100vh] w-[100vw] opacity-0",
         "inset-0",
         className
       )}
