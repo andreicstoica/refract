@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useHeroKeyboard } from "@/hooks/useHeroKeyboard";
-import { CornerDownLeft } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/helpers";
 import { Spotlight } from "@/components/ui/Spotlight";
 import { SpotlightOut } from "@/components/ui/SpotlightOut";
@@ -32,7 +32,6 @@ export function Hero() {
   const [showChip, setShowChip] = useState(false); // Start hidden
   const [shouldFade, setShouldFade] = useState(false);
   const [chipPosition, setChipPosition] = useState({ top: 25, left: 20 });
-  const [isTopThird, setIsTopThird] = useState(true);
 
   // Generate random positions within bounds
   const generateRandomPosition = (isTop: boolean) => {
@@ -132,22 +131,21 @@ export function Hero() {
 
       <h1 className="text-6xl font-bold mb-8 relative z-10">Refract</h1>
       <h2 className="text-lg text-muted-foreground max-w-md mb-8 relative z-10">
-        The journal the nudges you deeper.
+        The journal the nudges you deeper
       </h2>
       <Link href="/write">
         <Button
-          size="lg"
           className={cn(
-            "text-lg px-8 py-3 group transition-all duration-150 relative z-10",
-            isEnterPressed && "scale-95 shadow-inner"
+            "group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-all duration-150 relative z-10",
+            isEnterPressed && "bg-primary/80 scale-95 shadow-inner"
           )}
           data-hero-button
         >
-          Get Started
-          <CornerDownLeft
+          Try Writing
+          <ChevronRight
             className={cn(
-              "w-4 h-4 ml-2 transition-transform group-hover:translate-y-0.5",
-              isEnterPressed && "translate-y-0.5"
+              "w-4 h-4 transition-transform group-hover:translate-x-0.5",
+              isEnterPressed && "translate-x-0.5"
             )}
           />
         </Button>

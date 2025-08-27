@@ -107,7 +107,7 @@ module.exports = {
           },
           '100%': {
             opacity: '0.6',
-            transform: 'translate(20%, 30%) scale(1.1)',
+            transform: 'translate(30%, 35%) scale(1.1)',
           },
         },
         'spotlight-out-mobile': {
