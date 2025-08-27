@@ -28,9 +28,9 @@ const ibmPlexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Refract - the journal that pushes you deeper",
+  title: "Refract - the journal that nudges you deeper",
   description:
-    "Refract uses AI to push you deeper into your writing and help you notice new patterns.",
+    "Refract uses AI to gently push you deeper into your writing and help you notice new patterns.",
 };
 
 export default function RootLayout({
