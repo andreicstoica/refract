@@ -79,6 +79,26 @@ module.exports = {
       zIndex: {
         '60': '60',
       },
+      keyframes: {
+        shine: {
+          '0%': { 'background-position': '100%' },
+          '100%': { 'background-position': '-100%' },
+        },
+        spotlight: {
+          '0%': {
+            opacity: '0',
+            transform: 'translate(-100%, -90%) scale(0.3)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translate(-20%, -35%) scale(1)',
+          },
+        },
+      },
+      animation: {
+        shine: 'shine 6s linear infinite',
+        spotlight: 'spotlight 2s ease 0.75s 1 forwards',
+      },
     },
   },
   plugins: [],
