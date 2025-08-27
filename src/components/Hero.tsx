@@ -16,7 +16,7 @@ export function Hero() {
       <Spotlight className="absolute inset-0 text-foreground" />
       <SpotlightOut className="absolute inset-0 text-foreground" />
       <h1 className="text-6xl font-bold mb-8 relative z-10">Refract</h1>
-      <h2 className="text-lg text-muted-foreground max-w-md mb-8">
+      <h2 className="text-lg text-muted-foreground max-w-md mb-8 relative z-10">
         The journal the nudges you deeper.
       </h2>
       <Link href="/write">

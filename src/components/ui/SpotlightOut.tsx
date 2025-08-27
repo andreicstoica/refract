@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/helpers";
 
 type SpotlightOutProps = {
@@ -7,6 +10,9 @@ type SpotlightOutProps = {
 };
 
 export const SpotlightOut = ({ className, fill }: SpotlightOutProps) => {
+  const { theme, resolvedTheme } = useTheme();
+  const isLight = resolvedTheme === "light";
+
   return (
     <svg
       className={cn(
@@ -20,9 +26,21 @@ export const SpotlightOut = ({ className, fill }: SpotlightOutProps) => {
     >
       <defs>
         <linearGradient id="rgbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="35%" stopColor="#00ff00" stopOpacity="0.7" />
-          <stop offset="20%" stopColor="#ff0000" stopOpacity="1" />
-          <stop offset="90%" stopColor="#0000ff" stopOpacity="0.6" />
+          <stop 
+            offset="35%" 
+            stopColor={isLight ? "#00dd00" : "#00ff00"} 
+            stopOpacity={isLight ? "0.9" : "0.7"} 
+          />
+          <stop 
+            offset="20%" 
+            stopColor={isLight ? "#ee0000" : "#ff0000"} 
+            stopOpacity="1" 
+          />
+          <stop 
+            offset="90%" 
+            stopColor={isLight ? "#0000dd" : "#0000ff"} 
+            stopOpacity={isLight ? "0.8" : "0.6"} 
+          />
         </linearGradient>
         <filter
           id="filter"
