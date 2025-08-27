@@ -23,13 +23,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { prewarmProd } from "@/services/prodClient";
 import { useAggressiveScrollLock } from "@/hooks/useAggressiveScrollLock";
 import { useHeaderRevealAnimation } from "@/hooks/useHeaderRevealAnimation";
-
-// Sample journaling content for demo
-const DEMO_TEXT = `Bootcamp mode again. Demo in less than two weeks now. Time moves fast, but also slow. App works in chunks. Each piece fine on its own. Together? Still messy. Not a story yet. Needs arc. Needs one clear takeaway. Judges won’t remember the tech stack. They’ll remember how it felt.
-Morning: tried polishing the layout. Fonts, spacing, small animations. Makes it feel more real. Then broke the data sync. Classic. Two hours gone. Fixed it, but left with that tired feeling—progress, but sideways. Everyone in Slack is on the same rollercoaster. Debug screenshots, half-jokes, late-night commits. Whole cohort vibrating with stress and pride.
-I keep circling back to the pitch. Ninety seconds. Show, not tell. Hook early, wow moment, clean close. I wrote it out again. Fewer words. More clicks. Then too many clicks. Judges won’t wait. Every extra step is a chance to lose them. Need to simplify.
-Practiced once, recorded on Loom. Awkward. Talking too fast. Forgetting to pause. Harder than coding, honestly. But useful—watching it back shows what lands, what drags.
-Plan for tomorrow: cut one more feature, tighten flow. Trust the basics. Remind myself: not about showing everything I built. It’s about showing the one thing that matters.`;
+import { DEMO_TEXT } from "@/lib/demoMode";
 
 export default function DemoPage() {
   const { generate, isGenerating } = useGenerateEmbeddings();
