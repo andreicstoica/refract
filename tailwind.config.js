@@ -80,35 +80,30 @@ module.exports = {
         '60': '60',
       },
       keyframes: {
-        shine: {
-          '0%': { 'background-position': '100%' },
-          '100%': { 'background-position': '-100%' },
-        },
         spotlight: {
           '0%': {
             opacity: '0',
-            transform: 'translate(-100%, -90%) scale(0.3)',
+            transform: 'translate(-110%, -100%) scale(0.3)',
           },
           '100%': {
             opacity: '1',
-            transform: 'translate(-20%, -35%) scale(1)',
+            transform: 'translate(-30%, -45%) scale(1)',
           },
         },
         'spotlight-out': {
           '0%': {
             opacity: '0',
-            transform: 'translate(-20%, -35%) scale(0.3)',
+            transform: 'translate(-5%, -5%) scale(0.2)',
           },
           '100%': {
-            opacity: '1',
-            transform: 'translate(60%, 15%) scale(1)',
+            opacity: '0.6',
+            transform: 'translate(20%, 30%) scale(1.1)',
           },
         },
       },
       animation: {
-        shine: 'shine 6s linear infinite',
-        spotlight: 'spotlight 2s ease 0.75s 1 forwards',
-        'spotlight-out': 'spotlight-out 2s ease 2.75s 1 forwards',
+        spotlight: 'spotlight 1s ease 0.75s 1 forwards',
+        'spotlight-out': 'spotlight-out 1s ease 1.75s 1 forwards',
       },
     },
   },

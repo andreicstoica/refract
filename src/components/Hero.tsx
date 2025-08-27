@@ -13,8 +13,8 @@ export function Hero() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen text-center relative overflow-hidden">
-      <Spotlight className="-top-40 -left-40 text-foreground" />
-      <SpotlightOut className="-top-40 -left-40 text-foreground" />
+      <Spotlight className="absolute inset-0 text-foreground" />
+      <SpotlightOut className="absolute inset-0 text-foreground" />
       <h1 className="text-6xl font-bold mb-8 relative z-10">Refract</h1>
       <Link href="/write">
         <Button
