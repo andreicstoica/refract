@@ -83,7 +83,6 @@ export function calculateChipLayout(
     const maxWidth = isMobile ? CHIP_LAYOUT.MOBILE_MAX_WIDTH : CHIP_LAYOUT.MAX_WIDTH;
     const minWidth = isMobile ? CHIP_LAYOUT.MOBILE_MIN_WIDTH : CHIP_LAYOUT.MIN_WIDTH;
     const spacing = isMobile ? CHIP_LAYOUT.MOBILE_SPACING : CHIP_LAYOUT.SPACING;
-    const charMultiplier = isMobile ? CHIP_LAYOUT.MOBILE_CHAR_MULTIPLIER : CHIP_LAYOUT.DESKTOP_CHAR_MULTIPLIER;
 
     const result = new Map<string, ChipPlacement>();
     const prodGroups = groupProdsBySentence(prods);

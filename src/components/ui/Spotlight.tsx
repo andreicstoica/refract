@@ -11,7 +11,15 @@ type SpotlightProps = {
 
 export const Spotlight = ({ className, fill }: SpotlightProps) => {
   const { resolvedTheme } = useTheme();
-  const isLight = resolvedTheme === "light";
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Use a default value during SSR to prevent hydration mismatch
+  const isLight = mounted ? resolvedTheme === "light" : false;
+  const fillOpacity = isLight ? "0.12" : "0.21";
 
   return (
     <svg
@@ -31,7 +39,7 @@ export const Spotlight = ({ className, fill }: SpotlightProps) => {
           ry="273.501"
           transform="matrix(-0.822377 -0.568943 -0.568943 0.822377 3631.88 2291.09)"
           fill={fill || "currentColor"}
-          fillOpacity={isLight ? "0.12" : "0.21"}
+          fillOpacity={fillOpacity}
         ></ellipse>
       </g>
       <defs>

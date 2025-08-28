@@ -11,7 +11,14 @@ type SpotlightOutProps = {
 
 export const SpotlightOut = ({ className, fill }: SpotlightOutProps) => {
   const { theme, resolvedTheme } = useTheme();
-  const isLight = resolvedTheme === "light";
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Use default values during SSR to prevent hydration mismatch
+  const isLight = mounted ? resolvedTheme === "light" : false;
 
   return (
     <svg
@@ -26,20 +33,20 @@ export const SpotlightOut = ({ className, fill }: SpotlightOutProps) => {
     >
       <defs>
         <linearGradient id="rgbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop 
-            offset="35%" 
-            stopColor={isLight ? "#00dd00" : "#00ff00"} 
-            stopOpacity={isLight ? "0.9" : "0.7"} 
+          <stop
+            offset="35%"
+            stopColor={isLight ? "#00dd00" : "#00ff00"}
+            stopOpacity={isLight ? "0.9" : "0.7"}
           />
-          <stop 
-            offset="20%" 
-            stopColor={isLight ? "#ee0000" : "#ff0000"} 
-            stopOpacity="1" 
+          <stop
+            offset="20%"
+            stopColor={isLight ? "#ee0000" : "#ff0000"}
+            stopOpacity="1"
           />
-          <stop 
-            offset="90%" 
-            stopColor={isLight ? "#0000dd" : "#0000ff"} 
-            stopOpacity={isLight ? "0.8" : "0.6"} 
+          <stop
+            offset="90%"
+            stopColor={isLight ? "#0000dd" : "#0000ff"}
+            stopOpacity={isLight ? "0.8" : "0.6"}
           />
         </linearGradient>
         <filter

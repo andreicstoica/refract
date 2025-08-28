@@ -1,6 +1,8 @@
 import type { Theme } from "@/types/theme";
 import type { Sentence } from "@/types/sentence";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 const STORAGE_KEYS = {
     THEMES: "refract-themes",
     TEXT: "refract-text",
@@ -22,7 +24,7 @@ export const storage = {
                 Array.isArray(t.chunks) && t.chunks.length > 0 && t.chunks.some((c: any) => typeof c?.correlation !== "number")
             );
             if (needsMigration) {
-                console.info("Refract: clearing cached themes without correlation; will regenerate.");
+                if (isDev) console.info("Refract: clearing cached themes without correlation; will regenerate.");
                 localStorage.removeItem(STORAGE_KEYS.THEMES);
                 return null;
             }
