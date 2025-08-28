@@ -32,7 +32,7 @@ export const TEXTAREA_CLASSES = {
 export const CHIP_LAYOUT = {
 	// Breakpoints
 	MOBILE_BREAKPOINT: 480, // Only very small screens get left-align treatment
-	
+
 	// Dimensions
 	HEIGHT: 32,
 	MIN_WIDTH: 100, // Smaller for mobile
@@ -40,11 +40,9 @@ export const CHIP_LAYOUT = {
 	SPACING: 8,
 	BOUNDARY_PAD: 16,
 	OFFSET_Y: 44,
-	
+
 	// Mobile adjustments
 	MOBILE_MIN_WIDTH: 80,
 	MOBILE_MAX_WIDTH: 200,
 	MOBILE_SPACING: 4,
-	MOBILE_CHAR_MULTIPLIER: 6,
-	DESKTOP_CHAR_MULTIPLIER: 7,
 } as const;

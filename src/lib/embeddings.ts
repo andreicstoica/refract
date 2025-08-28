@@ -1,6 +1,6 @@
 import { cosineSimilarity } from "ai";
 import type { Sentence } from "@/types/sentence";
-import type { TextChunk, EmbeddingResult, ClusterResult } from "@/types/embedding";
+import type { TextChunk, ClusterResult } from "@/types/embedding";
 
 /**
  * Convert filtered sentences to text chunks ready for embedding
@@ -24,24 +24,6 @@ export function attachEmbeddingsToChunks(
     ...chunk,
     embedding: embeddings[index],
   }));
-}
-
-/**
- * Calculate similarity matrix for embeddings
- */
-export function calculateSimilarityMatrix(embeddings: number[][]): number[][] {
-  const n = embeddings.length;
-  const matrix: number[][] = Array(n).fill(null).map(() => Array(n).fill(0));
-
-  for (let i = 0; i < n; i++) {
-    for (let j = i; j < n; j++) {
-      const similarity = cosineSimilarity(embeddings[i], embeddings[j]);
-      matrix[i][j] = similarity;
-      matrix[j][i] = similarity; // Symmetric matrix
-    }
-  }
-
-  return matrix;
 }
 
 /**
@@ -99,7 +81,7 @@ export function clusterEmbeddings(
   let assignments = new Array(n).fill(0);
   let converged = false;
 
-  for (let iteration = 0; iteration < maxIterations && !converged; iteration++) {
+  for (let _iteration = 0; _iteration < maxIterations && !converged; _iteration++) {
     const previousAssignments = [...assignments];
 
     // Step 2: Assign each embedding to nearest centroid
@@ -161,7 +143,6 @@ export function clusterEmbeddings(
   // Sort clusters by size and confidence to prioritize meaningful ones
   return clusters.sort((a, b) => (b.chunks.length * b.confidence) - (a.chunks.length * a.confidence));
 }
-
 
 /**
  * Calculate centroid (mean vector) of embeddings
