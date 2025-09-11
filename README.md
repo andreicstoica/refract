@@ -27,20 +27,17 @@ Web-based journaling tool that annotates your writing in real time with short �
 
 ## Technical Plan
 
-- Frontend: Next.js 15 (App Router), React 19, Tailwind, Framer Motion; future enhancements with Matter.js for gentle physics and PixiJS for advanced interactions.
+- Frontend: Next.js 15 (App Router), React 19, Tailwind, Framer Motion, GSAP
 - Language Processing:
   - Sentence chunking + small, fast embeddings (OpenAI text-embedding-3-small).
   - Clustering: k-means with cosine similarity; theme labels via LLM refinement.
-  - Layout: circular positioning with confidence-based sizing and organic randomization.
-  - Optional Voice Input: Web Speech API for dictation/commands.
-- Performance:
-  - Batched + debounced embedding calls; pre-warm on first keystroke.
-  - Optimized for short writing sessions (5-10 minutes).
-  - Smooth DOM-based animations tuned for mobile.
+  - Layout: contextual positioning of UI elements to written text.
+- Mobile:
+  - Smooth DOM-based animations tuned for mobile (WIP).
 
 ## Scope
 
-**In scope:** single-session journaling → interactive map; inline chips, bubble map, basic meta-reflection; live deployment on custom domain.
+**In scope:** single-session journaling → interactive text area; inline chips, basic theme reflection; live deployment on custom domain.
 
 **Out of scope:** multi-user auth; long-term storage beyond local/session; complex analytics or sentiment scoring.
 
