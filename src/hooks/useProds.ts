@@ -6,9 +6,7 @@ import { generateProdWithTimeout } from "@/services/prodClient";
 import { shouldProcessSentence } from "@/lib/shouldProcessSentence";
 import { useDemoMode, getTimingConfig } from "@/lib/demoMode";
 import { normalizeText, makeFingerprint, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
-
-const isDev = process.env.NODE_ENV !== "production";
-const DEBUG_PRODS = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEBUG_PRODS === '1';
+import { debug } from "@/lib/debug";
 
 interface OngoingRequest {
     id: string;
@@ -113,8 +111,8 @@ export function useProds(options: UseProdsOptions = {}) {
             request.controller.abort();
         });
         ongoingRequestsRef.current.clear();
-        if (requestCount > 0 && isDev) {
-            console.log(`🗑️ Cancelled all ${requestCount} ongoing requests`);
+        if (requestCount > 0) {
+            debug.dev(`🗑️ Cancelled all ${requestCount} ongoing requests`);
         }
     }, []);
 
@@ -139,10 +137,8 @@ export function useProds(options: UseProdsOptions = {}) {
 
         try {
             queueDispatch({ type: 'START_PROCESSING', payload: id });
-            if (isDev && DEBUG_PRODS) {
-                const age = Date.now() - item.timestamp;
-                console.log("🤖 Processing sentence:", sentence.text, `| age: ${age}ms`);
-            }
+            const age = Date.now() - item.timestamp;
+            debug.devProds("🤖 Processing sentence:", sentence.text, `| age: ${age}ms`);
 
             // Rate limiting: wait before making API calls
             await waitForRateLimit(config.rateLimitMs);
@@ -158,13 +154,13 @@ export function useProds(options: UseProdsOptions = {}) {
 
             const apiElapsed = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - apiStart;
 
-            if (isDev && DEBUG_PRODS) console.log("🎯 Enhanced API result:", data);
+            debug.devProds("🎯 Enhanced API result:", data);
 
             // Staleness gate: discard if topic changed since request started
             const req = ongoingRequestsRef.current.get(requestId);
             const topicChanged = req && req.topicVersion !== latestTopicVersionRef.current;
             if (topicChanged) {
-                if (isDev && DEBUG_PRODS) console.log("🗑️ Discarding stale prod due to topic change");
+                debug.devProds("🗑️ Discarding stale prod due to topic change");
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
                 ongoingRequestsRef.current.delete(requestId);
                 return;
@@ -173,7 +169,7 @@ export function useProds(options: UseProdsOptions = {}) {
             // Confidence gating: very permissive in demo mode, but bypass if force is true
             const confidenceThreshold = isDemoMode ? 0.05 : 0.5; // Even lower threshold for demo mode
             if (!item.force && typeof data?.confidence === 'number' && data.confidence <= confidenceThreshold) {
-                if (isDev && DEBUG_PRODS) console.log(`🔕 Low confidence (${data.confidence.toFixed(2)}) – skipping prod for sentence:`, sentence.text);
+                debug.devProds(`🔕 Low confidence (${data.confidence.toFixed(2)}) – skipping prod for sentence:`, sentence.text);
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
                 ongoingRequestsRef.current.delete(requestId);
                 return;
@@ -182,7 +178,7 @@ export function useProds(options: UseProdsOptions = {}) {
             // Ensure we have valid selected prod text (unless force is true)
             const selectedProdText = data?.selectedProd;
             if (!item.force && (!selectedProdText || typeof selectedProdText !== 'string' || !selectedProdText.trim())) {
-                if (isDev) console.log(`⚠️ No valid selected prod text | api: ${Math.round(apiElapsed)}ms`);
+                debug.dev(`⚠️ No valid selected prod text | api: ${Math.round(apiElapsed)}ms`);
                 queueDispatch({ type: 'FAIL_PROCESSING', payload: id });
                 ongoingRequestsRef.current.delete(requestId);
                 return;
@@ -200,7 +196,7 @@ export function useProds(options: UseProdsOptions = {}) {
                 timestamp: Date.now(),
             };
 
-            if (isDev && DEBUG_PRODS) console.log(`${config.emoji} ✅ Completed | api: ${Math.round(apiElapsed)}ms | prod:`, newProd);
+            debug.devProds(`${config.emoji} ✅ Completed | api: ${Math.round(apiElapsed)}ms | prod:`, newProd);
             // Mark this sentence text as recently produced to avoid overlaps
             const norm = normalizeText(sentence.text);
             const nowTs = Date.now();
@@ -211,8 +207,8 @@ export function useProds(options: UseProdsOptions = {}) {
             setProds((prev) => {
                 const keepPinned = prev.filter(p => pinnedIdsRef.current.has(p.id));
                 // More aggressive clearing: keep only pinned prods and the new one
-                if (DEBUG_PRODS && prev.length > keepPinned.length + 1) {
-                    console.log(`${config.emoji} 🗑️ Clearing ${prev.length - keepPinned.length - 1} old prods`);
+                if (prev.length > keepPinned.length + 1) {
+                    debug.prods(`${config.emoji} 🗑️ Clearing ${prev.length - keepPinned.length - 1} old prods`);
                 }
                 return [...keepPinned, newProd];
             });
@@ -224,12 +220,12 @@ export function useProds(options: UseProdsOptions = {}) {
 
             // Check if it was cancelled
             if (error instanceof Error && error.name === 'AbortError') {
-                if (isDev && DEBUG_PRODS) console.log("🚫 Request was cancelled for sentence:", sentence.text);
+                debug.devProds("🚫 Request was cancelled for sentence:", sentence.text);
                 queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
                 return;
             }
 
-            console.error("❌ Prod pipeline error:", error);
+            debug.error("❌ Prod pipeline error:", error);
             queueDispatch({ type: 'FAIL_PROCESSING', payload: id });
         }
     }, [waitForRateLimit, prods, options.topicKeywords]);
@@ -238,13 +234,13 @@ export function useProds(options: UseProdsOptions = {}) {
     useEffect(() => {
         const processQueue = async () => {
             if (queueState.isProcessing) {
-                if (isDev && DEBUG_PRODS) console.log("⏸️ Queue is already processing, skipping");
+                debug.devProds("⏸️ Queue is already processing, skipping");
                 return;
             }
 
             let pendingItems = queueState.items.filter(item => item.status === 'pending');
             if (pendingItems.length === 0) {
-                if (isDev && DEBUG_PRODS) console.log(`${config.emoji} 📭 No pending items in queue`);
+                debug.devProds(`${config.emoji} 📭 No pending items in queue`);
                 return;
             }
 
@@ -256,10 +252,10 @@ export function useProds(options: UseProdsOptions = {}) {
                     queueDispatch({ type: 'COMPLETE_PROCESSING', payload: item.id });
                 });
                 pendingItems = pendingItems.slice(-MAX_QUEUE_SIZE);
-                if (isDev && DEBUG_PRODS) console.log(`${config.emoji} 🗑️ Pruned queue to ${MAX_QUEUE_SIZE} most recent items`);
+                debug.devProds(`${config.emoji} 🗑️ Pruned queue to ${MAX_QUEUE_SIZE} most recent items`);
             }
 
-            if (isDev && DEBUG_PRODS) console.log(`${config.emoji} 🔄 Processing most recent pending item`);
+            debug.devProds(`${config.emoji} 🔄 Processing most recent pending item`);
             queueDispatch({ type: 'SET_PROCESSING', payload: true });
             // Process the most recent pending item (LIFO)
             const nextItem = pendingItems[pendingItems.length - 1];
@@ -287,7 +283,7 @@ export function useProds(options: UseProdsOptions = {}) {
         const lastProducedAt = recentSentenceTextMapRef.current.get(normalized);
         const demoChipTimeout = isDemoMode ? 120000 : 30000; // 2min for demo chips vs 30s for normal prods
         if (lastProducedAt && now - lastProducedAt < demoChipTimeout) {
-            if (DEBUG_PRODS) console.log(`${config.emoji} 🚫 Skipping duplicate prod for recently produced text:`, sentence.text.substring(0, 50) + "...");
+            debug.prods(`${config.emoji} 🚫 Skipping duplicate prod for recently produced text:`, sentence.text.substring(0, 50) + "...");
             return;
         }
 
@@ -315,7 +311,7 @@ export function useProds(options: UseProdsOptions = {}) {
     }, [prods]);
 
     const callProdAPI = useCallback((fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
-        if (DEBUG_PRODS) console.log(`${config.emoji} 📝 callProdAPI called for sentence:`, sentence.text.substring(0, 50) + "...");
+        debug.prods(`${config.emoji} 📝 callProdAPI called for sentence:`, sentence.text.substring(0, 50) + "...");
 
         // Clean old fingerprints (>30s) periodically
         const now = Date.now();
@@ -328,7 +324,7 @@ export function useProds(options: UseProdsOptions = {}) {
         const lastProducedAtEarly = recentSentenceTextMapRef.current.get(normalizedText);
         const recentProdTimeout = isDemoMode ? 120000 : 30000; // 2min in demo vs 30s in prod
         if (lastProducedAtEarly && now - lastProducedAtEarly < recentProdTimeout) {
-            if (DEBUG_PRODS) console.log(`${config.emoji} 🚫 Prod already exists for this text recently, blocking:`, sentence.text.substring(0, 50) + "...");
+            debug.prods(`${config.emoji} 🚫 Prod already exists for this text recently, blocking:`, sentence.text.substring(0, 50) + "...");
             return;
         }
         cleanupOlderThan(sentenceFingerprintsRef.current, cleanupThreshold, now);
@@ -341,13 +337,13 @@ export function useProds(options: UseProdsOptions = {}) {
         const lastProcessedAt = sentenceFingerprintsRef.current.get(fingerprint);
         const fingerprintTimeout = isDemoMode ? 60000 : 15000; // 60s in demo vs 15s in prod (prevent demo overlaps)
         if (lastProcessedAt && now - lastProcessedAt < fingerprintTimeout) {
-            if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Similar sentence processed recently, skipping:`, sentence.text.substring(0, 50) + "...");
+            debug.prods(`${config.emoji} 🔄 Similar sentence processed recently, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
 
         // Pre-filter sentences to skip obvious non-candidates
         if (!opts?.force && !shouldProcessSentence(sentence)) {
-            if (DEBUG_PRODS) console.log(`${config.emoji} ⏭️ Skipping sentence:`, sentence.text);
+            debug.prods(`${config.emoji} ⏭️ Skipping sentence:`, sentence.text);
             return;
         }
 
@@ -357,14 +353,14 @@ export function useProds(options: UseProdsOptions = {}) {
         // Skip if we've produced for this text recently (much longer timeout in demo mode)
         const textTimeout = isDemoMode ? 60000 : 20000; // 60s in demo vs 20s in prod (prevent overlaps with demo chips)
         if (hasRecent(recentSentenceTextMapRef.current, normalized, textTimeout, now)) {
-            if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
+            debug.prods(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
 
         // Cancel any existing requests for this sentence to prevent stale prods
         for (const [requestId, request] of ongoingRequestsRef.current.entries()) {
             if (request.sentenceId === sentence.id) {
-                if (DEBUG_PRODS) console.log(`${config.emoji} 🚫 Cancelling existing request for sentence:`, sentence.text.substring(0, 50) + "...");
+                debug.prods(`${config.emoji} 🚫 Cancelling existing request for sentence:`, sentence.text.substring(0, 50) + "...");
                 request.controller.abort();
                 ongoingRequestsRef.current.delete(requestId);
             }
@@ -373,14 +369,14 @@ export function useProds(options: UseProdsOptions = {}) {
         // Simple duplicate check: if we already have a prod for this exact sentence id, skip
         const existingProd = prods.find(p => p.sentenceId === sentence.id);
         if (existingProd) {
-            if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Prod already exists for this sentence, skipping:`, sentence.text.substring(0, 50) + "...");
+            debug.prods(`${config.emoji} 🔄 Prod already exists for this sentence, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
 
         // Check if we already have this sentence in the queue (pending or processing)
         const existingInQueue = queueState.items.some(item => item.sentence.text.trim().toLowerCase() === normalized);
         if (existingInQueue) {
-            if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Sentence already in queue, skipping:`, sentence.text.substring(0, 50) + "...");
+            debug.prods(`${config.emoji} 🔄 Sentence already in queue, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
 
@@ -389,7 +385,7 @@ export function useProds(options: UseProdsOptions = {}) {
             p.sentenceId === sentence.id && now - p.timestamp < (isDemoMode ? 2000 : 5000) // 2s in demo vs 5s in prod
         );
         if (recentProdForSentence) {
-            if (DEBUG_PRODS) console.log(`${config.emoji} 🔄 Recent prod exists for this sentence ID, skipping:`, sentence.text.substring(0, 50) + "...");
+            debug.prods(`${config.emoji} 🔄 Recent prod exists for this sentence ID, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
 
@@ -402,7 +398,7 @@ export function useProds(options: UseProdsOptions = {}) {
             const exists = prev.some(s => s.id === sentence.id);
             if (exists) return prev;
 
-            if (DEBUG_PRODS) console.log("💾 Caching filtered sentence for embeddings:", sentence.text.substring(0, 50) + "...");
+            debug.prods("💾 Caching filtered sentence for embeddings:", sentence.text.substring(0, 50) + "...");
             return [...prev, sentence];
         });
 
@@ -414,7 +410,7 @@ export function useProds(options: UseProdsOptions = {}) {
             force: opts?.force,
         };
 
-        if (DEBUG_PRODS) console.log(`${config.emoji} 📝 Adding to queue:`, sentence.text.substring(0, 50) + "...");
+        debug.prods(`${config.emoji} 📝 Adding to queue:`, sentence.text.substring(0, 50) + "...");
         queueDispatch({ type: 'ENQUEUE', payload: queueItem });
     }, [queueState.items, prods, config]);
 
@@ -446,7 +442,7 @@ export function useProds(options: UseProdsOptions = {}) {
 
     // Handle topic shift - cancel relevant requests
     const handleTopicShift = useCallback(() => {
-        if (isDev && DEBUG_PRODS) console.log(`${config.emoji} 🌟 Topic shift detected — cancelling and clearing queue`);
+        debug.devProds(`${config.emoji} 🌟 Topic shift detected — cancelling and clearing queue`);
         // Cancel all in-flight requests and clear pending items so no stale prods surface
         cancelAllRequests();
         queueDispatch({ type: 'CLEAR_QUEUE' });
@@ -455,13 +451,13 @@ export function useProds(options: UseProdsOptions = {}) {
         sentenceFingerprintsRef.current.clear();
         recentSentenceTextMapRef.current.clear();
 
-        if (isDev && DEBUG_PRODS) console.log(`${config.emoji} 🗑️ Cleared all prod-related state for topic shift`);
+        debug.devProds(`${config.emoji} 🗑️ Cleared all prod-related state for topic shift`);
         options.onTopicShift?.();
     }, [cancelAllRequests, options.onTopicShift, config]);
 
     // Clear cached sentences (for new writing sessions)
     const clearFilteredSentences = useCallback(() => {
-        if (DEBUG_PRODS) console.log(`${config.emoji} 🗑️ Clearing cached filtered sentences`);
+        debug.prods(`${config.emoji} 🗑️ Clearing cached filtered sentences`);
         setFilteredSentences([]);
         // Also clear fingerprints when clearing sentences
         sentenceFingerprintsRef.current.clear();

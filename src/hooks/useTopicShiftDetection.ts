@@ -19,7 +19,6 @@ export function useTopicShiftDetection({
 
     const [hasTopicShift, setHasTopicShift] = useState(false);
     const [topicVersion, setTopicVersion] = useState(0);
-    const lastShiftTimeRef = useRef<number>(0);
     type TopicShiftCb = (newKeywords: string[], oldKeywords: string[]) => void;
     const onTopicShiftRef = useRef<TopicShiftCb | undefined>(onTopicShift);
 
@@ -42,7 +41,6 @@ export function useTopicShiftDetection({
             if (shift) {
                 setHasTopicShift(true);
                 onTopicShiftRef.current?.(newKeywords, prev.keywords);
-                lastShiftTimeRef.current = Date.now();
                 setTopicVersion((v) => v + 1);
             }
 

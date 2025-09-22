@@ -2,7 +2,8 @@ import type { Prod } from "@/types/prod";
 import type { SentencePosition } from "@/types/sentence";
 import { CHIP_LAYOUT } from "@/lib/constants";
 import { makeFingerprint } from "@/lib/dedup";
-import { logger, isMobileViewport, measureTextWidth } from "@/lib/helpers";
+import { isMobileViewport, measureTextWidth } from "@/lib/helpers";
+import { debug } from "@/lib/debug";
 
 export interface ChipPlacement {
     h: number;
@@ -87,7 +88,7 @@ export function calculateChipLayout(
     const result = new Map<string, ChipPlacement>();
     const prodGroups = groupProdsBySentence(prods);
 
-    logger.debug(`Calculating chip layout for ${prods.length} prods in ${prodGroups.size} sentences | ${isMobile ? 'mobile' : 'desktop'} mode | container: ${containerWidth}px`);
+    debug.dev(`Calculating chip layout for ${prods.length} prods in ${prodGroups.size} sentences | ${isMobile ? 'mobile' : 'desktop'} mode | container: ${containerWidth}px`);
 
     // Sort sentences by position (top to bottom, like existing clustering logic)
     const sortedSentences = Array.from(prodGroups.keys())
@@ -128,7 +129,7 @@ export function calculateChipLayout(
             // Clamp to min/max width
             const clampedWidth = Math.min(maxWidth, Math.max(minWidth, actualWidth));
 
-            logger.debug(`Text measurement for "${makeFingerprint(prod.text)}": textWidth=${textWidth}, actualWidth=${actualWidth}, clampedWidth=${clampedWidth}`);
+            debug.dev(`Text measurement for "${makeFingerprint(prod.text)}": textWidth=${textWidth}, actualWidth=${actualWidth}, clampedWidth=${clampedWidth}`);
 
             return clampedWidth;
         });
@@ -152,13 +153,13 @@ export function calculateChipLayout(
             startX = CHIP_LAYOUT.BOUNDARY_PAD;
         }
 
-        logger.debug(`Positioning sentence chips: totalWidth=${totalWidth}px, availableSpace=${availableSpace}px, preferredStart=${preferredStart}, actualStart=${startX}`);
+        debug.dev(`Positioning sentence chips: totalWidth=${totalWidth}px, availableSpace=${availableSpace}px, preferredStart=${preferredStart}, actualStart=${startX}`);
 
         // Check if entire sentence group fits
         const sentenceSkipped: string[] = [];
 
         if (totalWidth > containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD)) {
-            logger.warn(`Sentence group too wide: ${totalWidth}px > ${containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD)}px available | sentence: "${pos!.left}"`, {
+            debug.warn(`Sentence group too wide: ${totalWidth}px > ${containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD)}px available | sentence: "${pos!.left}"`, {
                 sentenceId,
                 chipCount: sorted.length,
                 totalWidth,
@@ -202,7 +203,7 @@ export function calculateChipLayout(
                     width: chipWidth
                 });
 
-                logger.debug(`Mobile positioned chip "${makeFingerprint(prod.text)}": h=${placement.h}, v=${placement.v}, absoluteX=${clampedX}, chipWidth=${chipWidth}, containerWidth=${containerWidth}, availableSpace=${containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD)}`);
+                debug.dev(`Mobile positioned chip "${makeFingerprint(prod.text)}": h=${placement.h}, v=${placement.v}, absoluteX=${clampedX}, chipWidth=${chipWidth}, containerWidth=${containerWidth}, availableSpace=${containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD)}`);
             }
         } else {
             // Desktop: Complex multi-lane positioning with collision detection
@@ -238,7 +239,7 @@ export function calculateChipLayout(
 
                         if (absoluteLeft < leftBoundary || absoluteRight > rightBoundary) {
                             hasCollision = true;
-                            logger.debug(`Boundary collision for "${makeFingerprint(prod.text)}": left=${absoluteLeft}, right=${absoluteRight}, boundaries=${leftBoundary}-${rightBoundary}, containerWidth=${containerWidth}, safetyMargin=${safetyMargin}`);
+                            debug.dev(`Boundary collision for "${makeFingerprint(prod.text)}": left=${absoluteLeft}, right=${absoluteRight}, boundaries=${leftBoundary}-${rightBoundary}, containerWidth=${containerWidth}, safetyMargin=${safetyMargin}`);
                             continue; // Try next horizontal position
                         }
 
@@ -247,7 +248,7 @@ export function calculateChipLayout(
                             if (chipsOverlapVertically(pos!, placedChip.position, testOffsetY, placedChip.offsetY) &&
                                 chipsOverlapHorizontally(pos!, placedChip.position, testX - pos!.left, placedChip.offsetX, chipWidth, placedChip.width)) {
                                 hasCollision = true;
-                                logger.debug(`Collision detected for "${makeFingerprint(prod.text)}" at lane ${lane}, shift ${shift}`);
+                                debug.dev(`Collision detected for "${makeFingerprint(prod.text)}" at lane ${lane}, shift ${shift}`);
                                 break;
                             }
                         }
@@ -263,7 +264,7 @@ export function calculateChipLayout(
 
                 // If no position found, skip this chip
                 if (!foundPosition) {
-                    logger.warn(`No position found for chip "${makeFingerprint(prod.text)}" - skipping`);
+                    debug.warn(`No position found for chip "${makeFingerprint(prod.text)}" - skipping`);
                     sentenceSkipped.push(makeFingerprint(prod.text));
                     totalSkipped++;
                     continue;
@@ -285,7 +286,7 @@ export function calculateChipLayout(
                     width: chipWidth
                 });
 
-                logger.debug(`Desktop positioned chip "${makeFingerprint(prod.text)}": h=${placement.h}, v=${placement.v}, absoluteX=${bestX}, chipWidth=${chipWidth}, sentenceTop=${pos!.top}, sentenceLeft=${pos!.left}`);
+                debug.dev(`Desktop positioned chip "${makeFingerprint(prod.text)}": h=${placement.h}, v=${placement.v}, absoluteX=${bestX}, chipWidth=${chipWidth}, sentenceTop=${pos!.top}, sentenceLeft=${pos!.left}`);
 
                 // Update currentX for next chip (but use original positioning logic for spacing)
                 currentX += chipWidth + spacing;
@@ -294,7 +295,7 @@ export function calculateChipLayout(
 
         // Log skipped chips for this sentence
         if (sentenceSkipped.length > 0) {
-            logger.warn(`Skipped ${sentenceSkipped.length} chips due to overflow in sentence:`, {
+            debug.warn(`Skipped ${sentenceSkipped.length} chips due to overflow in sentence:`, {
                 sentenceId,
                 skippedChips: sentenceSkipped,
                 containerWidth,
@@ -304,7 +305,7 @@ export function calculateChipLayout(
         }
     }
 
-    logger.debug(`Chip layout complete: ${result.size} positioned, ${totalSkipped} skipped | container: ${containerWidth}px`);
+    debug.dev(`Chip layout complete: ${result.size} positioned, ${totalSkipped} skipped | container: ${containerWidth}px`);
 
     return result;
 }

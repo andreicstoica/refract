@@ -7,6 +7,7 @@ import type { SentencePosition } from "@/types/sentence";
 import { useProds } from "@/hooks/useProds";
 import { useTopicShiftDetection } from "@/hooks/useTopicShiftDetection";
 import { useTextProcessing } from "@/hooks/useTextProcessing";
+import { debug } from "@/lib/debug";
 import { ChipOverlay } from "./ChipOverlay";
 import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/constants";
 
@@ -42,9 +43,7 @@ export function TextInput({
     useTopicShiftDetection({
       text: currentText,
       onTopicShift: () => {
-        if (process.env.NODE_ENV !== "production") {
-          console.log("🌟 Topic shift detected in TextInput");
-        }
+        debug.dev("🌟 Topic shift detected in TextInput");
       },
     });
 
@@ -55,12 +54,18 @@ export function TextInput({
 
   // Enhanced prod management with topic shift integration
   const onProdTopicShift = useCallback(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("🎯 Topic shift handled by prod system");
-    }
+    debug.dev("🎯 Topic shift handled by prod system");
   }, []);
 
-  const { prods, callProdAPI, injectProd, handleTopicShift, pinProd, removeProd, pinnedIds } = useProds({
+  const {
+    prods,
+    callProdAPI,
+    injectProd,
+    handleTopicShift,
+    pinProd,
+    removeProd,
+    pinnedIds,
+  } = useProds({
     onTopicShift: onProdTopicShift,
     topicKeywords: currentKeywordsRef.current,
     topicVersion,
@@ -70,7 +75,6 @@ export function TextInput({
   const { text, sentences, sentencePositions, textareaRef, handleTextChange } =
     useTextProcessing({
       onProdTrigger: callProdAPI,
-      onImmediateProd: (fullText, sentence, prodText) => injectProd(fullText, sentence, prodText),
       onTextChange: (newText) => {
         setCurrentText(newText);
         onTextChange?.(newText);
@@ -181,19 +185,19 @@ export function TextInput({
               value={text}
               onChange={handleTextChange}
               placeholder={placeholder}
-            className={cn(
-              `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex relative z-10`,
-              "py-6 h-full scrollbar-thin scroll-keyboard-safe scrollable"
-            )}
-            style={{
-              caretColor: "currentColor",
-              overflowY: "auto",
-              overflowX: "hidden",
-              resize: "none",
-              ...TEXT_DISPLAY_STYLES.INLINE_STYLES,
-              paddingTop: `${24 + (extraTopPaddingPx || 0)}px`,
-              transition: "padding-top 400ms ease-out",
-            }}
+              className={cn(
+                `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex relative z-10`,
+                "py-6 h-full scrollbar-thin scroll-keyboard-safe scrollable"
+              )}
+              style={{
+                caretColor: "currentColor",
+                overflowY: "auto",
+                overflowX: "hidden",
+                resize: "none",
+                ...TEXT_DISPLAY_STYLES.INLINE_STYLES,
+                paddingTop: `${24 + (extraTopPaddingPx || 0)}px`,
+                transition: "padding-top 400ms ease-out",
+              }}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"

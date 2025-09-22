@@ -8,6 +8,7 @@ import { TEXTAREA_CLASSES } from "@/lib/constants";
 import { cn } from "@/lib/helpers";
 import { useRafScroll } from "@/hooks/useRafScroll";
 import { calculateChipLayout } from "@/services/chipLayoutService";
+import { debug } from "@/lib/debug";
 
 interface ChipOverlayProps {
   visibleProds: Prod[];
@@ -37,16 +38,14 @@ export function ChipOverlay({
     [sentencePositions]
   );
 
-  const findFallbackPosition = useCallback(
+  const findFallback = useCallback(
     (prod: Prod): SentencePosition | undefined => {
       if (!prod.sourceText) {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn(
-            "🎯 No sourceText for prod:",
-            prod.id,
-            prod.text.slice(0, 30)
-          );
-        }
+        debug.warn(
+          "🎯 No sourceText for prod:",
+          prod.id,
+          prod.text.slice(0, 30)
+        );
         return undefined;
       }
 
@@ -73,20 +72,18 @@ export function ChipOverlay({
         );
       }
 
-      if (process.env.NODE_ENV !== "production") {
-        if (match) {
-          console.log("🎯 Fallback match found:", {
-            prodText: prod.text.slice(0, 30),
-            sourceText: prod.sourceText.slice(0, 30),
-            matchedSentence: match.text.slice(0, 30),
-          });
-        } else {
-          console.warn("🎯 No fallback match found for:", {
-            prodText: prod.text.slice(0, 30),
-            sourceText: prod.sourceText.slice(0, 30),
-            availableSentences: sentences.map((s) => s.text.slice(0, 20)),
-          });
-        }
+      if (match) {
+        debug.dev("🎯 Fallback match found:", {
+          prodText: prod.text.slice(0, 30),
+          sourceText: prod.sourceText.slice(0, 30),
+          matchedSentence: match.text.slice(0, 30),
+        });
+      } else {
+        debug.warn("🎯 No fallback match found for:", {
+          prodText: prod.text.slice(0, 30),
+          sourceText: prod.sourceText.slice(0, 30),
+          availableSentences: sentences.map((s) => s.text.slice(0, 20)),
+        });
       }
 
       if (!match) return undefined;
@@ -171,16 +168,14 @@ export function ChipOverlay({
       >
         {visibleProds.map((prod) => {
           const sentencePosition =
-            positionMap.get(prod.sentenceId) || findFallbackPosition(prod);
+            positionMap.get(prod.sentenceId) || findFallback(prod);
           if (!sentencePosition) {
-            if (process.env.NODE_ENV !== "production") {
-              console.warn("🎯 No sentence position found for prod:", {
-                prodId: prod.id,
-                sentenceId: prod.sentenceId,
-                prodText: prod.text.slice(0, 30) + "...",
-                sourceText: prod.sourceText?.slice(0, 30) + "...",
-              });
-            }
+            debug.warn("🎯 No sentence position found for prod:", {
+              prodId: prod.id,
+              sentenceId: prod.sentenceId,
+              prodText: prod.text.slice(0, 30) + "...",
+              sourceText: prod.sourceText?.slice(0, 30) + "...",
+            });
             return null;
           }
           const offsets = layoutByProdId.get(prod.id);

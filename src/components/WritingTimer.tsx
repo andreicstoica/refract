@@ -26,18 +26,6 @@ export function WritingTimer({
   const hasTriggeredComplete = useRef(false);
   const hasFiredThreshold = useRef(false);
 
-  // Keep the callback ref updated
-  useEffect(() => {
-    onTimerCompleteRef.current = onTimerComplete;
-  }, [onTimerComplete]);
-
-  const onTimerCompleteRef = useRef(onTimerComplete);
-  const onThresholdRef = useRef(onThreshold);
-
-  useEffect(() => {
-    onThresholdRef.current = onThreshold;
-  }, [onThreshold]);
-
   // Start timer immediately when component mounts
   useEffect(() => {
     setIsRunning(true);
@@ -70,24 +58,24 @@ export function WritingTimer({
     if (timeLeft <= 0 && !hasTriggeredComplete.current) {
       hasTriggeredComplete.current = true;
       setTimeout(() => {
-        onTimerCompleteRef.current();
+        onTimerComplete();
       }, 0);
     }
-  }, [timeLeft]);
+  }, [timeLeft, onTimerComplete]);
 
   // Fire threshold callback once when timeLeft crosses or equals threshold
   useEffect(() => {
     if (
       typeof thresholdSeconds === "number" &&
       !hasFiredThreshold.current &&
-      timeLeft <= thresholdSeconds
+      timeLeft <= thresholdSeconds &&
+      onThreshold
     ) {
       hasFiredThreshold.current = true;
       // Defer to avoid calling during render cycle
-      const cb = onThresholdRef.current;
-      if (cb) setTimeout(() => cb(timeLeft), 0);
+      setTimeout(() => onThreshold(timeLeft), 0);
     }
-  }, [timeLeft, thresholdSeconds]);
+  }, [timeLeft, thresholdSeconds, onThreshold]);
 
   const pauseTimer = () => {
     if (intervalRef.current) {

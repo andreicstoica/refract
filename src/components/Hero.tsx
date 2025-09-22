@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useHeroKeyboard } from "@/hooks/useHeroKeyboard";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/helpers";
 import { Spotlight } from "@/components/ui/Spotlight";
@@ -24,10 +23,6 @@ const mockChips = [
 ];
 
 export function Hero() {
-  const { isEnterPressed } = useHeroKeyboard({
-    onEnterPressed: () => {}, // We'll handle the navigation in the button click
-  });
-
   const [currentChipIndex, setCurrentChipIndex] = useState(0);
   const [showChip, setShowChip] = useState(false); // Start hidden
   const [shouldFade, setShouldFade] = useState(false);
@@ -135,19 +130,11 @@ export function Hero() {
       </h2>
       <Link href="/write">
         <Button
-          className={cn(
-            "group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-all duration-150 relative z-10",
-            isEnterPressed && "bg-primary/80 scale-95 shadow-inner"
-          )}
+          className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md font-medium transition-all duration-150 relative z-10"
           data-hero-button
         >
           Try Writing
-          <ChevronRight
-            className={cn(
-              "w-4 h-4 transition-transform group-hover:translate-x-0.5",
-              isEnterPressed && "translate-x-0.5"
-            )}
-          />
+          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
         </Button>
       </Link>
     </div>

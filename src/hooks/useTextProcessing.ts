@@ -4,11 +4,11 @@ import type { Sentence } from "@/types/sentence";
 import { measureSentencePositions, clearPositionCache } from "@/lib/sentences";
 import type { SentencePosition } from "@/types/sentence";
 import { useDemoMode, getTimingConfig } from "@/lib/demoMode";
+import { debug } from "@/lib/debug";
 
 
 interface UseTextProcessingOptions {
     onProdTrigger: (fullText: string, lastSentence: Sentence, opts?: { force?: boolean }) => void;
-    onImmediateProd?: (fullText: string, sentence: Sentence, prodText: string) => void;
     onTextChange?: (text: string) => void;
     onTextUpdate?: (
         text: string,
@@ -24,7 +24,6 @@ const SOFT_PUNCT_MIN_CHARS_SINCE = 8; // avoid over-firing on tiny pauses
 
 export function useTextProcessing({
     onProdTrigger,
-    onImmediateProd,
     onTextChange,
     onTextUpdate,
     prodsEnabled = true,
@@ -64,7 +63,7 @@ export function useTextProcessing({
             if (textarea && sentences.length > 0) {
                 const positions = measurePositions(sentences, textarea);
                 setSentencePositions(positions);
-                if (process.env.NODE_ENV !== "production") console.log("📍 Updated sentence positions:", positions.length, "positions");
+                debug.dev("📍 Updated sentence positions:", positions.length, "positions");
             }
         },
         [measurePositions]
@@ -93,36 +92,28 @@ export function useTextProcessing({
 
         // Check cooldown
         if (now - lastTriggerAtRef.current < config.cooldownMs) {
-            if (process.env.NODE_ENV !== "production") {
-                console.log(`${config.emoji} ⏰ Cooldown active, skipping trigger for:`, lastSentence.text.substring(0, 30) + "...");
-            }
+            debug.dev(`${config.emoji} ⏰ Cooldown active, skipping trigger for:`, lastSentence.text.substring(0, 30) + "...");
             return false;
         }
 
         // Early content filter: require more substantial content for first few prods
         const charsSoFar = currentText.length;
         if (charsSoFar < 50 && lastSentence.text.length < 20) {
-            if (process.env.NODE_ENV !== "production") {
-                console.log(`${config.emoji} ⏸️ Early content too short, waiting for more substantial text`);
-            }
+            debug.dev(`${config.emoji} ⏸️ Early content too short, waiting for more substantial text`);
             return false;
         }
 
-        if (process.env.NODE_ENV !== "production") {
-            console.log(`${config.emoji} ✅ Should trigger prod for:`, lastSentence.text.substring(0, 30) + "...");
-        }
+        debug.dev(`${config.emoji} ✅ Should trigger prod for:`, lastSentence.text.substring(0, 30) + "...");
         return true;
     }, [config]);
 
     // Helper to trigger prod and update tracking state
     const triggerProd = useCallback((currentText: string, lastSentence: Sentence, opts?: { force?: boolean }) => {
-        if (process.env.NODE_ENV !== "production") {
-            console.log(`${config.emoji} 🚀 Triggering prod for sentence:`, lastSentence.text);
-        }
+        debug.dev(`${config.emoji} 🚀 Triggering prod for sentence:`, lastSentence.text);
         if (prodsEnabled) {
             onProdTrigger(currentText, lastSentence, opts);
         } else {
-            if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⏸️ Prods disabled; skipping trigger`);
+            debug.dev(`${config.emoji} ⏸️ Prods disabled; skipping trigger`);
         }
 
         // Update tracking state
@@ -163,15 +154,13 @@ export function useTextProcessing({
 
             // No special demo scheduling/injection; rely on normal triggers with loose config
 
-            if (process.env.NODE_ENV !== "production") {
-                console.log("🔍 Trigger analysis:", {
-                    sentenceText: lastSentence.text.substring(0, 50) + "...",
-                    hasPunctuation,
-                    charsSince,
-                    sentenceLength: lastSentence.text.length,
-                    shouldTrigger: shouldTriggerProd(currentText, lastSentence)
-                });
-            }
+            debug.dev("🔍 Trigger analysis:", {
+                sentenceText: lastSentence.text.substring(0, 50) + "...",
+                hasPunctuation,
+                charsSince,
+                sentenceLength: lastSentence.text.length,
+                shouldTrigger: shouldTriggerProd(currentText, lastSentence)
+            });
 
             // Clear any existing settling timer
             if (settlingTimerRef.current) {
@@ -181,17 +170,17 @@ export function useTextProcessing({
             // Normal trigger logic only
             if (shouldTriggerProd(currentText, lastSentence)) {
                 if (hasPunctuation) {
-                    if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⚙️ Punctuation trigger detected`);
+                    debug.dev(`${config.emoji} ⚙️ Punctuation trigger detected`);
                     triggerProd(currentText, lastSentence);
                 } else if (hasSoftComma && lastSentence.text.length >= SOFT_PUNCT_MIN_LEN && charsSince >= SOFT_PUNCT_MIN_CHARS_SINCE) {
-                    if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⚙️ Soft comma trigger detected`);
+                    debug.dev(`${config.emoji} ⚙️ Soft comma trigger detected`);
                     triggerProd(currentText, lastSentence);
                 } else if (charsSince >= config.charTrigger) {
-                    if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⚙️ Character threshold trigger detected`);
+                    debug.dev(`${config.emoji} ⚙️ Character threshold trigger detected`);
                     triggerProd(currentText, lastSentence);
                 } else {
                     // Set settling timer - trigger when user stops typing for a bit
-                    if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ⏳ Setting settling timer (${config.settlingMs}ms)`);
+                    debug.dev(`${config.emoji} ⏳ Setting settling timer (${config.settlingMs}ms)`);
                     settlingTimerRef.current = setTimeout(() => {
                         const latestText = textareaRef.current?.value || "";
                         const currentSentences = splitIntoSentences(latestText);
@@ -204,7 +193,7 @@ export function useTextProcessing({
                     }, config.settlingMs);
                 }
             } else {
-                if (process.env.NODE_ENV !== "production") console.log(`${config.emoji} ❌ Trigger conditions not met for:`, lastSentence.text.substring(0, 30) + "...");
+                debug.dev(`${config.emoji} ❌ Trigger conditions not met for:`, lastSentence.text.substring(0, 30) + "...");
             }
 
             // Update positions immediately
@@ -230,7 +219,7 @@ export function useTextProcessing({
             if (textareaRef.current && sentences.length > 0) {
                 clearPositionCache();
                 updatePositions(sentences, textareaRef.current);
-                if (process.env.NODE_ENV !== "production") console.log("🔄 Repositioned chips after resize");
+                debug.dev("🔄 Repositioned chips after resize");
             }
         };
 
