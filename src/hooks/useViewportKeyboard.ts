@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { debug } from "@/lib/debug";
 
 interface ViewportKeyboardState {
   keyboardHeight: number;
@@ -29,14 +30,12 @@ export function useViewportKeyboard() {
   useEffect(() => {
     // Check if Visual Viewport API is supported (iOS Safari 13+)
     if (typeof window === "undefined" || !window.visualViewport) {
-      if (process.env.NODE_ENV !== "production") {
-        console.log("📱 Visual Viewport API not supported, using fallback");
-      }
+      debug.dev("📱 Visual Viewport API not supported, using fallback");
       return;
     }
 
     const visualViewport = window.visualViewport;
-    
+
     const updateKeyboardState = () => {
       // Cancel any pending RAF
       if (rafRef.current) {
@@ -59,27 +58,25 @@ export function useViewportKeyboard() {
         // Only update state if values have changed significantly (avoid jitter)
         const prevState = prevStateRef.current;
         const heightDiff = Math.abs(newState.keyboardHeight - prevState.keyboardHeight);
-        const hasSignificantChange = 
+        const hasSignificantChange =
           heightDiff > 10 || // At least 10px difference
           newState.isKeyboardVisible !== prevState.isKeyboardVisible;
 
         if (hasSignificantChange) {
           setState(newState);
           prevStateRef.current = newState;
-          
+
           // Set CSS variable for keyboard-safe spacing
           const kbSafeValue = isKeyboardVisible ? `${keyboardHeight}px` : '0px';
           document.documentElement.style.setProperty('--kb-safe', kbSafeValue);
-          
-          if (process.env.NODE_ENV !== "production") {
-            console.log('📱 Keyboard state updated:', {
-              keyboardHeight,
-              isKeyboardVisible,
-              visualViewportHeight,
-              windowHeight,
-              kbSafeValue,
-            });
-          }
+
+          debug.dev('📱 Keyboard state updated:', {
+            keyboardHeight,
+            isKeyboardVisible,
+            visualViewportHeight,
+            windowHeight,
+            kbSafeValue,
+          });
         }
       });
     };
@@ -94,11 +91,11 @@ export function useViewportKeyboard() {
     return () => {
       visualViewport.removeEventListener('resize', updateKeyboardState);
       visualViewport.removeEventListener('scroll', updateKeyboardState);
-      
+
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
-      
+
       // Clean up CSS variable
       document.documentElement.style.removeProperty('--kb-safe');
     };
@@ -117,7 +114,7 @@ export function useViewportKeyboardCSSVar() {
     if (typeof window === "undefined" || !window.visualViewport) {
       // Fallback: use safe-area-inset-bottom for older iOS
       document.documentElement.style.setProperty(
-        '--kb-safe', 
+        '--kb-safe',
         'env(safe-area-inset-bottom, 0px)'
       );
       return;
@@ -125,16 +122,16 @@ export function useViewportKeyboardCSSVar() {
 
     const visualViewport = window.visualViewport;
     let rafId: number | null = null;
-    
+
     const updateCSSVar = () => {
       if (rafId) cancelAnimationFrame(rafId);
-      
+
       rafId = requestAnimationFrame(() => {
         const windowHeight = window.innerHeight;
         const visualViewportHeight = visualViewport.height;
         const keyboardHeight = Math.max(0, windowHeight - visualViewportHeight);
         const kbSafeValue = keyboardHeight > 0 ? `${keyboardHeight}px` : '0px';
-        
+
         document.documentElement.style.setProperty('--kb-safe', kbSafeValue);
       });
     };
