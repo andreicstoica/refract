@@ -5,27 +5,6 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
-// Centralized development mode detection
-export const isDev = process.env.NODE_ENV !== "production";
-
-// Centralized logger for consistent debug output
-export const logger = {
-	debug: (message: string, data?: any) => {
-		if (isDev) {
-			console.log(`🔍 ${message}`, data || "");
-		}
-	},
-	warn: (message: string, data?: any) => {
-		if (isDev) {
-			console.warn(`⚠️ ${message}`, data || "");
-		}
-	},
-	error: (message: string, data?: any) => {
-		if (isDev) {
-			console.error(`❌ ${message}`, data || "");
-		}
-	}
-};
 
 // Mobile detection utility
 export function isMobileViewport(containerWidth: number, breakpoint: number = 480): boolean {
