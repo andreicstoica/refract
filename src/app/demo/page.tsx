@@ -21,7 +21,6 @@ import type { Sentence, SentencePosition } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
 import { AnimatePresence, motion } from "framer-motion";
 import { prewarmProd } from "@/services/prodClient";
-import { usePageScrollLock } from "@/hooks/usePageScrollLock";
 import { useHeaderRevealAnimation } from "@/hooks/useHeaderRevealAnimation";
 import { DEMO_TEXT } from "@/lib/demoMode";
 
@@ -51,7 +50,6 @@ export default function DemoPage() {
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
-  usePageScrollLock();
 
   // Pre-load demo content to clipboard
   useEffect(() => {
