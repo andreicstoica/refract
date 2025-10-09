@@ -20,7 +20,6 @@ import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAggressiveScrollLock } from "@/hooks/useAggressiveScrollLock";
 import { useHeaderRevealAnimation } from "@/hooks/useHeaderRevealAnimation";
 
 export default function WritePage() {
@@ -52,8 +51,6 @@ export default function WritePage() {
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
-  // Effects
-  useAggressiveScrollLock();
 
   const handleTimerStart = (minutes: number) => {
     setTimerMinutes(minutes);

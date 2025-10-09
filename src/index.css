@@ -20,9 +20,10 @@
 html,
 body {
 	@apply bg-white dark:bg-gray-950;
-	/* Relaxed global touch handling; page-level scroll lock is done via hooks */
+	/* Prevent page-level scrolling; only textarea/scrollable elements can scroll */
 	touch-action: auto;
 	overscroll-behavior: none;
+	overflow: hidden;
 }
 
 /* Allow touch-action only on scrollable elements */
