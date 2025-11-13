@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { queueReducer } from "@/hooks/useProds";
+import { queueReducer } from "@/features/prods/hooks/useProds";
 import type { QueueState } from "@/types/queue";
 import type { Sentence } from "@/types/sentence";
 

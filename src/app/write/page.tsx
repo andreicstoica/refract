@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IntroModal } from "@/components/IntroModal";
 import { WritingTimer } from "@/components/WritingTimer";
 import { TextInput } from "@/components/TextInput";
-import { useGenerateEmbeddings } from "@/hooks/useGenerateEmbeddings";
-import { useViewportKeyboardCSSVar } from "@/hooks/useViewportKeyboard";
+import { useEmbeddings } from "@/features/ai/EmbeddingsProvider";
+import { useViewportKeyboardCSSVar } from "@/features/ui/hooks/useViewportKeyboard";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
 import { HighlightLayer } from "@/components/highlight/HighlightLayer";
 import { rangesFromThemes } from "@/lib/highlight";
@@ -20,11 +20,11 @@ import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
 import { AnimatePresence, motion } from "framer-motion";
-import { usePageScrollLock } from "@/hooks/usePageScrollLock";
-import { useHeaderRevealAnimation } from "@/hooks/useHeaderRevealAnimation";
+import { usePageScrollLock } from "@/features/ui/hooks/usePageScrollLock";
+import { useHeaderRevealAnimation } from "@/features/ui/hooks/useHeaderRevealAnimation";
 
 export default function WritePage() {
-  const { generate, isGenerating } = useGenerateEmbeddings();
+  const { generateThemes: generate, isGenerating } = useEmbeddings();
 
   // Enable keyboard-safe spacing via CSS variables
   useViewportKeyboardCSSVar();

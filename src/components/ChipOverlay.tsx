@@ -6,7 +6,7 @@ import type { Prod } from "@/types/prod";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import { TEXTAREA_CLASSES } from "@/lib/constants";
 import { cn } from "@/lib/helpers";
-import { useRafScroll } from "@/hooks/useRafScroll";
+import { useRafScroll } from "@/features/ui/hooks/useRafScroll";
 import { calculateChipLayout } from "@/services/chipLayoutService";
 import { debug } from "@/lib/debug";
 

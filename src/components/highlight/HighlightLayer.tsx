@@ -12,7 +12,7 @@ import {
 } from "@/lib/highlight";
 import { gsap } from "gsap";
 import { STAGGER_PER_CHUNK } from "@/lib/highlight";
-import { useRafScroll } from "@/hooks/useRafScroll";
+import { useRafScroll } from "@/features/ui/hooks/useRafScroll";
 
 type HighlightLayerProps = {
   text: string;

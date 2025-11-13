@@ -7,7 +7,7 @@ import { cn } from "@/lib/helpers";
 import { storage } from "@/services/storage";
 import { TimerControls } from "./TimerControls";
 import { Intro } from "./Intro";
-import { useModalKeyboard } from "@/hooks/useModalKeyboard";
+import { useModalKeyboard } from "@/features/ui/hooks/useModalKeyboard";
 
 interface IntroModalProps {
   isOpen: boolean;
