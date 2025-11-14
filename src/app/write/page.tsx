@@ -218,8 +218,8 @@ export default function WritePage() {
                 <HighlightLayer
                   ref={highlightLayerRef}
                   text={currentText}
-                  currentRanges={highlightRanges}
-                  allRanges={allHighlightableRanges}
+                  activeRanges={highlightRanges}
+                  referenceRanges={allHighlightableRanges}
                   textareaRef={textareaRefObject}
                   extraTopPaddingPx={0}
                 />

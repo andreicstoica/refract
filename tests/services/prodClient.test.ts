@@ -11,8 +11,9 @@ function autoAbort(ms: number) {
 describe("prodClient", () => {
   it("returns data on success", async () => {
     const mockBody = { selectedProd: "What felt most meaningful?", confidence: 0.9 };
+
     // @ts-expect-error override global fetch
-    globalThis.fetch = async () => new Response(JSON.stringify(mockBody), { status: 200, headers: { "Content-Type": "application/json" } });
+    globalThis.fetch = () => Promise.resolve(new Response(JSON.stringify(mockBody), { status: 200, headers: { "Content-Type": "application/json" } }));
 
     const res = await generateProd({ lastParagraph: "I had a good day.", fullText: "I had a good day." });
     expect(res.selectedProd).toBe(mockBody.selectedProd);

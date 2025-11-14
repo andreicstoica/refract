@@ -152,23 +152,14 @@ function useProdActions(): ProdActions;
 	- Pages (`/write`, `/demo`) consume the hook instead of hand-rolling state, and pass results to `HighlightLayer` / `ThemeToggleButtons`.
 	- Make sure the 'api/embeddings/route.ts' file doesn't have any unnecessary memo-ization or storage layers and consumes only what it needs.
 
-6. **Highlight Range Simplification**
-	- Simplify 'HighlightRange' and 'SegmentMeta' split -> potentially unecessary to have both, even for staggered animations.
-		- HighlightRange = source data (continuous highlight regions from themes)
-		- SegmentMeta = derived data (text split at all highlight boundaries, with nullable highlight properties)
-	- Clarification: Segments split at highlight start/end points, not line breaks. One HighlightRange can produce multiple SegmentMeta entries when ranges overlap or have gaps.
-	- Question to verify: Is the segment approach necessary?
-	- Hypothesis: Only needed for the animation system (staggered delays, entry/exit tracking). For static highlights, you can render HighlightRange[] directly.
-	- Suggested Change:
-		- Remove the segment splitting and render HighlightRange[] directly.
-		- Remove: buildCutPoints, createSegments, computeSegmentMeta, assignChunkIndices
-		- Remove: SegmentMeta type (or keep if needed elsewhere)
-		- Simplify HighlightLayer to:
-			- Map over currentRanges directly
-			- Calculate chunk indices by checking if ranges are contiguous
-			- Track previous HighlightRange[] for exit animations
-			- Render only highlighted spans (unhighlighted text doesn't need DOM nodes)
-	- This removes unnecessary complexity. The segment approach was likely added to ensure perfect text alignment, but inline spans with the same text/styling should align correctly without it. Double check this logic.
+6. ✅ **Highlight Layer Stability**
+	- Hypothesis disproved. Step #6 suggested deleting the segment pipeline, but that breaks the highlight overlay once you factor in the new embeddings flow. `useThemeAnalysis` purposely exposes both `highlightRanges` (currently selected themes) and `allHighlightableRanges` (`src/features/themes/hooks/useThemeAnalysis.ts:48-60`). `HighlightLayer` builds its cut points from the superset before diffing the active set (`src/components/highlight/HighlightLayer.tsx:41-151`), which keeps the DOM node order/length frozen even while the user toggles themes.
+	- Plain-language picture: think of the textarea as lined paper and the overlay as a sheet of tracing paper. The segment helpers draw the same grid of lines on the tracing paper so every word has a reserved “seat.” When you turn a theme on, you simply color the seats that belong to it; turning it off erases the paint but the seats remain. If we ripped out the empty seats (segments), the tracing paper would shrink and the GSAP choreography would lose track of which streak is entering or exiting.
+	- Keep `buildCutPoints`, `createSegments`, `computeSegmentPaintState`, and `assignChunkIndices`. Instead, tighten the implementation for clarity/perf:
+		- Rename props to match intent: `currentRanges` → `activeRanges`, `allRanges` → `referenceRanges` (mirrors `highlightRanges`/`allHighlightableRanges`).
+		- Memoize the maximum chunk index once per render so exit animations don’t recompute `Math.max(...chunkIndex)` inside the loop.
+		- Inline a helper (`buildSegmentSnapshot`) that returns `{ paintState, chunkIndex, maxChunkIndex }` in one pass so `HighlightLayer` doesn’t juggle separate refs.
+		- Rename `SegmentMeta` to `SegmentPaintState` and colocate the helper with the highlight utilities so the “grid vs. painted cells” metaphor is explicit.
 
 7. **Debug vs. console.log**
 	- We have a 'debug.ts' fileooks like we have some console.logs when in production, but some ‘debug.dev’ logs as well. We should standardize this across the app - if it makes the logging cleaner in the code, let's default to debug.ts when appropriate. 

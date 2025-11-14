@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { rangesFromThemes, buildCutPoints, createSegments, computeSegmentMeta, assignChunkIndices } from "@/lib/highlight";
+import { rangesFromThemes, buildCutPoints, createSegments, computeSegmentPaintState, assignChunkIndices } from "@/lib/highlight";
 import type { Theme } from "@/types/theme";
 import type { Sentence } from "@/types/sentence";
 
@@ -62,14 +62,13 @@ describe("highlight utils", () => {
     // Segment meta computed correctly
     const cuts = buildCutPoints(text, rangesAll);
     const segments = createSegments(cuts);
-    const meta = computeSegmentMeta(segments, rangesAll);
+    const paintState = computeSegmentPaintState(segments, rangesAll);
     // Each segment should either be highlighted or not, never partial inside our simple ranges
-    expect(meta.every(m => (m.color ? true : true))).toBe(true);
+    expect(paintState.every(m => (m.color ? true : true))).toBe(true);
 
     // Assign chunk indices increments contiguous active regions
-    const idx = assignChunkIndices(meta);
+    const idx = assignChunkIndices(paintState);
     // If any active segments exist, at least one index is 0
     expect(idx.some(v => v === 0)).toBe(true);
   });
 });
-

@@ -1,6 +1,6 @@
 import type { Theme } from "@/types/theme";
 import type { Sentence } from "@/types/sentence";
-import type { HighlightRange, SegmentMeta } from "@/types/highlight";
+import type { HighlightRange, SegmentPaintState } from "@/types/highlight";
 
 export const STAGGER_PER_CHUNK = 0.03; // 30ms per contiguous highlighted chunk
 // Minimum cosine similarity a chunk must have to its cluster centroid
@@ -94,16 +94,16 @@ export function createSegments(cuts: number[]): Array<{ start: number; end: numb
 }
 
 
-export function computeSegmentMeta(
+export function computeSegmentPaintState(
 	segments: Array<{ start: number; end: number }>,
-	currentRanges: HighlightRange[]
-): SegmentMeta[] {
+	activeRanges: HighlightRange[]
+): SegmentPaintState[] {
 	return segments.map(({ start, end }) => {
 		let color: string | null = null;
 		let intensity: number | null = null;
 		let themeId: string | null = null;
 
-		for (const r of currentRanges) {
+		for (const r of activeRanges) {
 			if (r.start <= start && r.end >= end) {
 				color = r.color;
 				intensity = r.intensity;
@@ -116,14 +116,14 @@ export function computeSegmentMeta(
 	});
 }
 
-export function assignChunkIndices(segmentMeta: SegmentMeta[]): number[] {
-	const chunkIndex: number[] = new Array(segmentMeta.length).fill(-1);
+export function assignChunkIndices(segmentPaintState: SegmentPaintState[]): number[] {
+	const chunkIndex: number[] = new Array(segmentPaintState.length).fill(-1);
 	let currentChunk = -1;
 
-	for (let i = 0; i < segmentMeta.length; i++) {
-		const isActive = Boolean(segmentMeta[i].color);
+	for (let i = 0; i < segmentPaintState.length; i++) {
+		const isActive = Boolean(segmentPaintState[i].color);
 		if (isActive) {
-			if (i === 0 || !segmentMeta[i - 1].color) currentChunk += 1;
+			if (i === 0 || !segmentPaintState[i - 1].color) currentChunk += 1;
 			chunkIndex[i] = currentChunk;
 		}
 	}

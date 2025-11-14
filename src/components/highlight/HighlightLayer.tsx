@@ -2,22 +2,51 @@
 
 import { useEffect, useMemo, useRef, forwardRef, useCallback } from "react";
 import { cn } from "@/lib/helpers";
-import type { HighlightRange } from "@/types/highlight";
+import type { HighlightRange, SegmentPaintState } from "@/types/highlight";
 import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/constants";
 import {
   buildCutPoints,
   createSegments,
-  computeSegmentMeta,
+  computeSegmentPaintState,
   assignChunkIndices,
 } from "@/lib/highlight";
 import { gsap } from "gsap";
 import { STAGGER_PER_CHUNK } from "@/lib/highlight";
 import { useRafScroll } from "@/features/ui/hooks/useRafScroll";
 
+type SegmentSnapshot = {
+  paintState: SegmentPaintState[];
+  chunkIndex: number[];
+  maxChunkIndex: number;
+};
+
+const EMPTY_SNAPSHOT: SegmentSnapshot = {
+  paintState: [],
+  chunkIndex: [],
+  maxChunkIndex: -1,
+};
+
+function buildSegmentSnapshot(
+  text: string,
+  referenceRanges: HighlightRange[],
+  activeRanges: HighlightRange[]
+): SegmentSnapshot {
+  const cuts = buildCutPoints(text, referenceRanges);
+  const segments = createSegments(cuts);
+  const paintState = computeSegmentPaintState(segments, activeRanges);
+  const indices = assignChunkIndices(paintState);
+  const maxIndex = indices.reduce(
+    (acc, idx) => (idx >= 0 && idx > acc ? idx : acc),
+    -1
+  );
+
+  return { paintState, chunkIndex: indices, maxChunkIndex: maxIndex };
+}
+
 type HighlightLayerProps = {
   text: string;
-  currentRanges: HighlightRange[];
-  allRanges: HighlightRange[];
+  activeRanges: HighlightRange[];
+  referenceRanges: HighlightRange[];
   className?: string;
   textareaRef?: React.RefObject<HTMLTextAreaElement>;
   extraTopPaddingPx?: number;
@@ -30,24 +59,18 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
   function HighlightLayer(
     {
       text,
-      currentRanges,
-      allRanges,
+      activeRanges,
+      referenceRanges,
       className,
       textareaRef,
       extraTopPaddingPx = 0,
     },
     ref
   ) {
-    const cuts = useMemo(
-      () => buildCutPoints(text, allRanges),
-      [text, allRanges]
+    const { paintState, chunkIndex, maxChunkIndex } = useMemo(
+      () => buildSegmentSnapshot(text, referenceRanges, activeRanges),
+      [text, referenceRanges, activeRanges]
     );
-    const segments = useMemo(() => createSegments(cuts), [cuts]);
-    const meta = useMemo(
-      () => computeSegmentMeta(segments, currentRanges),
-      [segments, currentRanges]
-    );
-    const chunkIndex = useMemo(() => assignChunkIndices(meta), [meta]);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -75,13 +98,12 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
     }, [textareaRef]);
 
     // Track previous segment metadata for exit animations
-    const prevRef = useRef<{
-      meta: typeof meta | null;
-      chunkIndex: number[] | null;
-    }>({ meta: null, chunkIndex: null });
+    const prevSnapshotRef = useRef<SegmentSnapshot | null>(null);
 
-    const prevMeta = prevRef.current.meta;
-    const prevIndex = prevRef.current.chunkIndex;
+    const prevPaintState =
+      prevSnapshotRef.current?.paintState ?? EMPTY_SNAPSHOT.paintState;
+    const prevIndex =
+      prevSnapshotRef.current?.chunkIndex ?? EMPTY_SNAPSHOT.chunkIndex;
 
     // Animate highlights with exact same logic as TextWithHighlights
     useEffect(() => {
@@ -91,10 +113,10 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
       const HIGHLIGHT_ANIM_TIME = 0.2;
 
       // Animate each segment based on its state change
-      for (let i = 0; i < meta.length; i++) {
-        const segment = meta[i];
+      for (let i = 0; i < paintState.length; i++) {
+        const segment = paintState[i];
         const isActive = Boolean(segment.color);
-        const wasActive = Boolean(prevMeta?.[i]?.color);
+        const wasActive = Boolean(prevPaintState?.[i]?.color);
         const prevIdx = prevIndex?.[i] ?? -1;
         const exiting = !isActive && wasActive;
 
@@ -108,8 +130,8 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
           delay = chunkIndex[i] >= 0 ? chunkIndex[i] * STAGGER_PER_CHUNK : 0;
         } else {
           // Exit: bottom-up order (reverse chunk index)
-          const maxChunkIndex = Math.max(...chunkIndex.filter(idx => idx >= 0));
-          const reversedIdx = prevIdx >= 0 ? maxChunkIndex - prevIdx : -1;
+          const reversedIdx =
+            prevIdx >= 0 && maxChunkIndex >= 0 ? maxChunkIndex - prevIdx : -1;
           delay = reversedIdx >= 0 ? reversedIdx * STAGGER_PER_CHUNK : 0;
         }
 
@@ -147,8 +169,19 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
       }
 
       // Update ref for next comparison (matching TextWithHighlights)
-      prevRef.current = { meta: [...meta], chunkIndex: [...chunkIndex] };
-    }, [meta, chunkIndex, prefersReduced, prevMeta, prevIndex]);
+      prevSnapshotRef.current = {
+        paintState: [...paintState],
+        chunkIndex: [...chunkIndex],
+        maxChunkIndex,
+      };
+    }, [
+      paintState,
+      chunkIndex,
+      maxChunkIndex,
+      prefersReduced,
+      prevPaintState,
+      prevIndex,
+    ]);
 
     return (
       <div
@@ -186,12 +219,12 @@ export const HighlightLayer = forwardRef<HTMLDivElement, HighlightLayerProps>(
             color: "transparent",
           }}
         >
-          {meta.map(({ start, end, color, intensity, themeId }, i) => {
+          {paintState.map(({ start, end, color, intensity, themeId }, i) => {
             const str = text.slice(start, end);
             const isActive = Boolean(color);
-            const wasActive = Boolean(prevMeta?.[i]?.color);
-            const prevColor = prevMeta?.[i]?.color ?? null;
-            const prevIntensity = prevMeta?.[i]?.intensity ?? null;
+            const wasActive = Boolean(prevPaintState?.[i]?.color);
+            const prevColor = prevPaintState?.[i]?.color ?? null;
+            const prevIntensity = prevPaintState?.[i]?.intensity ?? null;
             const exiting = !isActive && wasActive;
 
             // Choose display color/intensity: keep previous values during exit so it can animate out
