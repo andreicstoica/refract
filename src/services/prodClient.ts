@@ -1,6 +1,5 @@
+import { debug } from "@/lib/debug";
 import type { ProdRequest, ProdResponse } from "@/types/api";
-
-const isDev = process.env.NODE_ENV !== "production";
 
 // Keep aligned with server maxDuration (15s) with a tiny buffer
 const REQUEST_TIMEOUT_MS = 15000; // 15 seconds
@@ -62,14 +61,14 @@ export async function generateProd(
 
         const elapsedToHeaders = getNow() - start;
         if (!response.ok) {
-            if (isDev) console.warn(`⏱️ /api/prod failed in ${Math.round(elapsedToHeaders)}ms: ${response.status} ${response.statusText}`);
+            debug.dev(`⏱️ /api/prod failed in ${Math.round(elapsedToHeaders)}ms: ${response.status} ${response.statusText}`);
             throw new Error(`Prod API call failed: ${response.status} ${response.statusText}`);
         }
 
         const data: ProdResponse = await response.json();
         const totalElapsed = getNow() - start;
 
-        if (isDev) console.log(`⏱️ /api/prod completed in ${Math.round(totalElapsed)}ms`, {
+        debug.dev(`⏱️ /api/prod completed in ${Math.round(totalElapsed)}ms`, {
             selectedLen: typeof data?.selectedProd === "string" ? data.selectedProd.length : 0,
             confidence: data?.confidence ?? null,
         });
@@ -80,13 +79,13 @@ export async function generateProd(
 
         // Check if it was an abort/timeout
         if (error instanceof Error && error.name === 'AbortError') {
-            if (isDev) console.warn(`⏱️ /api/prod timed out after ${Math.round(elapsed)}ms (soft-skip)`);
+            debug.dev(`⏱️ /api/prod timed out after ${Math.round(elapsed)}ms (soft-skip)`);
             // Soft skip: do not surface a chip on timeout
             const softSkip: ProdResponse = { confidence: 0 };
             return softSkip;
         }
 
-        if (isDev) console.error(`⏱️ /api/prod error after ${Math.round(elapsed)}ms`, error);
+        debug.dev(`⏱️ /api/prod error after ${Math.round(elapsed)}ms`, error);
         throw error;
     }
 }

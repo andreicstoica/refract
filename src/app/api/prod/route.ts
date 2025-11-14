@@ -2,6 +2,7 @@
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { debug } from "@/lib/debug";
 
 export const maxDuration = 15; // 15 seconds; NextJS Route Handler timeout hint
 
@@ -153,7 +154,7 @@ Generate a response that would genuinely help this person understand themselves 
 				schema: ProdResponseSchema,
 			});
 		} catch (aiError) {
-			console.error("❌ AI generation failed:", aiError);
+			debug.error("❌ AI generation failed:", aiError);
 			throw aiError;
 		}
 
@@ -162,7 +163,7 @@ Generate a response that would genuinely help this person understand themselves 
 			confidence: result.object.confidence ?? 0
 		};
 
-		console.log("🎯 Generated prod:", {
+		debug.dev("🎯 Generated prod:", {
 			sentence: lastParagraph.slice(0, 50) + "...",
 			prod: response.selectedProd,
 			confidence: response.confidence
@@ -171,7 +172,7 @@ Generate a response that would genuinely help this person understand themselves 
 		return Response.json(response);
 
 	} catch (error) {
-		console.error("❌ Prod API Error:", error);
+		debug.error("❌ Prod API Error:", error);
 
 		// Return a simple fallback response if generation fails
 		return Response.json({

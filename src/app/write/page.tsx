@@ -19,6 +19,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useHeaderRevealAnimation } from "@/features/ui/hooks/useHeaderRevealAnimation";
 import { ProdsProvider } from "@/features/prods/context/ProdsProvider";
 import { useThemeAnalysis } from "@/features/themes/hooks/useThemeAnalysis";
+import { debug } from "@/lib/debug";
 
 export default function WritePage() {
   // Timer + intro state
@@ -69,17 +70,13 @@ export default function WritePage() {
       if (hasThemes || isGenerating || currentSentences.length === 0) return;
 
       try {
-        if (process.env.NODE_ENV !== "production") {
-          console.log("🧠 analysis: started");
-        }
+        debug.dev("🧠 analysis: started");
 
         await requestAnalysis();
 
-        if (process.env.NODE_ENV !== "production") {
-          console.log("✅ analysis: completed");
-        }
+        debug.dev("✅ analysis: completed");
       } catch (err) {
-        console.error("❌ analysis failed", err);
+        debug.error("❌ analysis failed", err);
       }
     },
     [
@@ -105,7 +102,7 @@ export default function WritePage() {
     try {
       await rerunAnalysis();
     } catch (err) {
-      console.error("❌ re-run embeddings failed", err);
+      debug.error("❌ re-run embeddings failed", err);
     }
   }, [isGenerating, rerunAnalysis]);
 

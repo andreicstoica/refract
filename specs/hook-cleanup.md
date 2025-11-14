@@ -164,8 +164,124 @@ function useProdActions(): ProdActions;
 7. **Debug vs. console.log**
 	- We have a 'debug.ts' fileooks like we have some console.logs when in production, but some ‘debug.dev’ logs as well. We should standardize this across the app - if it makes the logging cleaner in the code, let's default to debug.ts when appropriate. 
 
+7.1 **RAF still necessary?**
+	- investigate if we still need RAF for smooth scrolling (no jelly lag) - is it only necessary for mobile? does it help clean the desktop experience clean?
+
+7.2 **Chip positioning deep dive**
+## Current Chip Positioning System
+
+The positioning logic is in `chipLayoutService.ts`. Overview:
+
+### Core Algorithm
+
+1. **Grouping & Sorting**:
+   - Groups prods by sentence
+   - Processes sentences top-to-bottom
+   - Within each sentence, sorts: pinned first, then by timestamp
+
+```112:119:src/services/chipLayoutService.ts
+        // Sort prods in sentence: pinned first, then by timestamp (maintaining existing priority logic)
+        const sorted = sentenceProds.sort((a, b) => {
+            const aPinned = pinnedIds.has(a.id);
+            const bPinned = pinnedIds.has(b.id);
+            if (aPinned && !bPinned) return -1;
+            if (!aPinned && bPinned) return 1;
+            return a.timestamp - b.timestamp;
+        });
+```
+
+2. **Collision Detection**:
+   - Tracks all placed chips in a `placedChips` array (across all sentences)
+   - Checks vertical and horizontal overlap with minimum gaps (8px vertical, 4px horizontal)
+
+```33:49:src/services/chipLayoutService.ts
+function chipsOverlapVertically(
+    pos1: SentencePosition,
+    pos2: SentencePosition,
+    offsetY1: number,
+    offsetY2: number
+): boolean {
+    const chipHeight = CHIP_LAYOUT.HEIGHT;
+    const verticalGap = 8; // Minimum gap between chips
+
+    const top1 = pos1.top + offsetY1;
+    const bottom1 = top1 + chipHeight;
+    const top2 = pos2.top + offsetY2;
+    const bottom2 = top2 + chipHeight;
+
+    // Check for vertical overlap with minimum gap
+    return !(bottom1 + verticalGap <= top2 || bottom2 + verticalGap <= top1);
+}
+```
+
+3. **Desktop Positioning Strategy**:
+   - Tries up to 3 vertical lanes (44px, 52px, 60px below sentence)
+   - For each lane, tries up to 5 horizontal shifts (16px increments)
+   - First non-colliding position wins
+
+```223:263:src/services/chipLayoutService.ts
+                // Try different vertical lanes
+                for (let lane = 0; lane < maxVerticalLanes && !foundPosition; lane++) {
+                    const testOffsetY = CHIP_LAYOUT.OFFSET_Y + (lane * (CHIP_LAYOUT.HEIGHT + 8));
+
+                    // Try different horizontal positions within this lane
+                    for (let shift = 0; shift < maxHorizontalShifts; shift++) {
+                        const shiftIncrement = 16; // Standard increments on desktop
+                        const testX = currentX + (shift * shiftIncrement);
+                        let hasCollision = false;
+
+                        // Check boundary collision (left and right edges) with safety margin
+                        const absoluteLeft = testX;
+                        const absoluteRight = testX + chipWidth;
+                        const leftBoundary = CHIP_LAYOUT.BOUNDARY_PAD;
+                        const safetyMargin = 4; // Standard safety margin on desktop
+                        const rightBoundary = containerWidth - CHIP_LAYOUT.BOUNDARY_PAD - safetyMargin;
+
+                        if (absoluteLeft < leftBoundary || absoluteRight > rightBoundary) {
+                            hasCollision = true;
+                            debug.dev(`Boundary collision for "${makeFingerprint(prod.text)}": left=${absoluteLeft}, right=${absoluteRight}, boundaries=${leftBoundary}-${rightBoundary}, containerWidth=${containerWidth}, safetyMargin=${safetyMargin}`);
+                            continue; // Try next horizontal position
+                        }
+
+                        // Check collision with all previously placed chips
+                        for (const placedChip of placedChips) {
+                            if (chipsOverlapVertically(pos!, placedChip.position, testOffsetY, placedChip.offsetY) &&
+                                chipsOverlapHorizontally(pos!, placedChip.position, testX - pos!.left, placedChip.offsetX, chipWidth, placedChip.width)) {
+                                hasCollision = true;
+                                debug.dev(`Collision detected for "${makeFingerprint(prod.text)}" at lane ${lane}, shift ${shift}`);
+                                break;
+                            }
+                        }
+
+                        if (!hasCollision) {
+                            bestX = testX;
+                            bestOffsetY = testOffsetY;
+                            foundPosition = true;
+                            break;
+                        }
+                    }
+                }
+```
+
+### Potential Issues with Pinning
+
+1. **Layout recalculation**: When you pin a chip, the layout recalculates. Pinned chips are sorted first, but if they were already placed, their positions may not change, which can cause overlaps if new chips are added.
+
+2. **Cross-sentence collisions**: The `placedChips` array tracks all chips, but the algorithm processes sentences sequentially. If a pinned chip from sentence A overlaps with a chip from sentence B, it depends on processing order.
+
+3. **Position persistence**: Pinned chips don't have special position locking—they're just prioritized in sorting. If the layout recalculates (e.g., on resize or new chips), they can shift.
+
+4. **Limited search space**: Only 3 vertical lanes × 5 horizontal shifts = 15 positions. In dense areas, it may skip chips instead of finding a position.
+
+### Mobile vs Desktop
+
+- Mobile: Simple one-chip-per-row, vertically stacked
+- Desktop: Multi-lane with collision detection
+
+The system should prevent overlaps, but edge cases can occur, especially when pinning multiple chips in close proximity. The specs mention this was a known issue that the current implementation attempts to address.
+
 8. **Final Polish + Comments**
-	- leaving comments that explain the “why this is” not the “what this is” -> production code level comments that aren't overbearing; helpful and contextual comments!
+	- Leave comments that explain the “why this is” not the “what this is” -> production code level comments that aren't overbearing; helpful and contextual comments!
 	- Update docs (`README`, relevant `specs/*.md`) to reflect the new architecture.
 	- Consider extracting the pure queue/dedup logic from `useProdQueueManager` into `src/lib/` once the provider work settles so the hook stays focused on wiring, not data transforms.
 	- Re-run `bun run lint` 

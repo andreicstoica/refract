@@ -135,19 +135,15 @@ export function TextInput({
         // Scroll to end of textarea with smooth behavior
         textarea.scrollTop = textarea.scrollHeight;
 
-        if (process.env.NODE_ENV !== "production") {
-          console.log("📱 Auto-scrolled textarea for caret visibility:", {
-            approximateCaretBottom,
-            visualBottom,
-            threshold,
-          });
-        }
+        debug.dev("📱 Auto-scrolled textarea for caret visibility:", {
+          approximateCaretBottom,
+          visualBottom,
+          threshold,
+        });
       }
     } catch (error) {
       // Silently fail if measurement doesn't work
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("📱 Caret visibility check failed:", error);
-      }
+      debug.dev("📱 Caret visibility check failed:", error);
     }
   }, [editor.textareaRef]);
 

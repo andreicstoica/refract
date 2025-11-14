@@ -1,12 +1,10 @@
 import { openai } from "@ai-sdk/openai";
-import { generateObject, embedMany } from "ai";
+import { embedMany, generateObject } from "ai";
 import { z } from "zod";
 import { MIN_CHUNK_CORRELATION } from "@/lib/highlight";
-import {
-  clusterEmbeddings,
-  sentencesToChunks,
-} from "@/lib/embeddings";
-import type { TextChunk, ClusterResult, EmbeddingResult } from "@/types/embedding";
+import { clusterEmbeddings, sentencesToChunks } from "@/lib/embeddings";
+import { debug } from "@/lib/debug";
+import type { ClusterResult, EmbeddingResult, TextChunk } from "@/types/embedding";
 
 export const maxDuration = 40;
 
@@ -43,7 +41,7 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    console.log(`🎯 Generating embeddings for ${sentences.length} sentences`);
+    debug.dev(`🎯 Generating embeddings for ${sentences.length} sentences`);
 
     // Step 1: Convert sentences to chunks
     const chunks = sentencesToChunks(sentences);
@@ -59,7 +57,7 @@ export async function POST(req: Request) {
       numClusters
     );
 
-    console.log(`📊 Created ${clusters.length} clusters from ${chunks.length} chunks`);
+    debug.dev(`📊 Created ${clusters.length} clusters from ${chunks.length} chunks`);
 
     // Step 4: Generate rich theme data with AI
     const themeData = await generateComprehensiveThemes(clusters, fullText);
@@ -105,7 +103,7 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    console.error("❌ Embeddings API error:", error);
+    debug.error("❌ Embeddings API error:", error);
 
     if (error instanceof z.ZodError) {
       return Response.json({
@@ -141,7 +139,7 @@ async function generateComprehensiveThemes(
       chunkCount: cluster.chunks.length,
     }));
 
-    console.log("📝 Sending to AI:", {
+    debug.dev("📝 Sending to AI:", {
       clustersCount: clusters.length,
       clusterSummaries: clusterSummaries.map(c => ({
         index: c.index,
@@ -248,7 +246,7 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
       schema: ComprehensiveThemeSchema,
     });
 
-    console.log("🎨 AI generated themes:", result.object);
+    debug.dev("🎨 AI generated themes:", result.object);
 
     // Transform the AI response to match our expected return format
     const themes = result.object.themes.map((theme: any, index: number) => ({
@@ -259,12 +257,12 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
       color: theme.color,
     }));
 
-    console.log("✅ Processed themes:", themes);
+    debug.dev("✅ Processed themes:", themes);
 
     return themes;
 
   } catch (error) {
-    console.error("❌ Theme generation failed - detailed error:", {
+    debug.error("❌ Theme generation failed - detailed error:", {
       error: error instanceof Error ? error.message : error,
       stack: error instanceof Error ? error.stack : undefined,
       clustersLength: clusters.length,
@@ -285,7 +283,7 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
       color: fallbackColors[index % fallbackColors.length],
     }));
 
-    console.log("🔄 Using fallback themes:", fallbackThemes);
+    debug.dev("🔄 Using fallback themes:", fallbackThemes);
     return fallbackThemes;
   }
 }
@@ -328,7 +326,7 @@ async function generateEmbeddingVectors(
       },
     };
   } catch (error) {
-    console.error("❌ Embedding generation failed:", error);
+    debug.error("❌ Embedding generation failed:", error);
     throw new Error("Failed to generate embeddings");
   }
 }

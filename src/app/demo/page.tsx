@@ -21,6 +21,7 @@ import { useHeaderRevealAnimation } from "@/features/ui/hooks/useHeaderRevealAni
 import { DEMO_TEXT } from "@/lib/demoMode";
 import { ProdsProvider } from "@/features/prods/context/ProdsProvider";
 import { useThemeAnalysis } from "@/features/themes/hooks/useThemeAnalysis";
+import { debug } from "@/lib/debug";
 
 export default function DemoPage() {
   // Timer + intro state
@@ -73,7 +74,7 @@ export default function DemoPage() {
             await navigator.clipboard.writeText(DEMO_TEXT);
             setClipboardStatus(null);
           } catch (retryError) {
-            console.error(
+            debug.error(
               "Failed to load demo content to clipboard:",
               retryError
             );
@@ -103,17 +104,13 @@ export default function DemoPage() {
       if (hasThemes || isGenerating || currentSentences.length === 0) return;
 
       try {
-        if (process.env.NODE_ENV !== "production") {
-          console.log("🧠 analysis: started");
-        }
+        debug.dev("🧠 analysis: started");
 
         await requestAnalysis();
 
-        if (process.env.NODE_ENV !== "production") {
-          console.log("✅ analysis: completed");
-        }
+        debug.dev("✅ analysis: completed");
       } catch (err) {
-        console.error("❌ analysis failed", err);
+        debug.error("❌ analysis failed", err);
       }
     },
     [
@@ -139,7 +136,7 @@ export default function DemoPage() {
     try {
       await rerunAnalysis();
     } catch (err) {
-      console.error("❌ re-run embeddings failed", err);
+      debug.error("❌ re-run embeddings failed", err);
     }
   }, [isGenerating, rerunAnalysis]);
 

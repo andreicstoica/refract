@@ -1,4 +1,5 @@
 import React from "react";
+import { debug } from "@/lib/debug";
 
 /**
  * RAF-based scroll coalescing helper
@@ -12,8 +13,8 @@ import React from "react";
  *   if (!elementRef.current) return;
  *   
  *   return subscribe(elementRef.current, (element) => {
- *     // Your scroll handler logic here
- *     console.log('Scroll position:', element.scrollTop);
+ *     // Your scroll handler logic here (dev-only logging via debug helper)
+ *     debug.dev('Scroll position:', element.scrollTop);
  *   });
  * }, []);
  * ```
@@ -40,7 +41,7 @@ function executeHandlers(subscription: ScrollSubscription) {
         try {
             handler(subscription.element);
         } catch (error) {
-            console.error('Error in scroll handler:', error);
+            debug.error('Error in scroll handler:', error);
         }
     });
 }
