@@ -141,13 +141,13 @@ function useProdActions(): ProdActions;
 	- Move shared logic (trigger heuristics, layout calculations) into new helpers under `src/lib/`.
 	- Update `TextInput` to use the new hooks and feed `text` directly into `useTopicShiftDetection`.
 
-4. **✅ ProdsProvider Extraction**
+4. ✅ **ProdsProvider Extraction**
 	- Move the reducer + queue logic from `useProds` into `useProdQueueManager` (utility hook with no React consumer).
 	- Implement `ProdsProvider`, `useProdState`, and `useProdActions` that wrap the manager and expose stable references.
 	- Update `TextInput`, `ChipOverlay`, and any other prod consumers to read from the provider.
 	- Make sure that we don't need dedup logic in 'api/prod/route.ts' anymore since we've confirmed our queue logic so nicely.
 
-5. **Theme Analysis Hook**
+5. ✅ **Theme Analysis Hook**
 	- Add `useThemeAnalysis` to coordinate embeddings requests, theme selections, and reruns.
 	- Pages (`/write`, `/demo`) consume the hook instead of hand-rolling state, and pass results to `HighlightLayer` / `ThemeToggleButtons`.
 	- Make sure the 'api/embeddings/route.ts' file doesn't have any unnecessary memo-ization or storage layers and consumes only what it needs.

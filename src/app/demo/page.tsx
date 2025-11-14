@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { IntroModal } from "@/components/IntroModal";
 import { WritingTimer } from "@/components/WritingTimer";
 import { TextInput } from "@/components/TextInput";
-import { useEmbeddings } from "@/features/ai/EmbeddingsProvider";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
 import { HighlightLayer } from "@/components/highlight/HighlightLayer";
-import { rangesFromThemes } from "@/lib/highlight";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -17,16 +15,14 @@ import {
 import { RefreshCw, Clipboard } from "lucide-react";
 import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
-import type { Theme } from "@/types/theme";
 import { AnimatePresence, motion } from "framer-motion";
 import { prewarmProd } from "@/services/prodClient";
 import { useHeaderRevealAnimation } from "@/features/ui/hooks/useHeaderRevealAnimation";
 import { DEMO_TEXT } from "@/lib/demoMode";
 import { ProdsProvider } from "@/features/prods/context/ProdsProvider";
+import { useThemeAnalysis } from "@/features/themes/hooks/useThemeAnalysis";
 
 export default function DemoPage() {
-  const { generateThemes: generate, isGenerating } = useEmbeddings();
-
   // Timer + intro state
   const [showTimerSetup, setShowTimerSetup] = useState(true);
   const [timerMinutes, setTimerMinutes] = useState(1);
@@ -38,9 +34,20 @@ export default function DemoPage() {
   const [currentText, setCurrentText] = useState("");
   const [currentSentences, setCurrentSentences] = useState<Sentence[]>([]);
 
-  // Theme state - simple, direct
-  const [themes, setThemes] = useState<Theme[] | null>(null);
-  const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
+  const {
+    themes,
+    selectedThemeIds,
+    isGenerating,
+    hasThemes,
+    highlightRanges,
+    allHighlightableRanges,
+    toggleTheme,
+    requestAnalysis,
+    rerunAnalysis,
+  } = useThemeAnalysis({
+    sentences: currentSentences,
+    text: currentText,
+  });
 
   // Create textarea ref for HighlightLayer
   const textareaRefObject = useRef<HTMLTextAreaElement>(null as any);
@@ -93,17 +100,14 @@ export default function DemoPage() {
 
   const handlePreFinish = useCallback(
     async (_secondsLeft: number) => {
-      if (themes || isGenerating) return;
+      if (hasThemes || isGenerating || currentSentences.length === 0) return;
 
       try {
         if (process.env.NODE_ENV !== "production") {
           console.log("🧠 analysis: started");
         }
 
-        const result = await generate(currentSentences, currentText);
-        if (result && result.length) {
-          setThemes(result);
-        }
+        await requestAnalysis();
 
         if (process.env.NODE_ENV !== "production") {
           console.log("✅ analysis: completed");
@@ -112,7 +116,12 @@ export default function DemoPage() {
         console.error("❌ analysis failed", err);
       }
     },
-    [currentSentences, currentText, generate, themes, isGenerating]
+    [
+      hasThemes,
+      isGenerating,
+      currentSentences.length,
+      requestAnalysis,
+    ]
   );
 
   const handleTextUpdate = (
@@ -124,50 +133,16 @@ export default function DemoPage() {
     setCurrentSentences(sentences);
   };
 
-  // Build sentence lookup map
-  const sentenceMap = useMemo(() => {
-    const map = new Map<string, Sentence>();
-    for (const sentence of currentSentences) {
-      map.set(sentence.id, sentence);
-    }
-    return map;
-  }, [currentSentences]);
-
-  // All possible ranges (stable segmentation)
-  const allHighlightableRanges = useMemo(
-    () => rangesFromThemes(themes, sentenceMap),
-    [themes, sentenceMap]
-  );
-
-  // Currently active ranges (selected themes only)
-  const highlightRanges = useMemo(() => {
-    if (!themes || selectedThemeIds.length === 0) return [];
-    return rangesFromThemes(themes, sentenceMap, new Set(selectedThemeIds));
-  }, [themes, selectedThemeIds, sentenceMap]);
-
-  const toggleTheme = (themeId: string) => {
-    setSelectedThemeIds((prev) =>
-      prev.includes(themeId)
-        ? prev.filter((id) => id !== themeId)
-        : [...prev, themeId]
-    );
-  };
-
   // Explicit re-run of embeddings on demand
   const handleRerunEmbeddings = useCallback(async () => {
     if (isGenerating) return;
     try {
-      const result = await generate(currentSentences, currentText);
-      if (result && result.length) {
-        setThemes(result);
-      }
+      await rerunAnalysis();
     } catch (err) {
       console.error("❌ re-run embeddings failed", err);
     }
-  }, [isGenerating, generate, currentSentences, currentText]);
+  }, [isGenerating, rerunAnalysis]);
 
-  // Header reveal animation when themes first appear
-  const hasThemes = Boolean(themes && themes.length > 0);
   useHeaderRevealAnimation(hasThemes, chipsRef, reloadButtonRef);
 
   // Handle textarea ref for HighlightLayer
