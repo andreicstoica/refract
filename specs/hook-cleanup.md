@@ -281,9 +281,9 @@ function chipsOverlapVertically(
 The system should prevent overlaps, but edge cases can occur, especially when pinning multiple chips in close proximity. The specs mention this was a known issue that the current implementation attempts to address.
 
 8. **Final Polish + Comments**
-	- Leave comments that explain the “why this is” not the “what this is” -> production code level comments that aren't overbearing; helpful and contextual comments!
-	- Update docs (`README`, relevant `specs/*.md`) to reflect the new architecture.
-	- Consider extracting the pure queue/dedup logic from `useProdQueueManager` into `src/lib/` once the provider work settles so the hook stays focused on wiring, not data transforms.
+	- Comments must justify intent: short rationale lines inline for tricky branches (queue resets, chip placement fallbacks), doc comments for exported hooks/providers outlining inputs/invariants, and TODOs only when paired with an owner + expected outcome. If the code already says it, delete the comment.
+	- Favor declarative tone (present tense, <80 chars per line) and colocate “why” comments directly above the code path they defend so future edits keep the context in diff.
+	- README/spec updates should capture the architectural story (TimingConfigProvider, editor text pipeline, ProdsProvider) while `docs/architecture.md` + `docs/diagrams/*` host higher-signal artifacts (Mermaid flows, box diagrams). Link those diagrams from the README but keep implementation notes beside the code when possible.
 	- Re-run `bun run lint` 
 
 9. **Update tests**
@@ -293,9 +293,10 @@ The system should prevent overlaps, but edge cases can occur, especially when pi
 	- for good measure, use biome lint and formatting too
 
 ## Open Questions / Follow-ups
-- Should `ProdsProvider` live at the page level or inside `TextInput`? (Recommendation: wrap the editor area so future panels can also read prod state.) - let's go with your recommendation if it is simplest. 
-- Once the architecture stabilizes, consider re-introducing mobile ergonomics selectively if needed, but only after core hooks are covered by tests/specs. - let's ignore for now. 
-- Determine whether theme analysis should live alongside prod state in a single “WritingSessionProvider” later; for now keep them separate for clarity. - keep them separate for now, there are essentially two features for this web app, so I'd like them to be separate in the code as well. 
-- Evaluate extracting the shared `/write` + `/demo` page shell (timer, header, `TextInput`, overlays) into a dedicated component once the hook refactor settles so the surfaces stay in sync without duplication.
+	- Consider extracting the pure queue/dedup logic from `useProdQueueManager` into `src/lib/` once the provider work settles so the hook stays focused on wiring, not data transforms.
+    - Should `ProdsProvider` live at the page level or inside `TextInput`? (Recommendation: wrap the editor area so future panels can also read prod state.) - let's go with your recommendation if it is simplest. 
+    - Once the architecture stabilizes, consider re-introducing mobile ergonomics selectively if needed, but only after core hooks are covered by tests/specs. - let's ignore for now. 
+    - Determine whether theme analysis should live alongside prod state in a single “WritingSessionProvider” later; for now keep them separate for clarity. - keep them separate for now, there are essentially two features for this web app, so I'd like them to be separate in the code as well. 
+    - Evaluate extracting the shared `/write` + `/demo` page shell (timer, header, `TextInput`, overlays) into a dedicated component once the hook refactor settles so the surfaces stay in sync without duplication.
 
 This plan keeps the current storytelling flow intact—timer → writing surface → prods → themes—while making each piece explicit, testable, and ready for code review discussions.

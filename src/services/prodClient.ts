@@ -11,16 +11,13 @@ export async function generateProdWithTimeout(
     input: ProdRequest,
     opts?: { signal?: AbortSignal }
 ): Promise<ProdResponse> {
-    // Create AbortController for timeout if not provided
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
         controller.abort();
     }, REQUEST_TIMEOUT_MS);
 
-    // Combine with external signal if provided
     let combinedSignal: AbortSignal;
     if (opts?.signal) {
-        // If both signals exist, abort when either one is aborted
         opts.signal.addEventListener('abort', () => controller.abort());
         combinedSignal = controller.signal;
     } else {
@@ -77,10 +74,8 @@ export async function generateProd(
     } catch (error) {
         const elapsed = getNow() - start;
 
-        // Check if it was an abort/timeout
         if (error instanceof Error && error.name === 'AbortError') {
             debug.dev(`⏱️ /api/prod timed out after ${Math.round(elapsed)}ms (soft-skip)`);
-            // Soft skip: do not surface a chip on timeout
             const softSkip: ProdResponse = { confidence: 0 };
             return softSkip;
         }

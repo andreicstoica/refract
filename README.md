@@ -59,6 +59,11 @@ bun dev
 
 Open http://localhost:3001 to develop.
 
+## Documentation
+
+- `docs/architecture.md` details the writing flow (TimingConfigProvider, editor text pipeline, ProdsProvider) and links to diagrams.
+- Store Mermaid sources under `docs/diagrams/` (see folder README) so reviewers can follow information-flow visuals without digging through code.
+
 ## Resources & Inspirations
 
 - Building a Tactical Shooter with Text to Speech and AI — https://maryrosecook.com/blog/post/using-ai-to-build-a-tactical-shooter

@@ -248,7 +248,6 @@ export function calculateChipLayout(
 
     debug.dev(`Calculating chip layout for ${prods.length} prods in ${prodGroups.size} sentences | ${isMobile ? 'mobile' : 'desktop'} mode | container: ${containerWidth}px`);
 
-    // Sort sentences by position (top to bottom, like existing clustering logic)
     const sortedSentences = Array.from(prodGroups.keys())
         .map(id => ({ id, pos: positionMap.get(id) }))
         .filter(item => item.pos)
@@ -276,15 +275,12 @@ export function calculateChipLayout(
             return a.timestamp - b.timestamp;
         });
 
-        // Calculate chip widths using actual text measurement
         const chipWidths = sorted.map(prod => {
-            // Measure actual text width plus padding for the chip
             const textWidth = measureTextWidth(prod.text);
             const chipPadding = 24; // Left + right padding
             const pinIconWidth = 20; // Space for pin icon
             const actualWidth = textWidth + chipPadding + pinIconWidth;
 
-            // Clamp to min/max width
             const clampedWidth = Math.min(maxWidth, Math.max(minWidth, actualWidth));
 
             debug.dev(`Text measurement for "${makeFingerprint(prod.text)}": textWidth=${textWidth}, actualWidth=${actualWidth}, clampedWidth=${clampedWidth}`);
@@ -295,13 +291,11 @@ export function calculateChipLayout(
         const totalWidth = chipWidths.reduce((sum, w) => sum + w, 0) +
             (chipWidths.length - 1) * spacing;
 
-        // Smart positioning: try end-align first, fallback to best fit
         const preferredStart = pos!.left + pos!.width - totalWidth; // End-align with sentence
         const availableSpace = containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD);
 
         let startX: number;
         if (totalWidth <= availableSpace) {
-            // Chips fit - try end-align, but clamp to boundaries
             startX = Math.max(
                 CHIP_LAYOUT.BOUNDARY_PAD,
                 Math.min(preferredStart, containerWidth - CHIP_LAYOUT.BOUNDARY_PAD - totalWidth)
@@ -313,7 +307,6 @@ export function calculateChipLayout(
 
         debug.dev(`Positioning sentence chips: totalWidth=${totalWidth}px, availableSpace=${availableSpace}px, preferredStart=${preferredStart}, actualStart=${startX}`);
 
-        // Check if entire sentence group fits
         const sentenceSkipped: string[] = [];
 
         if (totalWidth > containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD)) {
@@ -432,7 +425,6 @@ export function calculateChipLayout(
             }
         }
 
-        // Log skipped chips for this sentence
         if (sentenceSkipped.length > 0) {
             debug.warn(`Skipped ${sentenceSkipped.length} chips due to overflow in sentence:`, {
                 sentenceId,

@@ -46,15 +46,13 @@ export function ChipOverlay({
         return undefined;
       }
 
-      // Try to find a sentence with matching text if ID lookup failed
+      // Reconstruct the sentence by walking exact > prefix > substring matches
       const norm = prod.sourceText.trim().toLowerCase();
       let match: Sentence | undefined = undefined;
 
-      // Exact match first
       match = sentences.find((s) => s.text.trim().toLowerCase() === norm);
 
       if (!match) {
-        // Prefix match (first 50 chars for better matching)
         const head = norm.slice(0, 50);
         match = sentences.find((s) =>
           s.text.trim().toLowerCase().startsWith(head)
@@ -62,7 +60,6 @@ export function ChipOverlay({
       }
 
       if (!match && norm.length > 10) {
-        // Substring match as last resort, but only for longer text
         const searchTerm = norm.slice(0, Math.min(30, norm.length));
         match = sentences.find((s) =>
           s.text.toLowerCase().includes(searchTerm)
@@ -89,7 +86,6 @@ export function ChipOverlay({
     [sentences, positionMap]
   );
 
-  // Measure container width to enforce left/right boundaries
   const containerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [contentWidth, setContentWidth] = useState<number>(0);
@@ -105,7 +101,6 @@ export function ChipOverlay({
     return () => ro.disconnect();
   }, []);
 
-  // Sync with textarea scroll position using RAF coalescing for optimal performance
   const handleScrollSync = useCallback((element: HTMLElement) => {
     if (contentRef.current) {
       const textarea = element as HTMLTextAreaElement;
@@ -115,7 +110,6 @@ export function ChipOverlay({
 
   useRafScroll(textareaRef, handleScrollSync);
 
-  // Set initial scroll position
   useEffect(() => {
     if (textareaRef?.current && contentRef.current) {
       const textarea = textareaRef.current;
@@ -123,7 +117,6 @@ export function ChipOverlay({
     }
   }, [textareaRef]);
 
-  // Sentence-aware chip layout with overflow handling
   const previousLayoutRef = useRef<Map<string, ChipPlacement>>(new Map());
   const previousLayout = previousLayoutRef.current;
 
@@ -185,7 +178,6 @@ export function ChipOverlay({
           }
           const offsets = layoutByProdId.get(prod.id);
 
-          // Skip rendering if chip was filtered out by layout system
           if (!offsets) {
             return null;
           }

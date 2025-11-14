@@ -1,0 +1,19 @@
+
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Requesting : enqueue(text,fingerprint)
+  Requesting --> Pending : API success
+  Requesting --> Idle : API timeout/abort
+  Pending --> Visible : chip rendered
+  Visible --> Pinned : pin(id)
+  Visible --> Dropped : queue overflow / topic shift
+  Pinned --> Visible : unpin(id)
+  Visible --> Idle : remove(id)
+  Dropped --> Idle
+  state Visible {
+    [*] --> Active
+    Active --> Expired : fade out
+    Expired --> [*]
+  }
+  Idle --> TopicReset : notifyTopicShift
+  TopicReset --> Idle : flush non-pinned

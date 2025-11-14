@@ -82,7 +82,6 @@ export const HighlightOverlay = forwardRef<
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Sync with textarea scroll position using RAF coalescing for optimal performance
   const handleScrollSync = useCallback((element: HTMLElement) => {
     if (contentRef.current) {
       const textarea = element as HTMLTextAreaElement;
@@ -92,7 +91,6 @@ export const HighlightOverlay = forwardRef<
 
   useRafScroll(textareaRef, handleScrollSync);
 
-  // Set initial scroll position
   useEffect(() => {
     if (textareaRef?.current && contentRef.current) {
       const textarea = textareaRef.current;
@@ -100,7 +98,6 @@ export const HighlightOverlay = forwardRef<
     }
   }, [textareaRef]);
 
-  // Track previous segment metadata for exit animations
   const prevSnapshotRef = useRef<SegmentSnapshot | null>(null);
 
   const prevPaintState =
@@ -108,14 +105,12 @@ export const HighlightOverlay = forwardRef<
   const prevIndex =
     prevSnapshotRef.current?.chunkIndex ?? EMPTY_SNAPSHOT.chunkIndex;
 
-  // Animate highlights with exact same logic as TextWithHighlights
   useEffect(() => {
     if (prefersReduced || !containerRef.current) return;
 
     const el = containerRef.current;
     const HIGHLIGHT_ANIM_TIME = 0.2;
 
-    // Animate each segment based on its state change
     for (let i = 0; i < paintState.length; i++) {
       const segment = paintState[i];
       const isActive = Boolean(segment.color);
@@ -123,26 +118,21 @@ export const HighlightOverlay = forwardRef<
       const prevIdx = prevIndex?.[i] ?? -1;
       const exiting = !isActive && wasActive;
 
-      // Skip if no state change
       if (isActive === wasActive) continue;
 
       // Calculate delay with reversed order for exit animations (bottom-up)
       let delay = 0;
       if (isActive) {
-        // Entry: top-down order (normal chunk index)
         delay = chunkIndex[i] >= 0 ? chunkIndex[i] * STAGGER_PER_CHUNK : 0;
       } else {
-        // Exit: bottom-up order (reverse chunk index)
         const reversedIdx =
           prevIdx >= 0 && maxChunkIndex >= 0 ? maxChunkIndex - prevIdx : -1;
         delay = reversedIdx >= 0 ? reversedIdx * STAGGER_PER_CHUNK : 0;
       }
 
-      // Find the corresponding DOM node
       const node = el.querySelector<HTMLElement>(`span[data-segment="${i}"]`);
       if (node) {
         if (isActive) {
-          // Entry animation: left to right (top-down, left-to-right)
           gsap.fromTo(
             node,
             { backgroundSize: "0% 100%", backgroundPosition: "left top" },
@@ -155,7 +145,6 @@ export const HighlightOverlay = forwardRef<
             }
           );
         } else {
-          // Exit animation: left to right reveal (bottom-up, end-to-start within chunk)
           gsap.fromTo(
             node,
             { backgroundSize: "100% 100%", backgroundPosition: "left top" },
@@ -171,7 +160,6 @@ export const HighlightOverlay = forwardRef<
       }
     }
 
-    // Update ref for next comparison (matching TextWithHighlights)
     prevSnapshotRef.current = {
       paintState: [...paintState],
       chunkIndex: [...chunkIndex],
@@ -203,7 +191,6 @@ export const HighlightOverlay = forwardRef<
         className
       )}
     >
-      {/* Inner content translated to mirror textarea scroll */}
       <div
         ref={contentRef}
         data-highlight-content

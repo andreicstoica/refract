@@ -24,49 +24,44 @@ const mockChips = [
 
 export function Hero() {
   const [currentChipIndex, setCurrentChipIndex] = useState(0);
-  const [showChip, setShowChip] = useState(false); // Start hidden
+  const [showChip, setShowChip] = useState(false);
   const [shouldFade, setShouldFade] = useState(false);
   const [chipPosition, setChipPosition] = useState({ top: 25, left: 20 });
 
-  // Generate random positions within bounds
   const generateRandomPosition = (isTop: boolean) => {
     if (isTop) {
       return {
-        top: Math.random() * 20 + 15, // 15-35% from top
-        left: Math.random() * 60 + 20, // 20-80% from left
+        top: Math.random() * 20 + 15,
+        left: Math.random() * 60 + 20,
       };
     } else {
       return {
-        top: Math.random() * 20 + 65, // 65-85% from top
-        left: Math.random() * 60 + 20, // 20-80% from left
+        top: Math.random() * 20 + 65,
+        left: Math.random() * 60 + 20,
       };
     }
   };
 
   useEffect(() => {
-    // Initial delay of 4 seconds before first chip
     const initialTimer = setTimeout(() => {
       setChipPosition(generateRandomPosition(Math.random() > 0.5));
       setShowChip(true);
     }, 4000);
 
-    // Set up recurring cycle after initial delay
     const cycleTimer = setTimeout(() => {
       const interval = setInterval(() => {
-        // Start fade after 8 seconds
         setShouldFade(true);
 
-        // After 4 seconds of fading, show next chip
         setTimeout(() => {
           setShouldFade(false);
           setCurrentChipIndex((prev) => (prev + 1) % mockChips.length);
           const newIsTop = Math.random() > 0.5;
           setChipPosition(generateRandomPosition(newIsTop));
         }, 4000);
-      }, 12000); // 8s visible + 4s fade = 12s cycle
+      }, 12000);
 
       return () => clearInterval(interval);
-    }, 4000 + 8000); // Initial delay + first chip visible time
+    }, 4000 + 8000);
 
     return () => {
       clearTimeout(initialTimer);
@@ -79,7 +74,6 @@ export function Hero() {
       <Spotlight className="absolute inset-0 text-foreground" />
       <SpotlightOut className="absolute inset-0 text-foreground" />
 
-      {/* Single mock chip */}
       <AnimatePresence mode="wait">
         {showChip && (
           <motion.div
@@ -92,7 +86,7 @@ export function Hero() {
             }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{
-              duration: shouldFade ? 4 : 0, // 4 second fade like real chips
+              duration: shouldFade ? 4 : 0,
               ease: "easeOut",
             }}
             className={cn(

@@ -1,0 +1,27 @@
+flowchart TD
+  subgraph AppShell["App Shell (app/layout.tsx)"]
+    TimingConfigProvider -->|config| TextInput
+    ThemeProvider --> MapShell
+  end
+
+  subgraph Editor["TextInput Surface"]
+    direction LR
+    useEditorText["useEditorText\n(text, ref, metrics)"] --> useSentenceTracker
+    useSentenceTracker["useSentenceTracker\n(sentences, positions)"] --> useProdTriggers
+    useProdTriggers["useProdTriggers\n(timers, heuristics)"] --> ProdsProvider
+  end
+
+  ProdsProvider["ProdsProvider\n(queue, pinned)"] --> ChipOverlay
+  ProdsProvider --> HighlightOverlay
+  ProdsProvider --> ThemeOverlay
+
+  ChipOverlay --> TextArea["Textarea DOM"]
+  HighlightOverlay --> TextArea
+
+  TimingConfigProvider --> useProdTriggers
+  TimingConfigProvider --> ThemeOverlay
+
+  subgraph MapShell["Map / Theme Consumers"]
+    ThemeOverlay["HighlightOverlay / Map"]
+  end
+
