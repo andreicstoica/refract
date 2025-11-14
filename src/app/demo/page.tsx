@@ -5,7 +5,6 @@ import { IntroModal } from "@/components/IntroModal";
 import { WritingTimer } from "@/components/WritingTimer";
 import { TextInput } from "@/components/TextInput";
 import { useEmbeddings } from "@/features/ai/EmbeddingsProvider";
-import { useViewportKeyboardCSSVar } from "@/features/ui/hooks/useViewportKeyboard";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
 import { HighlightLayer } from "@/components/highlight/HighlightLayer";
 import { rangesFromThemes } from "@/lib/highlight";
@@ -21,15 +20,11 @@ import type { Sentence, SentencePosition } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
 import { AnimatePresence, motion } from "framer-motion";
 import { prewarmProd } from "@/services/prodClient";
-import { usePageScrollLock } from "@/features/ui/hooks/usePageScrollLock";
 import { useHeaderRevealAnimation } from "@/features/ui/hooks/useHeaderRevealAnimation";
 import { DEMO_TEXT } from "@/lib/demoMode";
 
 export default function DemoPage() {
   const { generateThemes: generate, isGenerating } = useEmbeddings();
-
-  // Enable keyboard-safe spacing via CSS variables
-  useViewportKeyboardCSSVar();
 
   // Timer + intro state
   const [showTimerSetup, setShowTimerSetup] = useState(true);
@@ -51,8 +46,6 @@ export default function DemoPage() {
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
-  usePageScrollLock();
-
   // Pre-load demo content to clipboard
   useEffect(() => {
     const loadClipboard = async () => {

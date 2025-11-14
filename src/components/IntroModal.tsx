@@ -7,7 +7,6 @@ import { cn } from "@/lib/helpers";
 import { storage } from "@/services/storage";
 import { TimerControls } from "./TimerControls";
 import { Intro } from "./Intro";
-import { useModalKeyboard } from "@/features/ui/hooks/useModalKeyboard";
 
 interface IntroModalProps {
   isOpen: boolean;
@@ -18,12 +17,6 @@ interface IntroModalProps {
 export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedMinutes, setSelectedMinutes] = useState(1);
-  const [inputBuffer, setInputBuffer] = useState("");
-  const [isEnterPressed, setIsEnterPressed] = useState(false);
-  const [numberDirection, setNumberDirection] = useState<"up" | "down" | null>(
-    null
-  );
-  const [arrowPressed, setArrowPressed] = useState<"up" | "down" | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const stagingRef = useRef<HTMLDivElement>(null);
@@ -137,42 +130,6 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
     tlRef.current = tl;
   };
 
-  const handlePrevious = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 0));
-  };
-
-  // Use the keyboard hook
-  useModalKeyboard({
-    isOpen,
-    currentPage,
-    selectedMinutes,
-    inputBuffer,
-    onNext: handleNext,
-    onPrevious: handlePrevious,
-    onStart,
-    onMinutesChange: (minutes) => {
-      setSelectedMinutes(minutes);
-      // Trigger animation states for keyboard input
-      if (minutes > selectedMinutes) {
-        setNumberDirection("up");
-        setArrowPressed("up");
-        setTimeout(() => {
-          setNumberDirection(null);
-          setArrowPressed(null);
-        }, 200);
-      } else if (minutes < selectedMinutes) {
-        setNumberDirection("down");
-        setArrowPressed("down");
-        setTimeout(() => {
-          setNumberDirection(null);
-          setArrowPressed(null);
-        }, 200);
-      }
-    },
-    onInputBufferChange: setInputBuffer,
-    onEnterPressed: setIsEnterPressed,
-  });
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -213,7 +170,7 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
 
             <div ref={contentRef} className="text-center space-y-8">
               {currentPage === 0 && (
-                <Intro onNext={handleNext} isEnterPressed={isEnterPressed} />
+                <Intro onNext={handleNext} isEnterPressed={false} />
               )}
 
               {currentPage === 1 && (
@@ -230,11 +187,7 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
                     selectedMinutes={selectedMinutes}
                     onMinutesChange={setSelectedMinutes}
                     onStart={handleStart}
-                    isEnterPressed={isEnterPressed}
-                    numberDirection={numberDirection}
-                    arrowPressed={arrowPressed}
-                    onNumberDirectionChange={setNumberDirection}
-                    onArrowPressedChange={setArrowPressed}
+                    isEnterPressed={false}
                   />
                 </div>
               )}

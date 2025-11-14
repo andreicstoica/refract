@@ -128,7 +128,7 @@ function useProdActions(): ProdActions;
 - When a hook orchestrates multiple effects (e.g., `useProdTriggers`), accept explicit dependencies instead of reaching into other contexts to keep coupling obvious.
 
 ## Implementation Steps
-1. **Prep & Mobile Cleanup**
+1. ✅ **Prep & Mobile Cleanup**
 	- Remove imports/usages of `useViewportKeyboardCSSVar`, `useViewportKeyboard`, `usePageScrollLock`, and `useModalKeyboard`.
 	- Delete the hook files and update `IntroModal`, `/demo`, `/write`, and `specs/mobile-fixes.md` to reflect the simplified behavior.
 
@@ -154,6 +154,15 @@ function useProdActions(): ProdActions;
 	- Introduce a `sessionId` state in the pages; when the intro modal closes or resets, increment the id and call `resetSession()` on providers/hooks.
 	- Update docs (`README`, relevant `specs/*.md`) to reflect the new architecture.
 	- Re-run `bun run lint` and `bun run build` to verify typing and bundle health.
+
+7. **Debug vs. console.log**
+	- We have a 'debug.ts' fileooks like we have some console.logs when in production, but some ‘debug.dev’ logs as well. We should standardize this across the app - if it makes the logging cleaner in the code, let's default to debug.ts when appropriate. 
+
+8. **Update tests**
+	- We have a whole set of tests that probably reference the old file structure that need updating. 
+	- update the test file imports/setup of data etc.
+	- make sure everything works by running bun test (NOT bun run test, we're using bun's internal test runner)
+	- for good measure, use biome lint and formatting too
 
 ## Open Questions / Follow-ups
 - Should `ProdsProvider` live at the page level or inside `TextInput`? (Recommendation: wrap the editor area so future panels can also read prod state.) - let's go with your recommendation if it is simplest. 

@@ -81,7 +81,7 @@
 ### Decisions
 
 - Adopt dynamic viewport units and safe-area support on iOS (`100dvh`, `env(safe-area-inset-bottom)`).
-- Introduce a keyboard-aware utility that uses `window.visualViewport` to set a CSS var for the current keyboard overlap and adjusts scroll padding.
+- Rely on the existing `keyboard-safe-bottom`/`scroll-keyboard-safe` utilities (which already respect `env(safe-area-inset-bottom)`) instead of introducing a new keyboard hook; revisit JS if future profiling shows gaps.
 - Ensure the focused caret target scrolls into view during input/selection changes without fighting native scrolling.
 
 ### Implementation Notes
@@ -89,8 +89,7 @@
 - Layout: replace `100vh` with `100dvh` where full-height containers are used; use explicit feature queries for progressive enhancement on older iOS:
   - `@supports (height: 100dvh) { .full-vh { height: 100dvh; } }`
   - `@supports not (height: 100dvh) { .full-vh { height: -webkit-fill-available; min-height: 100vh; } }`
-- Safe area: add bottom padding for iOS using `padding-bottom: max(env(safe-area-inset-bottom), var(--kb-safe, 0px));`.
-- Keyboard utility: a small hook in `src/hooks/useViewportKeyboard.ts` that listens to `visualViewport.resize/scroll`, computes overlap, and sets `--kb-safe` on a relevant container or `:root`.
+- Safe area: add bottom padding for iOS using `padding-bottom: max(env(safe-area-inset-bottom), var(--kb-safe, 0px));` (the `.keyboard-safe-bottom` utility wires this together and will fall back to safe-area insets until we revisit JS-driven updates).
 - Scroll logic: on `input`/`selectionchange`, if caret rect bottom > visual viewport bottom − threshold, call `element.scrollIntoView({ block: 'nearest', behavior: 'smooth' })` on the scrollable editor container.
 - Avoid `preventDefault` on `touchmove` in the editor; it blocks native scroll adjustments.
 - Add `scroll-margin-bottom` on editable content to `var(--kb-safe, 0px)` to ensure caret visibility.
@@ -149,7 +148,7 @@
 
 ### New/Updated Utilities
 
-- `src/hooks/useViewportKeyboard.ts`: keyboard overlap detection using `visualViewport`, updates `--kb-safe` CSS var and exposes state.
+- CSS utilities: `.keyboard-safe-bottom` / `.scroll-keyboard-safe` in `src/index.css` lean on `env(safe-area-inset-bottom)` (with `var(--kb-safe, 0px)` as a placeholder) so no new JS hook is required today.
 - `src/lib/useRafScroll.ts`: rAF-based scroll handler helper to coalesce scroll work into a single per-frame callback.
 
 ### Style Updates
@@ -162,7 +161,7 @@
   - `@supports (height: 100dvh) { .full-vh { height: 100dvh; } }`
   - `@supports not (height: 100dvh) { .full-vh { height: -webkit-fill-available; min-height: 100vh; } }`
 - Keyboard overlap handling:
-  - Prefer `visualViewport` to compute `--kb-safe`; if unavailable, rely on safe-area insets and conservative bottom padding.
+  - Favor the `.keyboard-safe-bottom`/`.scroll-keyboard-safe` helpers that read `env(safe-area-inset-bottom)` so we still get spacing without a dedicated JS hook; `var(--kb-safe, 0px)` stays as a placeholder for future dynamic updates.
   - Avoid fixed footers on compact height; favor `position: sticky`.
 
 ### Risks & Mitigations
@@ -217,14 +216,14 @@ Context notes (for implementers):
      - Acceptance: smaller paint invalidation regions in Safari Web Inspector; no regressions on desktop.
 
 2) M2 — Keyboard-Safe Caret Visibility
-   - Ticket 2.1: Keyboard overlap hook
-     - Files: add `src/hooks/useViewportKeyboard.ts`.
-     - Actions: listen to `visualViewport.resize/scroll` and compute overlap; set CSS var `--kb-safe` on `document.documentElement` or a page root container.
-     - Acceptance: CSS var updates when keyboard opens/closes; values plausible in logs.
+   - Ticket 2.1: Keyboard safe-area CSS
+     - Files: `src/index.css`, `src/components/TextInput.tsx`.
+     - Actions: ensure `.keyboard-safe-bottom`/`.scroll-keyboard-safe` combine `env(safe-area-inset-bottom, 0px)` with `var(--kb-safe, 0px)` so caret spacing works even without JS; document why a dedicated keyboard hook is not part of this rollout.
+     - Acceptance: CSS padding/margins keep the caret above the keyboard across iOS versions and we have a short note on why no JS hook is added.
    - Ticket 2.2: Apply safe-area + scroll padding
      - Files: `src/index.css`, `src/app/page.tsx`, `src/components/TextInput.tsx`.
-     - Actions: use `padding-bottom: max(env(safe-area-inset-bottom), var(--kb-safe, 0px));`; add `scroll-margin-bottom: var(--kb-safe, 0px)` on the editable content; ensure no `height: 100vh` blockers.
-     - Acceptance: caret stays above keyboard while typing to end; no excessive jumps.
+     - Actions: ensure `padding-bottom` uses `max(env(safe-area-inset-bottom), var(--kb-safe, 0px))` and add `scroll-margin-bottom` with the same combo so `keyboard-safe-bottom` stays accurate even while `--kb-safe` is 0; eliminate `height: 100vh` blockers.
+     - Acceptance: caret stays above keyboard while typing to end; no excessive jumps and the CSS docs mention the `var(--kb-safe)` placeholder.
    - Ticket 2.3: Caret auto-scroll on input
      - Files: `src/components/TextInput.tsx`.
      - Actions: on `input`/`selectionchange`, if caret is below `visualViewport.bottom - threshold`, call `scrollIntoView({ block: 'nearest' })` on the scrollable container.

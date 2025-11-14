@@ -60,7 +60,6 @@ export function TextInput({
   const {
     prods,
     callProdAPI,
-    injectProd,
     handleTopicShift,
     pinProd,
     removeProd,
@@ -107,7 +106,6 @@ export function TextInput({
       const caretPosition = textarea.selectionStart;
 
       // Simple approximation: assume caret is at scroll position + some offset
-      // This is much lighter than creating mirror elements
       const lineHeight =
         parseFloat(window.getComputedStyle(textarea).lineHeight) || 56; // 3.5rem default
       const textBeforeCaret = textarea.value.substring(0, caretPosition);
@@ -204,14 +202,18 @@ export function TextInput({
               spellCheck="false"
               onWheelCapture={(e) => e.stopPropagation()}
               onPaste={(e) => {
-                // Prevent the page from scrolling when pasting
+                // Prevent the page from auto-scrolling when pasting (stop event bubbling)
                 e.stopPropagation();
-                // Small delay to ensure the paste event is handled before any scroll attempts
-                setTimeout(() => {
-                  if (textareaRef.current) {
-                    textareaRef.current.focus();
-                  }
-                }, 0);
+                // Let paste complete, then ensure caret is visible smoothly
+                // Double RAF ensures paste DOM updates complete before scroll check
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    ensureCaretVisible(); // Handles mobile keyboard visibility
+                    if (textareaRef.current) {
+                      textareaRef.current.focus();
+                    }
+                  });
+                });
               }}
               onKeyDown={(e) => {
                 // Prevent page scroll on arrow keys when textarea is focused
