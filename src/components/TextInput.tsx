@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/helpers";
 import type { Sentence } from "@/types/sentence";
 import type { SentencePosition } from "@/types/sentence";
 import { useProds } from "@/features/prods/hooks/useProds";
 import { useTopicShiftDetection } from "@/features/writing/hooks/useTopicShiftDetection";
-import { useTextProcessing } from "@/features/writing/hooks/useTextProcessing";
+import { useEditorText } from "@/features/writing/hooks/useEditorText";
+import { useSentenceTracker } from "@/features/writing/hooks/useSentenceTracker";
+import { useProdTriggers } from "@/features/writing/hooks/useProdTriggers";
+import { useTimingConfig } from "@/features/config/TimingConfigProvider";
 import { debug } from "@/lib/debug";
 import { ChipOverlay } from "./ChipOverlay";
 import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/constants";
@@ -34,14 +37,21 @@ export function TextInput({
   prodsEnabled = true,
   extraTopPaddingPx = 0,
 }: TextInputProps) {
-  // State for managing text and topic detection
-  const [currentText, setCurrentText] = useState("");
+  const { config } = useTimingConfig();
   const currentKeywordsRef = useRef<string[]>([]);
+
+  const editor = useEditorText({
+    onTextChange: (newText) => {
+      onTextChange?.(newText);
+    },
+  });
+
+  const { textareaRef } = editor;
 
   // Topic shift detection (needs to be first to get keywords for prod system)
   const { hasTopicShift, currentKeywords, topicVersion } =
     useTopicShiftDetection({
-      text: currentText,
+      text: editor.text,
       onTopicShift: () => {
         debug.dev("🌟 Topic shift detected in TextInput");
       },
@@ -70,31 +80,35 @@ export function TextInput({
     topicVersion,
   });
 
-  // Text processing with prod triggering
-  const { text, sentences, sentencePositions, textareaRef, handleTextChange } =
-    useTextProcessing({
-      onProdTrigger: callProdAPI,
-      onTextChange: (newText) => {
-        setCurrentText(newText);
-        onTextChange?.(newText);
-      },
-      onTextUpdate,
-      prodsEnabled,
-    });
+  const tracker = useSentenceTracker({
+    text: editor.text,
+    textareaRef: editor.textareaRef,
+    onUpdate: (textValue, sentencesList, positions) => {
+    onTextUpdate?.(textValue, sentencesList, positions);
+    },
+  });
+
+  useProdTriggers({
+    text: editor.text,
+    sentences: tracker.sentences,
+    onTrigger: callProdAPI,
+    config,
+    prodsEnabled,
+  });
 
   // Expose textarea ref to parent once and on handler change
   useEffect(() => {
-    onTextareaRef?.(textareaRef.current);
+    onTextareaRef?.(editor.textareaRef.current);
     return () => {
       onTextareaRef?.(null);
     };
-  }, [onTextareaRef]);
+  }, [onTextareaRef, editor.textareaRef]);
 
   // Simplified caret auto-scroll functionality for keyboard visibility
   const ensureCaretVisible = useCallback(() => {
-    if (!textareaRef.current) return;
+    if (!editor.textareaRef.current) return;
 
-    const textarea = textareaRef.current;
+    const textarea = editor.textareaRef.current;
     const visualViewport = window.visualViewport;
 
     // Only proceed if Visual Viewport API is available and keyboard might be visible
@@ -136,11 +150,11 @@ export function TextInput({
         console.warn("📱 Caret visibility check failed:", error);
       }
     }
-  }, []);
+  }, [editor.textareaRef]);
 
   // Attach caret visibility handlers
   useEffect(() => {
-    const textarea = textareaRef.current;
+    const textarea = editor.textareaRef.current;
     if (!textarea) return;
 
     const handleInputEvent = () => {
@@ -162,7 +176,7 @@ export function TextInput({
       textarea.removeEventListener("input", handleInputEvent);
       document.removeEventListener("selectionchange", handleSelectionChange);
     };
-  }, [ensureCaretVisible]);
+  }, [ensureCaretVisible, editor.textareaRef]);
 
   // Connect topic shift to prod cancellation (avoid calling during render)
   useEffect(() => {
@@ -179,9 +193,9 @@ export function TextInput({
           {/* Scrollable writing area fills remaining height */}
           <div className="relative flex-1 min-h-0 keyboard-safe-bottom">
             <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={handleTextChange}
+              ref={editor.textareaRef}
+              value={editor.text}
+              onChange={editor.handleChange}
               placeholder={placeholder}
               className={cn(
                 `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex relative z-10`,
@@ -209,8 +223,8 @@ export function TextInput({
                 requestAnimationFrame(() => {
                   requestAnimationFrame(() => {
                     ensureCaretVisible(); // Handles mobile keyboard visibility
-                    if (textareaRef.current) {
-                      textareaRef.current.focus();
+                    if (editor.textareaRef.current) {
+                      editor.textareaRef.current.focus();
                     }
                   });
                 });
@@ -243,9 +257,9 @@ export function TextInput({
             {/* Chip Overlay - positioned relative to textarea container */}
             <ChipOverlay
               visibleProds={prods}
-              sentencePositions={sentencePositions}
-              sentences={sentences}
-              textareaRef={textareaRef}
+              sentencePositions={tracker.positions}
+              sentences={tracker.sentences}
+              textareaRef={editor.textareaRef}
               extraTopPaddingPx={extraTopPaddingPx}
               pinnedProdIds={pinnedIds}
               onChipKeep={(prod) => pinProd(prod.id)}

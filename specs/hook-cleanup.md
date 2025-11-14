@@ -136,7 +136,7 @@ function useProdActions(): ProdActions;
 	- Create `TimingConfigProvider`, wrap `src/app/layout.tsx`, update `/demo` (or `app/demo/layout.tsx`) if needed.
 	- Replace `useDemoMode` usages in `useTextProcessing` and `useProds` with `useTimingConfig`.
 
-3. **Editor Hook Split**
+3. ✅ **Editor Hook Split**
 	- Implement `useEditorText`, `useSentenceTracker`, and `useProdTriggers` under `src/features/writing/hooks/`.
 	- Move shared logic (trigger heuristics, layout calculations) into new helpers under `src/lib/`.
 	- Update `TextInput` to use the new hooks and feed `text` directly into `useTopicShiftDetection`.
@@ -158,7 +158,10 @@ function useProdActions(): ProdActions;
 7. **Debug vs. console.log**
 	- We have a 'debug.ts' fileooks like we have some console.logs when in production, but some ‘debug.dev’ logs as well. We should standardize this across the app - if it makes the logging cleaner in the code, let's default to debug.ts when appropriate. 
 
-8. **Update tests**
+8. **Comments**
+	- leaving comments that explain the “why this is” not the “what this is” -> production code level comments that aren't overbearing; helpful and contextual comments!
+
+9. **Update tests**
 	- We have a whole set of tests that probably reference the old file structure that need updating. 
 	- update the test file imports/setup of data etc.
 	- make sure everything works by running bun test (NOT bun run test, we're using bun's internal test runner)
