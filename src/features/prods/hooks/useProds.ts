@@ -1,10 +1,10 @@
-import { useState, useRef, useCallback, useReducer, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useReducer, useEffect } from "react";
 import type { Sentence } from "@/types/sentence";
 import type { Prod } from "@/types/prod";
 import type { QueueItem, QueueState, QueueAction } from "@/types/queue";
 import { generateProdWithTimeout } from "@/services/prodClient";
 import { shouldProcessSentence } from "@/lib/shouldProcessSentence";
-import { useDemoMode, getTimingConfig } from "@/lib/demoMode";
+import { useTimingConfig } from "@/features/config/TimingConfigProvider";
 import { normalizeText, makeFingerprint, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
 import { debug } from "@/lib/debug";
 
@@ -77,8 +77,7 @@ export function useProds(options: UseProdsOptions = {}) {
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
     const pinnedIdsRef = useRef<Set<string>>(new Set());
 
-    const isDemoMode = useDemoMode();
-    const config = useMemo(() => getTimingConfig(isDemoMode), [isDemoMode]);
+    const { isDemoMode, config } = useTimingConfig();
 
     const nextAvailableAtRef = useRef<number>(0);
     const ongoingRequestsRef = useRef<Map<string, OngoingRequest>>(new Map());

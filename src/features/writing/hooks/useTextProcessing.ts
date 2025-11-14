@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { splitIntoSentences } from "@/lib/sentences";
 import type { Sentence } from "@/types/sentence";
 import { measureSentencePositions, clearPositionCache } from "@/lib/sentences";
 import type { SentencePosition } from "@/types/sentence";
-import { useDemoMode, getTimingConfig } from "@/lib/demoMode";
+import { useTimingConfig } from "@/features/config/TimingConfigProvider";
 import { debug } from "@/lib/debug";
 
 
@@ -32,8 +32,7 @@ export function useTextProcessing({
     const [sentences, setSentences] = useState<Sentence[]>([]);
     const [sentencePositions, setSentencePositions] = useState<SentencePosition[]>([]);
 
-    const isDemoMode = useDemoMode();
-    const config = useMemo(() => getTimingConfig(isDemoMode), [isDemoMode]);
+    const { config } = useTimingConfig();
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const sentencesDebounceRef = useRef<NodeJS.Timeout | null>(null);

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { EmbeddingsProvider } from "@/features/ai/EmbeddingsProvider";
+import { TimingConfigProvider } from "@/features/config/TimingConfigProvider";
 
 type ProvidersProps = {
   children: ReactNode;
@@ -16,7 +17,9 @@ export default function Providers({ children }: ProvidersProps) {
       enableSystem
       disableTransitionOnChange
     >
-      <EmbeddingsProvider>{children}</EmbeddingsProvider>
+      <TimingConfigProvider>
+        <EmbeddingsProvider>{children}</EmbeddingsProvider>
+      </TimingConfigProvider>
     </ThemeProvider>
   );
 }

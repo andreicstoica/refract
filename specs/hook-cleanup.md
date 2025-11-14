@@ -132,7 +132,7 @@ function useProdActions(): ProdActions;
 	- Remove imports/usages of `useViewportKeyboardCSSVar`, `useViewportKeyboard`, `usePageScrollLock`, and `useModalKeyboard`.
 	- Delete the hook files and update `IntroModal`, `/demo`, `/write`, and `specs/mobile-fixes.md` to reflect the simplified behavior.
 
-2. **Timing Config Provider**
+2. ✅ **Timing Config Provider**
 	- Create `TimingConfigProvider`, wrap `src/app/layout.tsx`, update `/demo` (or `app/demo/layout.tsx`) if needed.
 	- Replace `useDemoMode` usages in `useTextProcessing` and `useProds` with `useTimingConfig`.
 
