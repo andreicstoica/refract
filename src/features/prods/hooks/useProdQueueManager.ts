@@ -2,9 +2,9 @@ import { useState, useRef, useCallback, useReducer, useEffect } from "react";
 import type { Sentence } from "@/types/sentence";
 import type { Prod } from "@/types/prod";
 import type { QueueItem, QueueState, QueueAction } from "@/types/queue";
+import type { getTimingConfig } from "@/lib/demoMode";
 import { generateProdWithTimeout } from "@/services/prodClient";
 import { shouldProcessSentence } from "@/lib/shouldProcessSentence";
-import { useTimingConfig } from "@/features/config/TimingConfigProvider";
 import { normalizeText, makeFingerprint, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
 import { debug } from "@/lib/debug";
 
@@ -61,13 +61,21 @@ export function queueReducer(state: QueueState, action: QueueAction): QueueState
     }
 }
 
-interface UseProdsOptions {
-    onTopicShift?: () => void;
+type TimingConfig = ReturnType<typeof getTimingConfig>;
+
+interface UseProdQueueManagerOptions {
+    config: TimingConfig;
+    isDemoMode: boolean;
     topicKeywords?: string[];
     topicVersion?: number;
 }
 
-export function useProds(options: UseProdsOptions = {}) {
+export function useProdQueueManager({
+    config,
+    isDemoMode,
+    topicKeywords = [],
+    topicVersion,
+}: UseProdQueueManagerOptions) {
     const [prods, setProds] = useState<Prod[]>([]);
     const [queueState, queueDispatch] = useReducer(queueReducer, {
         items: [],
@@ -77,19 +85,17 @@ export function useProds(options: UseProdsOptions = {}) {
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
     const pinnedIdsRef = useRef<Set<string>>(new Set());
 
-    const { isDemoMode, config } = useTimingConfig();
-
     const nextAvailableAtRef = useRef<number>(0);
     const ongoingRequestsRef = useRef<Map<string, OngoingRequest>>(new Map());
-    const latestTopicVersionRef = useRef<number>(options.topicVersion ?? 0);
+    const latestTopicVersionRef = useRef<number>(topicVersion ?? 0);
     const sentenceFingerprintsRef = useRef<Map<string, number>>(new Map());
 
     // Track latest topic version for staleness gating
     useEffect(() => {
-        if (typeof options.topicVersion === 'number') {
-            latestTopicVersionRef.current = options.topicVersion;
+        if (typeof topicVersion === 'number') {
+            latestTopicVersionRef.current = topicVersion;
         }
-    }, [options.topicVersion]);
+    }, [topicVersion]);
 
     // Helper to wait for rate limit window
     const waitForRateLimit = useCallback(async (delayMs: number) => {
@@ -114,8 +120,6 @@ export function useProds(options: UseProdsOptions = {}) {
             debug.dev(`🗑️ Cancelled all ${requestCount} ongoing requests`);
         }
     }, []);
-
-    // (Removed) stale guard is unnecessary with single-flight + pending-prune
 
     // Process a single queue item with cancellation support
     const processSingleItem = useCallback(async (item: QueueItem) => {
@@ -148,7 +152,7 @@ export function useProds(options: UseProdsOptions = {}) {
                 lastParagraph: sentence.text,
                 fullText: fullText,
                 recentProds: prods.slice(-5).map(p => p.text), // Last 5 prods for context
-                topicKeywords: options.topicKeywords, // Current topic keywords
+                topicKeywords, // Current topic keywords
             }, { signal: controller.signal });
 
             const apiElapsed = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - apiStart;
@@ -182,8 +186,6 @@ export function useProds(options: UseProdsOptions = {}) {
                 ongoingRequestsRef.current.delete(requestId);
                 return;
             }
-
-
 
             // Create final prod with selected text (or fallback for forced prods)
             const prodText = selectedProdText?.trim() || (item.force ? "Demo prod triggered!" : "");
@@ -227,7 +229,7 @@ export function useProds(options: UseProdsOptions = {}) {
             debug.error("❌ Prod pipeline error:", error);
             queueDispatch({ type: 'FAIL_PROCESSING', payload: id });
         }
-    }, [waitForRateLimit, prods, options.topicKeywords]);
+    }, [waitForRateLimit, prods, topicKeywords]);
 
     // Process queue sequentially with cancellation support (single-flight)
     useEffect(() => {
@@ -294,7 +296,7 @@ export function useProds(options: UseProdsOptions = {}) {
             timestamp: now,
         };
 
-        // Mark this sentence text as recently produced to avoid overlaps
+        // Mark this sentence text as recently processed to avoid overlaps
         try {
             cleanupOlderThan(recentSentenceTextMapRef.current, 120000, now);
             markNow(recentSentenceTextMapRef.current, normalized, now);
@@ -309,14 +311,12 @@ export function useProds(options: UseProdsOptions = {}) {
         });
     }, [prods]);
 
-    const callProdAPI = useCallback((fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
-        debug.prods(`${config.emoji} 📝 callProdAPI called for sentence:`, sentence.text.substring(0, 50) + "...");
+    const enqueueSentence = useCallback((fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
+        debug.prods(`${config.emoji} 📝 enqueueSentence called for sentence:`, sentence.text.substring(0, 50) + "...");
 
         // Clean old fingerprints (>30s) periodically
         const now = Date.now();
         const cleanupThreshold = 30000;
-
-        // No demo-specific prefix blocking; rely on general de-duplication
 
         // Early exit: check if this sentence text already has a recent prod
         const normalizedText = sentence.text.trim().toLowerCase();
@@ -350,7 +350,7 @@ export function useProds(options: UseProdsOptions = {}) {
         const normalized = normalizeText(sentenceText);
 
         // Skip if we've produced for this text recently (much longer timeout in demo mode)
-        const textTimeout = isDemoMode ? 60000 : 20000; // 60s in demo vs 20s in prod (prevent overlaps with demo chips)
+        const textTimeout = isDemoMode ? 30000 : 10000; // 30s in demo vs 10s in prod (prevent overlaps with demo chips)
         if (hasRecent(recentSentenceTextMapRef.current, normalized, textTimeout, now)) {
             debug.prods(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
@@ -439,6 +439,20 @@ export function useProds(options: UseProdsOptions = {}) {
         queueDispatch({ type: 'CLEAR_QUEUE' });
     }, [cancelAllRequests]);
 
+    const clearAll = useCallback(() => {
+        debug.prods(`${config.emoji} 🧹 Clearing all prod state`);
+        clearQueue();
+        setProds([]);
+        setFilteredSentences([]);
+        setPinnedIds(() => {
+            const cleared = new Set<string>();
+            pinnedIdsRef.current = cleared;
+            return cleared;
+        });
+        sentenceFingerprintsRef.current.clear();
+        recentSentenceTextMapRef.current.clear();
+    }, [clearQueue, config]);
+
     // Handle topic shift - cancel relevant requests
     const handleTopicShift = useCallback(() => {
         debug.devProds(`${config.emoji} 🌟 Topic shift detected — cancelling and clearing queue`);
@@ -451,8 +465,7 @@ export function useProds(options: UseProdsOptions = {}) {
         recentSentenceTextMapRef.current.clear();
 
         debug.devProds(`${config.emoji} 🗑️ Cleared all prod-related state for topic shift`);
-        options.onTopicShift?.();
-    }, [cancelAllRequests, options.onTopicShift, config]);
+    }, [cancelAllRequests, config]);
 
     // Clear cached sentences (for new writing sessions)
     const clearFilteredSentences = useCallback(() => {
@@ -464,11 +477,12 @@ export function useProds(options: UseProdsOptions = {}) {
 
     return {
         prods,
-        callProdAPI,
+        enqueueSentence,
         injectProd,
         pinProd,
         removeProd,
         clearQueue,
+        clearAll,
         handleTopicShift,
         queueState, // Expose queue state for UI feedback
         filteredSentences, // Expose cached sentences for embeddings

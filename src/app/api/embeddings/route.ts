@@ -242,7 +242,7 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
 
     // Use a valid, fast JSON-capable model
     const result = await generateObject({
-      model: openai("gpt-5-nano"),
+      model: openai("gpt-5.1-nano"),
       system: systemPrompt,
       prompt: userPrompt,
       schema: ComprehensiveThemeSchema,

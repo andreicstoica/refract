@@ -141,25 +141,43 @@ function useProdActions(): ProdActions;
 	- Move shared logic (trigger heuristics, layout calculations) into new helpers under `src/lib/`.
 	- Update `TextInput` to use the new hooks and feed `text` directly into `useTopicShiftDetection`.
 
-4. **ProdsProvider Extraction**
+4. **✅ ProdsProvider Extraction**
 	- Move the reducer + queue logic from `useProds` into `useProdQueueManager` (utility hook with no React consumer).
 	- Implement `ProdsProvider`, `useProdState`, and `useProdActions` that wrap the manager and expose stable references.
 	- Update `TextInput`, `ChipOverlay`, and any other prod consumers to read from the provider.
+	- Make sure that we don't need dedup logic in 'api/prod/route.ts' anymore since we've confirmed our queue logic so nicely.
 
 5. **Theme Analysis Hook**
 	- Add `useThemeAnalysis` to coordinate embeddings requests, theme selections, and reruns.
 	- Pages (`/write`, `/demo`) consume the hook instead of hand-rolling state, and pass results to `HighlightLayer` / `ThemeToggleButtons`.
+	- Make sure the 'api/embeddings/route.ts' file doesn't have any unnecessary memo-ization or storage layers and consumes only what it needs.
 
-6. **Session Reset + Final Polish**
-	- Introduce a `sessionId` state in the pages; when the intro modal closes or resets, increment the id and call `resetSession()` on providers/hooks.
-	- Update docs (`README`, relevant `specs/*.md`) to reflect the new architecture.
-	- Re-run `bun run lint` and `bun run build` to verify typing and bundle health.
+6. **Highlight Range Simplification**
+	- Simplify 'HighlightRange' and 'SegmentMeta' split -> potentially unecessary to have both, even for staggered animations.
+		- HighlightRange = source data (continuous highlight regions from themes)
+		- SegmentMeta = derived data (text split at all highlight boundaries, with nullable highlight properties)
+	- Clarification: Segments split at highlight start/end points, not line breaks. One HighlightRange can produce multiple SegmentMeta entries when ranges overlap or have gaps.
+	- Question to verify: Is the segment approach necessary?
+	- Hypothesis: Only needed for the animation system (staggered delays, entry/exit tracking). For static highlights, you can render HighlightRange[] directly.
+	- Suggested Change:
+		- Remove the segment splitting and render HighlightRange[] directly.
+		- Remove: buildCutPoints, createSegments, computeSegmentMeta, assignChunkIndices
+		- Remove: SegmentMeta type (or keep if needed elsewhere)
+		- Simplify HighlightLayer to:
+			- Map over currentRanges directly
+			- Calculate chunk indices by checking if ranges are contiguous
+			- Track previous HighlightRange[] for exit animations
+			- Render only highlighted spans (unhighlighted text doesn't need DOM nodes)
+	- This removes unnecessary complexity. The segment approach was likely added to ensure perfect text alignment, but inline spans with the same text/styling should align correctly without it. Double check this logic.
 
 7. **Debug vs. console.log**
 	- We have a 'debug.ts' fileooks like we have some console.logs when in production, but some ‘debug.dev’ logs as well. We should standardize this across the app - if it makes the logging cleaner in the code, let's default to debug.ts when appropriate. 
 
-8. **Comments**
+8. **Final Polish + Comments**
 	- leaving comments that explain the “why this is” not the “what this is” -> production code level comments that aren't overbearing; helpful and contextual comments!
+	- Update docs (`README`, relevant `specs/*.md`) to reflect the new architecture.
+	- Consider extracting the pure queue/dedup logic from `useProdQueueManager` into `src/lib/` once the provider work settles so the hook stays focused on wiring, not data transforms.
+	- Re-run `bun run lint` 
 
 9. **Update tests**
 	- We have a whole set of tests that probably reference the old file structure that need updating. 

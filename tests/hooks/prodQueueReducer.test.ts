@@ -1,13 +1,13 @@
 import { describe, it, expect } from "bun:test";
-import { queueReducer } from "@/features/prods/hooks/useProds";
-import type { QueueState } from "@/types/queue";
+import { queueReducer } from "@/features/prods/hooks/useProdQueueManager";
+import type { QueueState, QueueItem } from "@/types/queue";
 import type { Sentence } from "@/types/sentence";
 
 function makeSentence(id: string, text: string): Sentence {
 	return { id, text, startIndex: 0, endIndex: text.length };
 }
 
-function makeBaseItem(id: string, text: string) {
+function makeBaseItem(id: string, text: string): Omit<QueueItem, "status"> {
 	return {
 		id,
 		fullText: text,

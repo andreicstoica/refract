@@ -9,30 +9,26 @@ import { cn } from "@/lib/helpers";
 import { useRafScroll } from "@/features/ui/hooks/useRafScroll";
 import { calculateChipLayout } from "@/services/chipLayoutService";
 import { debug } from "@/lib/debug";
+import { useProdActions, useProdState } from "@/features/prods/context/ProdsProvider";
 
 interface ChipOverlayProps {
-  visibleProds: Prod[];
   sentencePositions: SentencePosition[];
   sentences?: Sentence[];
   className?: string;
-  onChipFade?: (prodId: string) => void;
-  onChipKeep?: (prod: Prod) => void;
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
   extraTopPaddingPx?: number;
-  pinnedProdIds?: Set<string>;
 }
 
 export function ChipOverlay({
-  visibleProds,
   sentencePositions,
   sentences = [],
   className,
-  onChipFade,
-  onChipKeep,
   textareaRef,
   extraTopPaddingPx = 0,
-  pinnedProdIds = new Set(),
 }: ChipOverlayProps) {
+  const { prods, pinnedIds } = useProdState();
+  const { pin, remove } = useProdActions();
+
   const positionMap = useMemo(
     () => new Map(sentencePositions.map((pos) => [pos.sentenceId, pos])),
     [sentencePositions]
@@ -131,12 +127,12 @@ export function ChipOverlay({
     if (contentWidth <= 0) return new Map();
 
     return calculateChipLayout(
-      visibleProds,
+      prods,
       positionMap,
       contentWidth,
-      pinnedProdIds
+      pinnedIds
     );
-  }, [visibleProds, positionMap, contentWidth, pinnedProdIds]);
+  }, [prods, positionMap, contentWidth, pinnedIds]);
 
   return (
     <div
@@ -166,7 +162,7 @@ export function ChipOverlay({
           color: "transparent",
         }}
       >
-        {visibleProds.map((prod) => {
+        {prods.map((prod) => {
           const sentencePosition =
             positionMap.get(prod.sentenceId) || findFallback(prod);
           if (!sentencePosition) {
@@ -194,8 +190,8 @@ export function ChipOverlay({
               verticalOffset={offsets.v}
               maxWidthPx={offsets.maxWidth}
               containerWidth={contentWidth}
-              onFadeComplete={() => onChipFade?.(prod.id)}
-              onKeepChip={() => onChipKeep?.(prod)}
+              onFadeComplete={() => remove(prod.id)}
+              onKeepChip={() => pin(prod.id)}
             />
           );
         })}

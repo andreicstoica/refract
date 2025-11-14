@@ -1,5 +1,3 @@
-import type { Sentence } from "./sentence";
-
 export interface TextChunk {
     id: string;
     text: string;

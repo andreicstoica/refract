@@ -22,6 +22,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { prewarmProd } from "@/services/prodClient";
 import { useHeaderRevealAnimation } from "@/features/ui/hooks/useHeaderRevealAnimation";
 import { DEMO_TEXT } from "@/lib/demoMode";
+import { ProdsProvider } from "@/features/prods/context/ProdsProvider";
 
 export default function DemoPage() {
   const { generateThemes: generate, isGenerating } = useEmbeddings();
@@ -286,25 +287,27 @@ export default function DemoPage() {
 
       {/* Writing Surface with highlight layer */}
       <div className="flex-1 min-h-0 max-w-6xl mx-auto w-full overflow-hidden">
-        <TextInput
-          onTextUpdate={handleTextUpdate}
-          onTextareaRef={handleTextareaRef}
-          prodsEnabled={!showTimerSetup}
-        >
-          {/* Highlight paint layer: fades in when themes ready */}
-          {hasThemes ? (
-            <div className="transition-opacity duration-300 ease-out opacity-100">
-              <HighlightLayer
-                ref={highlightLayerRef}
-                text={currentText}
-                currentRanges={highlightRanges}
-                allRanges={allHighlightableRanges}
-                textareaRef={textareaRefObject}
-                extraTopPaddingPx={0}
-              />
-            </div>
-          ) : null}
-        </TextInput>
+        <ProdsProvider>
+          <TextInput
+            onTextUpdate={handleTextUpdate}
+            onTextareaRef={handleTextareaRef}
+            prodsEnabled={!showTimerSetup}
+          >
+            {/* Highlight paint layer: fades in when themes ready */}
+            {hasThemes ? (
+              <div className="transition-opacity duration-300 ease-out opacity-100">
+                <HighlightLayer
+                  ref={highlightLayerRef}
+                  text={currentText}
+                  currentRanges={highlightRanges}
+                  allRanges={allHighlightableRanges}
+                  textareaRef={textareaRefObject}
+                  extraTopPaddingPx={0}
+                />
+              </div>
+            ) : null}
+          </TextInput>
+        </ProdsProvider>
       </div>
     </div>
   );

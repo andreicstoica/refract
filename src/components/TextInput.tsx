@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useCallback } from "react";
 import { cn } from "@/lib/helpers";
 import type { Sentence } from "@/types/sentence";
 import type { SentencePosition } from "@/types/sentence";
-import { useProds } from "@/features/prods/hooks/useProds";
 import { useTopicShiftDetection } from "@/features/writing/hooks/useTopicShiftDetection";
 import { useEditorText } from "@/features/writing/hooks/useEditorText";
 import { useSentenceTracker } from "@/features/writing/hooks/useSentenceTracker";
 import { useProdTriggers } from "@/features/writing/hooks/useProdTriggers";
 import { useTimingConfig } from "@/features/config/TimingConfigProvider";
+import { useProdActions } from "@/features/prods/context/ProdsProvider";
 import { debug } from "@/lib/debug";
 import { ChipOverlay } from "./ChipOverlay";
 import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/constants";
@@ -38,7 +38,11 @@ export function TextInput({
   extraTopPaddingPx = 0,
 }: TextInputProps) {
   const { config } = useTimingConfig();
-  const currentKeywordsRef = useRef<string[]>([]);
+  const {
+    enqueueSentence,
+    notifyTopicShift,
+    updateTopicContext,
+  } = useProdActions();
 
   const editor = useEditorText({
     onTextChange: (newText) => {
@@ -57,28 +61,12 @@ export function TextInput({
       },
     });
 
-  // Update keywords ref when they change
   useEffect(() => {
-    currentKeywordsRef.current = currentKeywords;
-  }, [currentKeywords]);
-
-  // Enhanced prod management with topic shift integration
-  const onProdTopicShift = useCallback(() => {
-    debug.dev("🎯 Topic shift handled by prod system");
-  }, []);
-
-  const {
-    prods,
-    callProdAPI,
-    handleTopicShift,
-    pinProd,
-    removeProd,
-    pinnedIds,
-  } = useProds({
-    onTopicShift: onProdTopicShift,
-    topicKeywords: currentKeywordsRef.current,
-    topicVersion,
-  });
+    updateTopicContext({
+      keywords: currentKeywords,
+      version: topicVersion,
+    });
+  }, [currentKeywords, topicVersion, updateTopicContext]);
 
   const tracker = useSentenceTracker({
     text: editor.text,
@@ -88,10 +76,21 @@ export function TextInput({
     },
   });
 
+  const handleProdTrigger = useCallback(
+    (fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
+      enqueueSentence({
+        fullText,
+        sentence,
+        force: opts?.force,
+      });
+    },
+    [enqueueSentence]
+  );
+
   useProdTriggers({
     text: editor.text,
     sentences: tracker.sentences,
-    onTrigger: callProdAPI,
+    onTrigger: handleProdTrigger,
     config,
     prodsEnabled,
   });
@@ -181,9 +180,10 @@ export function TextInput({
   // Connect topic shift to prod cancellation (avoid calling during render)
   useEffect(() => {
     if (hasTopicShift) {
-      handleTopicShift();
+      debug.dev("🎯 Topic shift handled by prod system");
+      notifyTopicShift();
     }
-  }, [hasTopicShift, handleTopicShift]);
+  }, [hasTopicShift, notifyTopicShift]);
 
   return (
     <div className="relative h-full w-full">
@@ -256,14 +256,10 @@ export function TextInput({
 
             {/* Chip Overlay - positioned relative to textarea container */}
             <ChipOverlay
-              visibleProds={prods}
               sentencePositions={tracker.positions}
               sentences={tracker.sentences}
               textareaRef={editor.textareaRef}
               extraTopPaddingPx={extraTopPaddingPx}
-              pinnedProdIds={pinnedIds}
-              onChipKeep={(prod) => pinProd(prod.id)}
-              onChipFade={(id) => removeProd(id)}
             />
           </div>
         </div>
