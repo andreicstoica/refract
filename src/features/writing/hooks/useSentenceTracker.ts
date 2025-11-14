@@ -20,10 +20,15 @@ export function useSentenceTracker({
 	const [positions, setPositions] = useState<SentencePosition[]>([]);
 	const debounceRef = useRef<NodeJS.Timeout | null>(null);
 	const textRef = useRef(text);
+	const onUpdateRef = useRef(onUpdate);
 
 	useEffect(() => {
 		textRef.current = text;
 	}, [text]);
+
+	useEffect(() => {
+		onUpdateRef.current = onUpdate;
+	}, [onUpdate]);
 
 	const processText = useCallback(() => {
 		const currentText = textareaRef.current?.value ?? textRef.current ?? "";
@@ -31,7 +36,7 @@ export function useSentenceTracker({
 		if (!currentText.trim()) {
 			setSentences([]);
 			setPositions([]);
-			onUpdate?.(currentText, [], []);
+			onUpdateRef.current?.(currentText, [], []);
 			return;
 		}
 
@@ -44,8 +49,8 @@ export function useSentenceTracker({
 
 		setSentences(nextSentences);
 		setPositions(nextPositions);
-		onUpdate?.(currentText, nextSentences, nextPositions);
-	}, [textareaRef, onUpdate]);
+		onUpdateRef.current?.(currentText, nextSentences, nextPositions);
+	}, [textareaRef]);
 
 	useEffect(() => {
 		if (debounceRef.current) {
@@ -78,14 +83,14 @@ export function useSentenceTracker({
 	const refreshPositions = useCallback(() => {
 		if (!textareaRef.current || sentences.length === 0) {
 			setPositions([]);
-			onUpdate?.(textRef.current ?? "", sentences, []);
+			onUpdateRef.current?.(textRef.current ?? "", sentences, []);
 			return;
 		}
 
 		const updatedPositions = measureSentencePositions(sentences, textareaRef.current);
 		setPositions(updatedPositions);
-		onUpdate?.(textRef.current ?? "", sentences, updatedPositions);
-	}, [sentences, textareaRef, onUpdate]);
+		onUpdateRef.current?.(textRef.current ?? "", sentences, updatedPositions);
+	}, [sentences, textareaRef]);
 
 	useEffect(() => {
 		const handleResize = () => {

@@ -113,14 +113,13 @@ export default function DemoPage() {
     [hasThemes, isGenerating, currentSentences.length, requestAnalysis]
   );
 
-  const handleTextUpdate = (
-    text: string,
-    sentences: Sentence[],
-    positions: SentencePosition[]
-  ) => {
-    setCurrentText(text);
-    setCurrentSentences(sentences);
-  };
+  const handleTextUpdate = useCallback(
+    (text: string, sentences: Sentence[], positions: SentencePosition[]) => {
+      setCurrentText(text);
+      setCurrentSentences(sentences);
+    },
+    []
+  );
 
   // Explicit re-run of embeddings on demand
   const handleRerunEmbeddings = useCallback(async () => {

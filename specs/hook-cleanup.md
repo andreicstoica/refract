@@ -286,7 +286,7 @@ The system should prevent overlaps, but edge cases can occur, especially when pi
 	- README/spec updates should capture the architectural story (TimingConfigProvider, editor text pipeline, ProdsProvider) while `docs/architecture.md` + `docs/diagrams/*` host higher-signal artifacts (Mermaid flows, box diagrams). Link those diagrams from the README but keep implementation notes beside the code when possible.
 	- Re-run `bun run lint` 
 
-9. **Update tests**
+9. ✅ **Update tests**
 	- We have a whole set of tests that probably reference the old file structure that need updating. 
 	- update the test file imports/setup of data etc.
 	- make sure everything works by running bun test (NOT bun run test, we're using bun's internal test runner)
