@@ -280,7 +280,7 @@ function chipsOverlapVertically(
 
 The system should prevent overlaps, but edge cases can occur, especially when pinning multiple chips in close proximity. The specs mention this was a known issue that the current implementation attempts to address.
 
-8. **Final Polish + Comments**
+8. ✅ **Final Polish + Comments**
 	- Comments must justify intent: short rationale lines inline for tricky branches (queue resets, chip placement fallbacks), doc comments for exported hooks/providers outlining inputs/invariants, and TODOs only when paired with an owner + expected outcome. If the code already says it, delete the comment.
 	- Favor declarative tone (present tense, <80 chars per line) and colocate “why” comments directly above the code path they defend so future edits keep the context in diff.
 	- README/spec updates should capture the architectural story (TimingConfigProvider, editor text pipeline, ProdsProvider) while `docs/architecture.md` + `docs/diagrams/*` host higher-signal artifacts (Mermaid flows, box diagrams). Link those diagrams from the README but keep implementation notes beside the code when possible.
