@@ -5,7 +5,7 @@ import { IntroModal } from "@/components/IntroModal";
 import { WritingTimer } from "@/components/WritingTimer";
 import { TextInput } from "@/components/TextInput";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
-import { HighlightLayer } from "@/components/highlight/HighlightLayer";
+import { HighlightOverlay } from "@/components/highlight/HighlightOverlay";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -16,7 +16,6 @@ import { RefreshCw, Clipboard } from "lucide-react";
 import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 import { AnimatePresence, motion } from "framer-motion";
-import { prewarmProd } from "@/services/prodClient";
 import { useHeaderRevealAnimation } from "@/features/ui/hooks/useHeaderRevealAnimation";
 import { DEMO_TEXT } from "@/lib/demoMode";
 import { ProdsProvider } from "@/features/prods/context/ProdsProvider";
@@ -50,7 +49,7 @@ export default function DemoPage() {
     text: currentText,
   });
 
-  // Create textarea ref for HighlightLayer
+  // Create textarea ref for HighlightOverlay
   const textareaRefObject = useRef<HTMLTextAreaElement>(null as any);
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
@@ -86,8 +85,6 @@ export default function DemoPage() {
 
     loadClipboard();
 
-    // Warm the prod pipeline in demo to reduce first prod latency
-    prewarmProd();
   }, []);
 
   const handleTimerStart = (minutes: number) => {
@@ -113,12 +110,7 @@ export default function DemoPage() {
         debug.error("❌ analysis failed", err);
       }
     },
-    [
-      hasThemes,
-      isGenerating,
-      currentSentences.length,
-      requestAnalysis,
-    ]
+    [hasThemes, isGenerating, currentSentences.length, requestAnalysis]
   );
 
   const handleTextUpdate = (
@@ -140,17 +132,13 @@ export default function DemoPage() {
     }
   }, [isGenerating, rerunAnalysis]);
 
+  // Header reveal animation when themes first appear
   useHeaderRevealAnimation(hasThemes, chipsRef, reloadButtonRef);
 
-  // Handle textarea ref for HighlightLayer
+  // Handle textarea ref for HighlightOverlay
   const handleTextareaRef = useCallback((el: HTMLTextAreaElement | null) => {
     textareaRefObject.current = el!; // Non-null assertion since TextInput always provides valid element
   }, []);
-
-  // HighlightLayer handles its own scroll sync via useRafScroll - no manual sync needed
-
-  // Animate header transition: smooth layout change from center to space-between
-  // hasThemes computed above
 
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background text-foreground">
@@ -268,7 +256,7 @@ export default function DemoPage() {
             {/* Highlight paint layer: fades in when themes ready */}
             {hasThemes ? (
               <div className="transition-opacity duration-300 ease-out opacity-100">
-                <HighlightLayer
+                <HighlightOverlay
                   ref={highlightLayerRef}
                   text={currentText}
                   activeRanges={highlightRanges}

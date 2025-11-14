@@ -11,6 +11,163 @@ export interface ChipPlacement {
     maxWidth: number;
 }
 
+interface PlacementResult {
+    placement: ChipPlacement;
+    absoluteX: number;
+}
+
+const VERTICAL_LANE_GAP = CHIP_LAYOUT.HEIGHT + 8;
+const SAFETY_MARGIN = 4;
+
+function hasCollision(
+    pos: SentencePosition,
+    offsetX: number,
+    offsetY: number,
+    chipWidth: number,
+    placedChips: Array<{ position: SentencePosition; offsetX: number; offsetY: number; width: number; }>
+): boolean {
+    return placedChips.some(placed =>
+        chipsOverlapVertically(pos, placed.position, offsetY, placed.offsetY) &&
+        chipsOverlapHorizontally(pos, placed.position, offsetX, placed.offsetX, chipWidth, placed.width)
+    );
+}
+
+function isWithinHorizontalBounds(
+    absoluteLeft: number,
+    chipWidth: number,
+    leftBoundary: number,
+    rightBoundary: number
+): boolean {
+    if (absoluteLeft < leftBoundary) return false;
+    return absoluteLeft + chipWidth <= rightBoundary;
+}
+
+function clampToBoundaries(
+    targetLeft: number,
+    chipWidth: number,
+    leftBoundary: number,
+    rightBoundary: number
+): number | null {
+    const maxLeft = rightBoundary - chipWidth;
+    if (maxLeft < leftBoundary) {
+        return null;
+    }
+    return Math.max(leftBoundary, Math.min(targetLeft, maxLeft));
+}
+
+function createPlacementResult(
+    pos: SentencePosition,
+    offsetX: number,
+    offsetY: number,
+    chipWidth: number
+): PlacementResult {
+    return {
+        placement: {
+            h: offsetX,
+            v: offsetY,
+            maxWidth: chipWidth,
+        },
+        absoluteX: pos.left + offsetX,
+    };
+}
+
+function buildShiftSequence(attempts: number): number[] {
+    const sequence: number[] = [];
+    for (let i = 0; i < attempts; i++) {
+        if (i === 0) {
+            sequence.push(0);
+            continue;
+        }
+        const magnitude = Math.ceil(i / 2);
+        const direction = i % 2 === 0 ? -1 : 1;
+        sequence.push(direction * magnitude);
+    }
+    return sequence;
+}
+
+function tryReusePinnedPlacement(options: {
+    previousPlacement?: ChipPlacement;
+    pos: SentencePosition;
+    chipWidth: number;
+    containerWidth: number;
+    placedChips: Array<{ position: SentencePosition; offsetX: number; offsetY: number; width: number; }>;
+}): PlacementResult | null {
+    const { previousPlacement, pos, chipWidth, containerWidth, placedChips } = options;
+    if (!previousPlacement) return null;
+
+    const leftBoundary = CHIP_LAYOUT.BOUNDARY_PAD;
+    const rightBoundary = containerWidth - CHIP_LAYOUT.BOUNDARY_PAD - SAFETY_MARGIN;
+    const clamped = clampToBoundaries(pos.left + previousPlacement.h, chipWidth, leftBoundary, rightBoundary);
+    if (clamped === null) return null;
+
+    const offsetX = clamped - pos.left;
+    const offsetY = previousPlacement.v;
+
+    if (hasCollision(pos, offsetX, offsetY, chipWidth, placedChips)) {
+        return null;
+    }
+
+    return createPlacementResult(pos, offsetX, offsetY, chipWidth);
+}
+
+function findDesktopPlacement(options: {
+    pos: SentencePosition;
+    baseX: number;
+    chipWidth: number;
+    containerWidth: number;
+    placedChips: Array<{ position: SentencePosition; offsetX: number; offsetY: number; width: number; }>;
+    shiftSequence: number[];
+    verticalLaneCount: number;
+    shiftIncrement: number;
+}): PlacementResult | null {
+    const { pos, baseX, chipWidth, containerWidth, placedChips, shiftSequence, verticalLaneCount, shiftIncrement } = options;
+    const leftBoundary = CHIP_LAYOUT.BOUNDARY_PAD;
+    const rightBoundary = containerWidth - CHIP_LAYOUT.BOUNDARY_PAD - SAFETY_MARGIN;
+
+    for (let lane = 0; lane < verticalLaneCount; lane++) {
+        const offsetY = CHIP_LAYOUT.OFFSET_Y + lane * VERTICAL_LANE_GAP;
+        for (const step of shiftSequence) {
+            const absoluteLeft = baseX + (step * shiftIncrement);
+            if (!isWithinHorizontalBounds(absoluteLeft, chipWidth, leftBoundary, rightBoundary)) {
+                continue;
+            }
+
+            const offsetX = absoluteLeft - pos.left;
+            if (hasCollision(pos, offsetX, offsetY, chipWidth, placedChips)) {
+                continue;
+            }
+
+            return createPlacementResult(pos, offsetX, offsetY, chipWidth);
+        }
+    }
+
+    return null;
+}
+
+function fallbackPlacement(options: {
+    pos: SentencePosition;
+    chipWidth: number;
+    containerWidth: number;
+    placedChips: Array<{ position: SentencePosition; offsetX: number; offsetY: number; width: number; }>;
+    verticalLaneCount: number;
+}): PlacementResult | null {
+    const { pos, chipWidth, containerWidth, placedChips, verticalLaneCount } = options;
+    const leftBoundary = CHIP_LAYOUT.BOUNDARY_PAD;
+    const rightBoundary = containerWidth - CHIP_LAYOUT.BOUNDARY_PAD - SAFETY_MARGIN;
+    const targetLeft = pos.left + pos.width - chipWidth;
+    const clamped = clampToBoundaries(targetLeft, chipWidth, leftBoundary, rightBoundary);
+    if (clamped === null) return null;
+
+    const offsetX = clamped - pos.left;
+    const offsetY = CHIP_LAYOUT.OFFSET_Y + verticalLaneCount * VERTICAL_LANE_GAP;
+
+    if (hasCollision(pos, offsetX, offsetY, chipWidth, placedChips)) {
+        return null;
+    }
+
+    return createPlacementResult(pos, offsetX, offsetY, chipWidth);
+}
+
 /**
  * Group prods by sentence (following existing chunk mapping patterns)
  */
@@ -77,7 +234,8 @@ export function calculateChipLayout(
     prods: Prod[],
     positionMap: Map<string, SentencePosition>,
     containerWidth: number,
-    pinnedIds: Set<string> = new Set()
+    pinnedIds: Set<string> = new Set(),
+    previousLayout?: Map<string, ChipPlacement>
 ): Map<string, ChipPlacement> {
 
     const isMobile = isMobileViewport(containerWidth, CHIP_LAYOUT.MOBILE_BREAKPOINT);
@@ -167,9 +325,6 @@ export function calculateChipLayout(
                 availableWidth: containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD),
                 chipTexts: sorted.map(p => makeFingerprint(p.text))
             });
-            // Skip entire sentence group if too wide
-            totalSkipped += sorted.length;
-            continue;
         }
 
         // Position chips - simplified for mobile (one per row), complex for desktop
@@ -207,89 +362,73 @@ export function calculateChipLayout(
             }
         } else {
             // Desktop: Complex multi-lane positioning with collision detection
+            const shiftIncrement = 16;
+            const verticalLaneCount = Math.min(5, Math.max(3, Math.ceil(sorted.length / 2)));
+            const horizontalShiftAttempts = Math.min(11, Math.max(7, Math.ceil(containerWidth / 160)));
+            const shiftSequence = buildShiftSequence(horizontalShiftAttempts);
             let currentX = startX;
+
             for (let index = 0; index < sorted.length; index++) {
                 const prod = sorted[index];
                 const chipWidth = chipWidths[index];
+                let placement: PlacementResult | null = null;
 
-                // Find the best position (both horizontal and vertical) to avoid collisions
-                let bestX = currentX;
-                let bestOffsetY: number = CHIP_LAYOUT.OFFSET_Y;
-                const maxVerticalLanes = 3; // Maximum number of vertical lanes to try
-                const maxHorizontalShifts = 5; // More shifts on desktop for better positioning
+                if (pinnedIds.has(prod.id)) {
+                    placement = tryReusePinnedPlacement({
+                        previousPlacement: previousLayout?.get(prod.id),
+                        pos: pos!,
+                        chipWidth,
+                        containerWidth,
+                        placedChips,
+                    });
 
-                let foundPosition = false;
-
-                // Try different vertical lanes
-                for (let lane = 0; lane < maxVerticalLanes && !foundPosition; lane++) {
-                    const testOffsetY = CHIP_LAYOUT.OFFSET_Y + (lane * (CHIP_LAYOUT.HEIGHT + 8));
-
-                    // Try different horizontal positions within this lane
-                    for (let shift = 0; shift < maxHorizontalShifts; shift++) {
-                        const shiftIncrement = 16; // Standard increments on desktop
-                        const testX = currentX + (shift * shiftIncrement);
-                        let hasCollision = false;
-
-                        // Check boundary collision (left and right edges) with safety margin
-                        const absoluteLeft = testX;
-                        const absoluteRight = testX + chipWidth;
-                        const leftBoundary = CHIP_LAYOUT.BOUNDARY_PAD;
-                        const safetyMargin = 4; // Standard safety margin on desktop
-                        const rightBoundary = containerWidth - CHIP_LAYOUT.BOUNDARY_PAD - safetyMargin;
-
-                        if (absoluteLeft < leftBoundary || absoluteRight > rightBoundary) {
-                            hasCollision = true;
-                            debug.dev(`Boundary collision for "${makeFingerprint(prod.text)}": left=${absoluteLeft}, right=${absoluteRight}, boundaries=${leftBoundary}-${rightBoundary}, containerWidth=${containerWidth}, safetyMargin=${safetyMargin}`);
-                            continue; // Try next horizontal position
-                        }
-
-                        // Check collision with all previously placed chips
-                        for (const placedChip of placedChips) {
-                            if (chipsOverlapVertically(pos!, placedChip.position, testOffsetY, placedChip.offsetY) &&
-                                chipsOverlapHorizontally(pos!, placedChip.position, testX - pos!.left, placedChip.offsetX, chipWidth, placedChip.width)) {
-                                hasCollision = true;
-                                debug.dev(`Collision detected for "${makeFingerprint(prod.text)}" at lane ${lane}, shift ${shift}`);
-                                break;
-                            }
-                        }
-
-                        if (!hasCollision) {
-                            bestX = testX;
-                            bestOffsetY = testOffsetY;
-                            foundPosition = true;
-                            break;
-                        }
+                    if (placement) {
+                        debug.dev(`Reused pinned placement for "${makeFingerprint(prod.text)}"`);
                     }
                 }
 
-                // If no position found, skip this chip
-                if (!foundPosition) {
+                if (!placement) {
+                    placement = findDesktopPlacement({
+                        pos: pos!,
+                        baseX: currentX,
+                        chipWidth,
+                        containerWidth,
+                        placedChips,
+                        shiftSequence,
+                        verticalLaneCount,
+                        shiftIncrement,
+                    });
+                }
+
+                if (!placement) {
+                    placement = fallbackPlacement({
+                        pos: pos!,
+                        chipWidth,
+                        containerWidth,
+                        placedChips,
+                        verticalLaneCount,
+                    });
+                }
+
+                if (!placement) {
                     debug.warn(`No position found for chip "${makeFingerprint(prod.text)}" - skipping`);
                     sentenceSkipped.push(makeFingerprint(prod.text));
                     totalSkipped++;
                     continue;
                 }
 
-                const placement = {
-                    h: bestX - pos!.left,
-                    v: bestOffsetY,
-                    maxWidth: chipWidth
-                };
+                result.set(prod.id, placement.placement);
 
-                result.set(prod.id, placement);
-
-                // Track this chip for future collision detection
                 placedChips.push({
                     position: pos!,
-                    offsetX: placement.h,
-                    offsetY: placement.v,
-                    width: chipWidth
+                    offsetX: placement.placement.h,
+                    offsetY: placement.placement.v,
+                    width: chipWidth,
                 });
 
-                debug.dev(`Desktop positioned chip "${makeFingerprint(prod.text)}": h=${placement.h}, v=${placement.v}, absoluteX=${bestX}, chipWidth=${chipWidth}, sentenceTop=${pos!.top}, sentenceLeft=${pos!.left}`);
+                debug.dev(`Desktop positioned chip "${makeFingerprint(prod.text)}": h=${placement.placement.h}, v=${placement.placement.v}, absoluteX=${placement.absoluteX}, chipWidth=${chipWidth}, sentenceTop=${pos!.top}, sentenceLeft=${pos!.left}`);
 
-                // Update currentX for next chip (but use original positioning logic for spacing)
-                currentX += chipWidth + spacing;
+                currentX = placement.absoluteX + chipWidth + spacing;
             }
         }
 

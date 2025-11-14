@@ -196,14 +196,14 @@ Note: Status markers — 👉 in progress, ✅ completed, no marker = pending.
 
 Context notes (for implementers):
 - Chips: `@/lib/chipLayout.ts` drives `maxWidthPx` and offsets used by `@/components/ChipOverlay.tsx` and `@/components/Chip.tsx`.
-- Highlights: scroll-sync already uses rAF in `@/components/highlight/HighlightLayer.tsx` and `@/app/page.tsx`.
+- Highlights: scroll-sync already uses rAF in `@/components/highlight/HighlightOverlay.tsx` and `@/app/page.tsx`.
 - Text input: core textarea lives in `@/components/TextInput.tsx`; text parsing in `@/hooks/useTextProcessing.ts`.
 - Services: `@/services/*` (embeddings, prod) are not impacted; ensure no changes in API contracts.
 - Constants: `@/lib/constants.ts` defines shared padding/text classes used by overlays; keep in sync.
 
 1) 👉 M1 — Scroll Performance Hardening (iOS)
    - Ticket 1.1: Audit scroll/touch listeners and paints
-     - Files: `src/components/highlight/HighlightLayer.tsx`, `src/components/ChipOverlay.tsx`, `src/components/TextInput.tsx`, `src/components/ui/scroll-area.tsx`.
+     - Files: `src/components/highlight/HighlightOverlay.tsx`, `src/components/ChipOverlay.tsx`, `src/components/TextInput.tsx`, `src/components/ui/scroll-area.tsx`.
      - Actions: confirm passive listeners on `scroll/touch` (already passive in overlays); ensure no `preventDefault` on content scroll paths; verify rAF usage for scroll-sync; check for forced layouts in dev tools.
      - Acceptance: no non-passive listener warnings; no forced reflow during scroll in Safari Timelines.
    - Ticket 1.2: rAF scroll coalescing helper
@@ -211,7 +211,7 @@ Context notes (for implementers):
      - Actions: expose `subscribe(element, handler)` that batches scroll callbacks to 1/frame using `requestAnimationFrame`.
      - Acceptance: profiling shows <4ms scripting on scroll frames; stable frame rate during fast flick.
    - Ticket 1.3: Compositing hints and isolation
-     - Files: `src/index.css`, overlay containers in `HighlightLayer.tsx` and `ChipOverlay.tsx`.
+     - Files: `src/index.css`, overlay containers in `HighlightOverlay.tsx` and `ChipOverlay.tsx`.
      - Actions: add `contain: content;` or `contain: layout paint size;` on heavy overlay containers; apply `will-change: transform` only on `data-*` translated content wrappers.
      - Acceptance: smaller paint invalidation regions in Safari Web Inspector; no regressions on desktop.
 

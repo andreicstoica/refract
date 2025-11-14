@@ -22,7 +22,7 @@ Eliminate the hard page transition between Write and Themes by introducing a sin
   - `WritingTimer` for countdown
   - `useGenerateEmbeddings` to kick off analysis (ensure color/label enrichment step is included as in current flow)
   - Inline theme UI as an overlay: render `ThemeToggleButtons` and a highlight paint layer on top of the existing `TextInput` area (no separate layout block)
-  - Factor out a minimal `HighlightLayer` (from `TextWithHighlights`) that only paints ranges; mount it within the `TextInput` container.
+  - Factor out a minimal `HighlightOverlay` (from `TextWithHighlights`) that only paints ranges; mount it within the `TextInput` container.
   - Keep Option A (`ThemeHighlightView`) as a fallback path, but do not use it in this combined route to avoid layout shift.
   - Expose the textarea scroll/metrics needed for alignment (via ref or callback) without altering the writing UX.
 - Minor enhancement to `WritingTimer` to notify when a threshold (e.g., 20s) is crossed, resilient to pause/resume.
@@ -77,17 +77,17 @@ Decision: choose Option B to avoid layout shift and make highlights “magically
 Overlay details (no layout shift):
 
 - Wrap the textarea in a `relative` container (already true in `TextInput`).
-- Add `HighlightLayer` as `absolute inset-0 pointer-events-none` within that container.
+- Add `HighlightOverlay` as `absolute inset-0 pointer-events-none` within that container.
 - Keep the textarea above the highlight layer with a transparent background so highlights show through; preserve identical `font`, `line-height`, `padding`, and `white-space: pre-wrap` for perfect alignment.
 - Sync scroll: either share the scroll container or mirror `scrollTop` onto the paint layer.
-- Z-index: ensure `ChipOverlay` remains above text; place `HighlightLayer` beneath chips. Optionally dim chips while theme buttons are focused.
+- Z-index: ensure `ChipOverlay` remains above text; place `HighlightOverlay` beneath chips. Optionally dim chips while theme buttons are focused.
 - No analyzing indicator: do not change layout or show loading; only reveal theme controls/highlights once data exists.
 
 Animation guidelines:
 
 - No visible loading UI. Keep the page visually stable while analysis runs.
 - When `themes.length > 0`: animate in the theme chips row (`opacity 0→1`, `y -8→0`, 250–350ms).
-- Fade in the `HighlightLayer` from `opacity 0→1`; respect reduced motion by disabling translate.
+- Fade in the `HighlightOverlay` from `opacity 0→1`; respect reduced motion by disabling translate.
 
 ## Page Structure (pseudo)
 
@@ -110,7 +110,7 @@ Animation guidelines:
     {themesReady && (
       <>
         <ThemeToggleButtons ... />
-        <HighlightLayer ranges={ranges} text={currentText} />
+        <HighlightOverlay ranges={ranges} text={currentText} />
       </>
     )}
   </div>
@@ -167,13 +167,13 @@ Note: 👉 = currently in progress, ✅ = completed, no emoji = up next.
 
 5. Overlay highlight infrastructure
 
-- Extract `HighlightLayer` (paint-only) from `TextWithHighlights`. Mount as `absolute inset-0 pointer-events-none` inside `TextInput`’s relative container; align font, line-height, padding, white-space.
+- Extract `HighlightOverlay` (paint-only) from `TextWithHighlights`. Mount as `absolute inset-0 pointer-events-none` inside `TextInput`’s relative container; align font, line-height, padding, white-space.
 - Adjust `TextInput` for transparent textarea background (scoped to this route) and provide scroll metrics/ref if needed. Ensure `ChipOverlay` remains above highlights.
 - Acceptance: highlight layer aligns with text metrics and scroll; no input regression; chips render above highlights.
 
 6. Overlay reveal (no loading UI)
 
-- When themes are available: animate in `ThemeToggleButtons` and fade in `HighlightLayer`; respect reduced motion. No layout reflow.
+- When themes are available: animate in `ThemeToggleButtons` and fade in `HighlightOverlay`; respect reduced motion. No layout reflow.
 - Acceptance: zero reflow on reveal; highlights precisely align with existing text; no visible loaders; no console errors.
 
 7. Edge cases and failure handling

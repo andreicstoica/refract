@@ -8,6 +8,7 @@ import { TEXTAREA_CLASSES } from "@/lib/constants";
 import { cn } from "@/lib/helpers";
 import { useRafScroll } from "@/features/ui/hooks/useRafScroll";
 import { calculateChipLayout } from "@/services/chipLayoutService";
+import type { ChipPlacement } from "@/services/chipLayoutService";
 import { debug } from "@/lib/debug";
 import { useProdActions, useProdState } from "@/features/prods/context/ProdsProvider";
 
@@ -123,16 +124,24 @@ export function ChipOverlay({
   }, [textareaRef]);
 
   // Sentence-aware chip layout with overflow handling
+  const previousLayoutRef = useRef<Map<string, ChipPlacement>>(new Map());
+  const previousLayout = previousLayoutRef.current;
+
   const layoutByProdId = useMemo(() => {
-    if (contentWidth <= 0) return new Map();
+    if (contentWidth <= 0) return new Map<string, ChipPlacement>();
 
     return calculateChipLayout(
       prods,
       positionMap,
       contentWidth,
-      pinnedIds
+      pinnedIds,
+      previousLayout
     );
-  }, [prods, positionMap, contentWidth, pinnedIds]);
+  }, [prods, positionMap, contentWidth, pinnedIds, previousLayout]);
+
+  useEffect(() => {
+    previousLayoutRef.current = new Map(layoutByProdId);
+  }, [layoutByProdId]);
 
   return (
     <div

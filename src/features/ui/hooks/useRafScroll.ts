@@ -3,9 +3,11 @@ import { debug } from "@/lib/debug";
 
 /**
  * RAF-based scroll coalescing helper
- * 
- * Batches scroll callbacks to 1/frame using requestAnimationFrame to reduce
- * main-thread work and improve scroll performance on mobile devices.
+ *
+ * Batches scroll callbacks to 1/frame using requestAnimationFrame so the
+ * textarea overlays (chips + highlights) update in lockstep with the editor.
+ * This was originally introduced for mobile jelly scrolls, but we keep it for
+ * desktop as well because the overlays perform DOM writes on every scroll.
  * 
  * Usage:
  * ```ts
@@ -31,6 +33,7 @@ interface ScrollSubscription {
 
 // Global map to track subscriptions per element
 const subscriptions = new Map<HTMLElement, ScrollSubscription>();
+const HAS_RAF = typeof window !== "undefined" && typeof window.requestAnimationFrame === "function";
 
 function executeHandlers(subscription: ScrollSubscription) {
     subscription.rafId = null;
@@ -50,6 +53,12 @@ function scheduleUpdate(subscription: ScrollSubscription) {
     if (subscription.isScheduled) return;
 
     subscription.isScheduled = true;
+    if (!HAS_RAF) {
+        // SSR/unit tests fall back to immediate execution to avoid hanging updates
+        executeHandlers(subscription);
+        return;
+    }
+
     subscription.rafId = requestAnimationFrame(() => executeHandlers(subscription));
 }
 
@@ -93,7 +102,7 @@ export function subscribe(element: HTMLElement, handler: ScrollHandler): () => v
 
         // If no more handlers, clean up completely
         if (currentSubscription.handlers.size === 0) {
-            if (currentSubscription.rafId) {
+            if (currentSubscription.rafId && HAS_RAF) {
                 cancelAnimationFrame(currentSubscription.rafId);
             }
             element.removeEventListener('scroll', handleScroll);
@@ -113,7 +122,6 @@ export function useRafScroll<T extends HTMLElement>(
     handler: ScrollHandler,
     deps: React.DependencyList = []
 ) {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const stableHandler = React.useCallback(handler, deps);
 
     React.useEffect(() => {

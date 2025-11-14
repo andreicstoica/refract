@@ -10,7 +10,7 @@
 1. **Timer intro** – `IntroModal` (`src/components/IntroModal.tsx`) collects minutes and currently uses `useModalKeyboard` for shortcuts.
 2. **Writer surfaces** – `/write` and `/demo` render `TextInput`, which wires `useTextProcessing`, `useTopicShiftDetection`, and `useProds` together alongside scroll helpers (`useRafScroll`, `useViewportKeyboardCSSVar`, `usePageScrollLock`).
 3. **Prod generation** – `useProds` (`src/features/prods/hooks/useProds.ts`) owns prod data, reducer-driven queue management, rate limiting, dedupe fingerprints, pinning, and topic-shift resets in a single hook consumed only by `TextInput`.
-4. **Theme analysis** – `useEmbeddings` context plus `HighlightLayer` produce/visualize embeddings once `WritingTimer` reaches thresholds. Theme toggles live in page components.
+4. **Theme analysis** – `useEmbeddings` context plus `HighlightOverlay` produce/visualize embeddings once `WritingTimer` reaches thresholds. Theme toggles live in page components.
 
 Problems surfaced during review:
 - `useTextProcessing` owns the textarea ref, timers, sentence splitting, layout hints, and directly triggers prods. `TextInput` separately stores `currentText` purely for topic detection, creating duplicate state.
@@ -48,7 +48,7 @@ Split the current `useTextProcessing` responsibilities into composable hooks/uti
 2. **`useSentenceTracker` (hook + utilities)**
 	- Consumes `{ text, textareaRef }`.
 	- Uses pure helpers in `src/lib/sentences` for splitting/position measurement and caches positions through `measureSentencePositions`.
-	- Exposes `{ sentences, positions, refreshPositions }` so `ChipOverlay`/`HighlightLayer` keep working.
+	- Exposes `{ sentences, positions, refreshPositions }` so `ChipOverlay`/`HighlightOverlay` keep working.
 
 3. **`useProdTriggers` (hook)**
 	- Accepts `{ text, sentences, onTrigger, config, prodsEnabled }`.
@@ -110,7 +110,7 @@ function useProdActions(): ProdActions;
 - Introduce a lightweight `useThemeAnalysis` hook in `src/features/themes/hooks/useThemeAnalysis.ts` that:
 	- Watches `sentences`/`text` (from the tracker) and `WritingTimer` events to kick off embeddings at the appropriate time.
 	- Stores `themes`, `selectedThemeIds`, and exposes `toggleTheme` + `rerunAnalysis` functions.
-- `HighlightLayer` already consumes `rangesFromThemes`; no change other than reading from the new hook/context instead of page-level state.
+- `HighlightOverlay` already consumes `rangesFromThemes`; no change other than reading from the new hook/context instead of page-level state.
 
 ### 5. Timer + Session Boundaries
 - Keep timer state local to the page, but give `ProdsProvider` and `useThemeAnalysis` a `resetSession()` method that clears all derived state when the intro modal reopens or when the user refreshes.
@@ -149,25 +149,25 @@ function useProdActions(): ProdActions;
 
 5. ✅ **Theme Analysis Hook**
 	- Add `useThemeAnalysis` to coordinate embeddings requests, theme selections, and reruns.
-	- Pages (`/write`, `/demo`) consume the hook instead of hand-rolling state, and pass results to `HighlightLayer` / `ThemeToggleButtons`.
+	- Pages (`/write`, `/demo`) consume the hook instead of hand-rolling state, and pass results to `HighlightOverlay` / `ThemeToggleButtons`.
 	- Make sure the 'api/embeddings/route.ts' file doesn't have any unnecessary memo-ization or storage layers and consumes only what it needs.
 
 6. ✅ **Highlight Layer Stability**
-	- Hypothesis disproved. Step #6 suggested deleting the segment pipeline, but that breaks the highlight overlay once you factor in the new embeddings flow. `useThemeAnalysis` purposely exposes both `highlightRanges` (currently selected themes) and `allHighlightableRanges` (`src/features/themes/hooks/useThemeAnalysis.ts:48-60`). `HighlightLayer` builds its cut points from the superset before diffing the active set (`src/components/highlight/HighlightLayer.tsx:41-151`), which keeps the DOM node order/length frozen even while the user toggles themes.
+	- Hypothesis disproved. Step #6 suggested deleting the segment pipeline, but that breaks the highlight overlay once you factor in the new embeddings flow. `useThemeAnalysis` purposely exposes both `highlightRanges` (currently selected themes) and `allHighlightableRanges` (`src/features/themes/hooks/useThemeAnalysis.ts:48-60`). `HighlightOverlay` builds its cut points from the superset before diffing the active set (`src/components/highlight/HighlightOverlay.tsx:41-151`), which keeps the DOM node order/length frozen even while the user toggles themes.
 	- Plain-language picture: think of the textarea as lined paper and the overlay as a sheet of tracing paper. The segment helpers draw the same grid of lines on the tracing paper so every word has a reserved “seat.” When you turn a theme on, you simply color the seats that belong to it; turning it off erases the paint but the seats remain. If we ripped out the empty seats (segments), the tracing paper would shrink and the GSAP choreography would lose track of which streak is entering or exiting.
 	- Keep `buildCutPoints`, `createSegments`, `computeSegmentPaintState`, and `assignChunkIndices`. Instead, tighten the implementation for clarity/perf:
 		- Rename props to match intent: `currentRanges` → `activeRanges`, `allRanges` → `referenceRanges` (mirrors `highlightRanges`/`allHighlightableRanges`).
 		- Memoize the maximum chunk index once per render so exit animations don’t recompute `Math.max(...chunkIndex)` inside the loop.
-		- Inline a helper (`buildSegmentSnapshot`) that returns `{ paintState, chunkIndex, maxChunkIndex }` in one pass so `HighlightLayer` doesn’t juggle separate refs.
+		- Inline a helper (`buildSegmentSnapshot`) that returns `{ paintState, chunkIndex, maxChunkIndex }` in one pass so `HighlightOverlay` doesn’t juggle separate refs.
 		- Rename `SegmentMeta` to `SegmentPaintState` and colocate the helper with the highlight utilities so the “grid vs. painted cells” metaphor is explicit.
 
-7. **Debug vs. console.log**
+7. ✅ **Debug vs. console.log**
 	- We have a 'debug.ts' fileooks like we have some console.logs when in production, but some ‘debug.dev’ logs as well. We should standardize this across the app - if it makes the logging cleaner in the code, let's default to debug.ts when appropriate. 
 
-7.1 **RAF still necessary?**
+7.1 ✅ **RAF still necessary?**
 	- investigate if we still need RAF for smooth scrolling (no jelly lag) - is it only necessary for mobile? does it help clean the desktop experience clean?
 
-7.2 **Chip positioning deep dive**
+7.2 ✅ **Chip positioning deep dive**
 ## Current Chip Positioning System
 
 The positioning logic is in `chipLayoutService.ts`. Overview:
@@ -296,5 +296,6 @@ The system should prevent overlaps, but edge cases can occur, especially when pi
 - Should `ProdsProvider` live at the page level or inside `TextInput`? (Recommendation: wrap the editor area so future panels can also read prod state.) - let's go with your recommendation if it is simplest. 
 - Once the architecture stabilizes, consider re-introducing mobile ergonomics selectively if needed, but only after core hooks are covered by tests/specs. - let's ignore for now. 
 - Determine whether theme analysis should live alongside prod state in a single “WritingSessionProvider” later; for now keep them separate for clarity. - keep them separate for now, there are essentially two features for this web app, so I'd like them to be separate in the code as well. 
+- Evaluate extracting the shared `/write` + `/demo` page shell (timer, header, `TextInput`, overlays) into a dedicated component once the hook refactor settles so the surfaces stay in sync without duplication.
 
 This plan keeps the current storytelling flow intact—timer → writing surface → prods → themes—while making each piece explicit, testable, and ready for code review discussions.

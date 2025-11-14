@@ -89,16 +89,3 @@ export async function generateProd(
         throw error;
     }
 }
-
-/**
- * Warm up the prod pipeline (edge route + optional provider) to reduce demo latency.
- * Fire-and-forget; safe to call on mount or first input in demo mode.
- */
-export async function prewarmProd(): Promise<void> {
-    try {
-        // Use GET to keep it simple and cache-friendly
-        await fetch("/api/prod/warmup", { method: "GET", keepalive: true });
-    } catch {
-        // Ignore errors — warmup is best-effort
-    }
-}

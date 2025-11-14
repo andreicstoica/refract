@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { IntroModal } from "@/components/IntroModal";
 import { WritingTimer } from "@/components/WritingTimer";
 import { TextInput } from "@/components/TextInput";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
-import { HighlightLayer } from "@/components/highlight/HighlightLayer";
+import { HighlightOverlay } from "@/components/highlight/HighlightOverlay";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -45,14 +45,8 @@ export default function WritePage() {
     text: currentText,
   });
 
-  // Overlay scroll sync - direct DOM manipulation to avoid React re-renders
-  const [textareaEl, setTextareaEl] = useState<HTMLTextAreaElement | null>(
-    null
-  );
-  const textareaRefObject = useMemo(
-    () => ({ current: textareaEl } as React.RefObject<HTMLTextAreaElement>),
-    [textareaEl]
-  );
+  // Create textarea ref for HighlightOverlay
+  const textareaRefObject = useRef<HTMLTextAreaElement>(null as any);
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -79,12 +73,7 @@ export default function WritePage() {
         debug.error("❌ analysis failed", err);
       }
     },
-    [
-      hasThemes,
-      isGenerating,
-      currentSentences.length,
-      requestAnalysis,
-    ]
+    [hasThemes, isGenerating, currentSentences.length, requestAnalysis]
   );
 
   const handleTextUpdate = (
@@ -109,15 +98,10 @@ export default function WritePage() {
   // Header reveal animation when themes first appear
   useHeaderRevealAnimation(hasThemes, chipsRef, reloadButtonRef);
 
-  // Observe textarea scroll for overlay sync
+  // Handle textarea ref for HighlightOverlay
   const handleTextareaRef = useCallback((el: HTMLTextAreaElement | null) => {
-    setTextareaEl(el);
+    textareaRefObject.current = el!;
   }, []);
-
-  // Note: overlay components (ChipOverlay, HighlightLayer) handle their own
-  // RAF-coalesced scroll sync. Avoid duplicating here to prevent jank/lag.
-
-  // hasThemes computed above
 
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background text-foreground">
@@ -212,7 +196,7 @@ export default function WritePage() {
             {/* Highlight paint layer: fades in when themes ready */}
             {hasThemes ? (
               <div className="transition-opacity duration-300 ease-out opacity-100">
-                <HighlightLayer
+                <HighlightOverlay
                   ref={highlightLayerRef}
                   text={currentText}
                   activeRanges={highlightRanges}
