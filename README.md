@@ -59,6 +59,16 @@ bun dev
 
 Open http://localhost:3001 to develop.
 
+## Project Structure
+
+- `src/app/` – Next.js App Router layouts and route entries.
+- `src/features/` – Vertical slices (writing, prods, ai, themes, ui). Each feature owns its hooks, providers, components, and any effectful helpers under `services/`.
+- `src/lib/` – Framework-agnostic utilities (sentence parsing, chip math, highlight helpers, prod heuristics). Nothing here should touch fetch, localStorage, or timers.
+- `src/components/` – Shared UI primitives that multiple features consume.
+- `src/types/`, `src/index.css`, `docs/` – Global type definitions, Tailwind entrypoint, and long-form documentation/diagrams.
+
+Pure-ish helpers stay in `src/lib`, while anything that talks to IO (fetch requests, AbortControllers, `localStorage`, DOM measurements) lives beside the feature that uses it under `src/features/*/services`.
+
 ## Documentation
 
 - `docs/architecture.md` details the writing flow (TimingConfigProvider, editor text pipeline, ProdsProvider) and links to diagrams.

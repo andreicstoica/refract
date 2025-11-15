@@ -195,10 +195,10 @@
 Note: Status markers — 👉 in progress, ✅ completed, no marker = pending.
 
 Context notes (for implementers):
-- Chips: `@/lib/chipLayout.ts` drives `maxWidthPx` and offsets used by `@/components/ChipOverlay.tsx` and `@/components/Chip.tsx`.
+- Chips: `@/lib/chips/chipLayout.ts` drives `maxWidthPx` and offsets used by `@/components/ChipOverlay.tsx` and `@/components/Chip.tsx`.
 - Highlights: scroll-sync already uses rAF in `@/components/highlight/HighlightOverlay.tsx` and `@/app/page.tsx`.
 - Text input: core textarea lives in `@/components/TextInput.tsx`; text parsing in `@/hooks/useTextProcessing.ts`.
-- Services: `@/services/*` (embeddings, prod) are not impacted; ensure no changes in API contracts.
+- Services: feature-level clients (`@/features/ai/services/embeddingsClient`, `@/features/prods/services/prodClient`) are not impacted; ensure no changes in API contracts.
 - Constants: `@/lib/constants.ts` defines shared padding/text classes used by overlays; keep in sync.
 
 1) 👉 M1 — Scroll Performance Hardening (iOS)

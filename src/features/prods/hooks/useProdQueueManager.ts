@@ -3,7 +3,7 @@ import type { Sentence } from "@/types/sentence";
 import type { Prod } from "@/types/prod";
 import type { QueueItem, QueueState, QueueAction } from "@/types/queue";
 import type { getTimingConfig } from "@/lib/demoMode";
-import { generateProdWithTimeout } from "@/services/prodClient";
+import { generateProdWithTimeout } from "@/features/prods/services/prodClient";
 import { shouldProcessSentence } from "@/lib/shouldProcessSentence";
 import { normalizeText, makeFingerprint, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
 import { debug } from "@/lib/debug";

@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { Sentence } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
-import { runEmbeddingsAnalysis } from "@/lib/runEmbeddingsAnalysis";
+import { runEmbeddingsAnalysis } from "@/features/ai/services/runEmbeddingsAnalysis";
 
 interface EmbeddingsContextValue {
   isGenerating: boolean;

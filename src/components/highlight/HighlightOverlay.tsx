@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, forwardRef, useCallback } from "react";
 import { cn } from "@/lib/helpers";
 import type { HighlightRange, SegmentPaintState } from "@/types/highlight";
-import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/constants";
+import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/layoutConstants";
 import {
   buildCutPoints,
   createSegments,

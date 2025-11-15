@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { generateProd, generateProdWithTimeout } from "@/services/prodClient";
+import { generateProd, generateProdWithTimeout } from "@/features/prods/services/prodClient";
 
 // Helper to create an AbortController that aborts after ms
 function autoAbort(ms: number) {

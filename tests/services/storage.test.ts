@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { storage } from "@/services/storage";
+import { storage } from "@/features/writing/services/storage";
 import type { Theme } from "@/types/theme";
 
 // Minimal localStorage mock
@@ -53,4 +53,3 @@ describe("storage service", () => {
     expect(out?.[0].chunks?.[0].correlation).toBeCloseTo(0.7, 5);
   });
 });
-

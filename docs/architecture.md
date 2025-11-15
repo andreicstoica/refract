@@ -2,6 +2,12 @@
 
 This document captures the high-level writing flow so reviewers can map hooks, providers, and queues back to the product story. README keeps the summary; this file goes deeper and stores references to diagrams or rationale that would otherwise end up as ad-hoc comments.
 
+## Directory Conventions
+
+- `src/features/*` own end-to-end slices (writing, prods, ai, themes, ui). Hooks, providers, and React state live beside the feature that consumes them.
+- `src/features/*/services` wrap effectful helpers (fetch clients, AbortControllers, `localStorage` access) scoped to that feature.
+- `src/lib/*` houses pure utilities—sentence parsing, chip layout math, highlight helpers, timing constants—that multiple features share.
+
 ## Information Flow Snapshot
 
 1. `TimingConfigProvider` (App Router layout) detects demo mode once, memoizes `getTimingConfig`, and surfaces `{ isDemoMode, config }`.
@@ -37,7 +43,7 @@ Observability hooks (e.g., logging, debug counters) should subscribe at the prov
 
 - `ProdsProvider` wraps the editor stack on `/write` and `/demo`, keeps `{ prods, queueState, pinnedIds, filteredSentences }`, and wires `useProdActions()` (enqueue, pin, remove, notifyTopicShift, updateTopicContext, injectProd).
 - `useProdQueueManager` enforces the cadence guardrails: TTL dedupe maps, queue rate limiting, request cancellation, topic-version staleness checks, keyword forwarding, and the cached sentence list that backs embeddings and telemetry.
-- Chip layout stays in `src/services/chipLayoutService.ts` so the provider only exposes logical positions (sentence id, offsets, max width). Chip overlays just render the placements they receive.
+- Chip layout stays in `src/lib/chips/chipLayout.ts` so the provider only exposes logical positions (sentence id, offsets, max width). Chip overlays just render the placements they receive.
 - `docs/diagrams/prod-queue.mmd` captures the queue transitions (initial, pending request, fulfilled, pinned, dropped).
 
 ### Queue Invariants

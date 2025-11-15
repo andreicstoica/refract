@@ -12,7 +12,7 @@ import { useTimingConfig } from "@/features/config/TimingConfigProvider";
 import { useProdActions } from "@/features/prods/context/ProdsProvider";
 import { debug } from "@/lib/debug";
 import { ChipOverlay } from "./ChipOverlay";
-import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/constants";
+import { TEXTAREA_CLASSES, TEXT_DISPLAY_STYLES } from "@/lib/layoutConstants";
 
 interface TextInputProps {
   onTextChange?: (text: string) => void;

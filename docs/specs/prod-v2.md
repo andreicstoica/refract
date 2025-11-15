@@ -34,7 +34,7 @@ The current prod system has several user experience issues that reduce the effec
 - Sentence splitting: custom lightweight splitter (not using compromise.js today).
   - Source: `@/utils/sentenceUtils`.
 - API (prod v1 shape): `POST /api/prod` with `{ lastParagraph, fullText }` → `{ selectedProd, shouldSkip, confidence }`.
-  - Source: `@/services/prodClient`, `@/app/api/prod/route.ts`, `@/types/api`.
+  - Source: `@/features/prods/services/prodClient`, `@/app/api/prod/route.ts`, `@/types/api`.
 
 ## Proposed Solutions
 
@@ -178,7 +178,7 @@ interface ProdRequest {
 ### Interaction Tracking (No DB)
 
 - No server/database integration. Track interaction quality locally.
-- Use in-memory state and `localStorage` via `@/services/storage` for ephemeral analytics:
+- Use in-memory state and `localStorage` via `@/features/writing/services/storage` for ephemeral analytics:
   - recent prods shown/clicked/dismissed counts
   - last N `topicKeywords` snapshots and derived preferences
   - session timestamps for simple heuristics
@@ -205,7 +205,7 @@ interface ProdRequest {
 ## Module References
 
 - Hooks: `@/hooks/useTextProcessing`, `@/hooks/useProds`, `@/hooks/useGenerateEmbeddings`
-- Services: `@/services/prodClient`, `@/services/embeddingsClient`, `@/services/storage`
+- Services: `@/features/prods/services/prodClient`, `@/features/ai/services/embeddingsClient`, `@/features/writing/services/storage`
 - Types: `@/types/api`, `@/types/prod`, `@/types/sentence`, `@/types/queue`, `@/types/theme`
 - Utils: `@/utils/sentenceUtils`, `@/utils/positionUtils`, `@/utils/shouldProcessSentence`, `@/utils/prodSelectors`
 - NLP: `compromise` (keywords and topic shifts)
@@ -215,7 +215,7 @@ interface ProdRequest {
 - Update or add unit tests for:
   - compromise-based keyword extraction and topic shift detection
   - Jaccard overlap calculation and EMA smoothing
-  - absolute timeout + AbortController behavior in `@/services/prodClient`
+  - absolute timeout + AbortController behavior in `@/features/prods/services/prodClient`
   - event-driven cancellations (new trigger, topic shift, stale guard)
 - Keep existing tests for sentence splitting, embedding utils, and general utils passing.
 - Run with `bun run test`. Expand coverage later if we add more utilities.

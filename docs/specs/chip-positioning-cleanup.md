@@ -7,7 +7,7 @@ The current chip positioning system has several critical issues that need to be 
 ### 1. Chip Overlap Issues
 
 - **Problem**: Multiple chips can overlap each other, making them unreadable
-- **Root Cause**: The collision detection system in `chipLayout.ts` may have edge cases
+- **Root Cause**: The collision detection system in `src/lib/chips/chipLayout.ts` may have edge cases
 - **Impact**: Poor user experience, chips become unusable
 
 ### 2. Poor Horizontal Positioning
@@ -47,7 +47,7 @@ if (
 
 ### Current Positioning Logic
 
-The `computeChipLayout` function in `chipLayout.ts` has sophisticated collision detection but:
+The `computeChipLayout` function in `src/lib/chips/chipLayout.ts` has sophisticated collision detection but:
 
 1. Uses complex multi-row logic that may have edge cases
 2. Prioritizes left alignment over natural sentence positioning
@@ -143,10 +143,10 @@ function getNaturalChipPosition(
 
 #### 2.2 Enhanced Collision Detection
 
-Improve the existing collision detection in `chipLayout.ts`:
+Improve the existing collision detection in `src/lib/chips/chipLayout.ts`:
 
 ```typescript
-// In chipLayout.ts - enhance the existing computeChipLayout function
+// In src/lib/chips/chipLayout.ts - enhance the existing computeChipLayout function
 function computeChipLayout(
   prods: Prod[],
   sentencePositions: Map<string, SentencePosition>,
@@ -184,7 +184,7 @@ function computeChipLayout(
 
 1. **Enhance Existing Layout Engine**
 
-   - Modify `computeChipLayout` in `chipLayout.ts` for natural positioning
+   - Modify `computeChipLayout` in `src/lib/chips/chipLayout.ts` for natural positioning
    - Add natural sentence alignment preference
    - Improve boundary detection edge cases
 
@@ -226,7 +226,7 @@ function computeChipLayout(
 **Primary Changes:**
 
 - `src/hooks/useTextProcessing.ts` - Enhanced deduplication
-- `src/lib/chipLayout.ts` - Improved positioning logic
+- `src/lib/chips/chipLayout.ts` - Improved positioning logic
 - `src/components/ChipOverlay.tsx` - Updated positioning integration
 - `src/components/Chip.tsx` - Visual improvements
 
@@ -272,7 +272,7 @@ Each phase should be tested thoroughly before moving to the next, with rollback 
 ### Unit Tests
 
 - Deduplication logic in `useTextProcessing.ts`
-- Positioning calculations in `chipLayout.ts`
+- Positioning calculations in `src/lib/chips/chipLayout.ts`
 - Sentence hashing utilities
 
 ### Integration Tests

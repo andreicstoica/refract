@@ -4,13 +4,16 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Chip } from "./Chip";
 import type { Prod } from "@/types/prod";
 import type { Sentence, SentencePosition } from "@/types/sentence";
-import { TEXTAREA_CLASSES } from "@/lib/constants";
+import { TEXTAREA_CLASSES } from "@/lib/layoutConstants";
 import { cn } from "@/lib/helpers";
 import { useRafScroll } from "@/features/ui/hooks/useRafScroll";
-import { calculateChipLayout } from "@/services/chipLayoutService";
-import type { ChipPlacement } from "@/services/chipLayoutService";
+import { calculateChipLayout } from "@/lib/chipLayout";
+import type { ChipPlacement } from "@/lib/chipLayout";
 import { debug } from "@/lib/debug";
-import { useProdActions, useProdState } from "@/features/prods/context/ProdsProvider";
+import {
+  useProdActions,
+  useProdState,
+} from "@/features/prods/context/ProdsProvider";
 
 interface ChipOverlayProps {
   sentencePositions: SentencePosition[];

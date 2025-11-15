@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 import { cn } from "@/lib/helpers";
-import { storage } from "@/services/storage";
+import { storage } from "@/features/writing/services/storage";
 import { TimerControls } from "./TimerControls";
 import { Intro } from "./Intro";
 import { useModalKeyboard } from "@/hooks/useModalKeyboard";

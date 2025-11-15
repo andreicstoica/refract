@@ -2,8 +2,8 @@
 
 import type { Sentence } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
-import { generateEmbeddings } from "@/services/embeddingsClient";
-import { storage } from "@/services/storage";
+import { generateEmbeddings } from "@/features/ai/services/embeddingsClient";
+import { storage } from "@/features/writing/services/storage";
 import { debug } from "@/lib/debug";
 
 /**

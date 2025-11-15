@@ -2,7 +2,7 @@
 
 ## Goals
 - Present a review-ready state flow by reducing redundant hooks and centralizing side effects.
-- Keep React hooks only where lifecycle/state is required; push pure helpers into `src/lib/` or `src/services/`.
+- Keep React hooks only where lifecycle/state is required; push pure helpers into `src/lib/` and colocate effectful helpers inside the owning feature's `services/` folder.
 - Share timing/configuration concerns across `/write` and `/demo` so the prod queue, text processing, and theming read from the same source of truth.
 - Remove the temporary mobile ergonomics hooks (`useViewportKeyboard*`, `useModalKeyboard`, `usePageScrollLock`) to shrink complexity while focusing on the storytelling flow outlined in `src/app/demo/page.tsx` and `src/app/write/page.tsx`.
 
@@ -123,7 +123,7 @@ function useProdActions(): ProdActions;
 - Keep `useRafScroll` because it serves the visible overlay sync and is already a clear utility hook.
 
 ### 7. Hook vs Utility Guidelines
-- Pure logic (trigger heuristics, dedupe helpers, highlight calculations) belongs in `src/lib/` or `src/services/` so it can be unit-tested without React.
+- Pure logic (trigger heuristics, dedupe helpers, highlight calculations) belongs in `src/lib/` or the feature-local `services/` folders so it can be unit-tested without React.
 - Hooks should expose a minimal API: either “state only” (`useProdState`) or “actions only” (`useProdActions`), or small objects containing only what a caller truly needs.
 - When a hook orchestrates multiple effects (e.g., `useProdTriggers`), accept explicit dependencies instead of reaching into other contexts to keep coupling obvious.
 
@@ -179,7 +179,7 @@ The positioning logic is in `chipLayoutService.ts`. Overview:
    - Processes sentences top-to-bottom
    - Within each sentence, sorts: pinned first, then by timestamp
 
-```112:119:src/services/chipLayoutService.ts
+```112:119:src/lib/chips/chipLayout.ts
         // Sort prods in sentence: pinned first, then by timestamp (maintaining existing priority logic)
         const sorted = sentenceProds.sort((a, b) => {
             const aPinned = pinnedIds.has(a.id);
@@ -194,7 +194,7 @@ The positioning logic is in `chipLayoutService.ts`. Overview:
    - Tracks all placed chips in a `placedChips` array (across all sentences)
    - Checks vertical and horizontal overlap with minimum gaps (8px vertical, 4px horizontal)
 
-```33:49:src/services/chipLayoutService.ts
+```33:49:src/lib/chips/chipLayout.ts
 function chipsOverlapVertically(
     pos1: SentencePosition,
     pos2: SentencePosition,
@@ -219,7 +219,7 @@ function chipsOverlapVertically(
    - For each lane, tries up to 5 horizontal shifts (16px increments)
    - First non-colliding position wins
 
-```223:263:src/services/chipLayoutService.ts
+```223:263:src/lib/chips/chipLayout.ts
                 // Try different vertical lanes
                 for (let lane = 0; lane < maxVerticalLanes && !foundPosition; lane++) {
                     const testOffsetY = CHIP_LAYOUT.OFFSET_Y + (lane * (CHIP_LAYOUT.HEIGHT + 8));

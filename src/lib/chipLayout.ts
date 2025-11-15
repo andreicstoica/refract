@@ -1,6 +1,6 @@
 import type { Prod } from "@/types/prod";
 import type { SentencePosition } from "@/types/sentence";
-import { CHIP_LAYOUT } from "@/lib/constants";
+import { CHIP_LAYOUT } from "@/lib/layoutConstants";
 import { makeFingerprint } from "@/lib/dedup";
 import { isMobileViewport, measureTextWidth } from "@/lib/helpers";
 import { debug } from "@/lib/debug";
