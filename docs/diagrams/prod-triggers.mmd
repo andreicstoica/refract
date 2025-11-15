@@ -1,39 +1,40 @@
 sequenceDiagram
   participant Writer
   participant TextInput
-  participant ProdTriggers as useProdTriggers
-  participant Rules as prodTriggerRules
-  participant Settling as SettlingTimer
-  participant Watchdog
-  participant Queue as useProdQueueManager/onTrigger
+  participant Topic as useTopicShiftDetection
+  participant Triggers as useProdTriggers
+  participant Actions as ProdsProvider/useProdActions
+  participant Guards as useProdQueueManager
+  participant API as /api/prod
+  participant Chips as ChipOverlay
 
-  Writer->>TextInput: type, pause, resume
-  TextInput->>ProdTriggers: { text, sentences, config }
-  ProdTriggers->>Rules: shouldTriggerProd(lastSentence, cooldownMs)
-  alt below cooldown or text too short
-    Rules-->>ProdTriggers: false
-    note over ProdTriggers: store last input time + keep timers disarmed
-  else cleared to trigger
-    Rules-->>ProdTriggers: true
-    ProdTriggers->>Rules: getProdTriggerReason(lastTriggerCharPos)
-    alt Terminal punctuation / soft comma / charTrigger reached
-      Rules-->>ProdTriggers: reason
-      note right of ProdTriggers: log ⚙ reason & gate on prodsEnabled
-      ProdTriggers->>Queue: onTrigger(fullText, lastSentence)
-      Queue-->>Queue: enqueue request, dedupe fingerprints
-    else No immediate reason
-      ProdTriggers->>Settling: schedule config.settlingMs timer
-      Settling-->>ProdTriggers: fire with latest text/sentences
-      ProdTriggers->>Rules: shouldTriggerProd(...)
-      Rules-->>ProdTriggers: true
-      ProdTriggers->>Queue: trigger after settling
+  Writer->>TextInput: type / pause / resume
+  TextInput->>Topic: share latest text window
+  Topic-->>Actions: updateTopicContext(keywords, topicVersion)
+  alt topic shift detected
+    Topic->>Actions: notifyTopicShift()
+    Actions->>Guards: cancelAllRequests + clear queue + reset TTL maps
+  end
+  TextInput->>Triggers: { text, sentences, config }
+  Triggers->>Triggers: shouldTriggerProd + getProdTriggerReason
+  alt punctuation / char threshold satisfied
+    Triggers->>Actions: enqueueSentence(fullText, lastSentence)
+  else settle timer or watchdog
+    Triggers->>Triggers: wait config.settlingMs or WATCHDOG_IDLE_MS
+    Triggers->>Actions: enqueueSentence(..., force?)
+  end
+  Actions->>Guards: add queue item
+  Guards->>Guards: apply shouldProcessSentence + TTL dedupe
+  alt guardrails block sentence
+    Note over Guards: short text / duplicate / queue full → drop
+  else sentence accepted
+    Guards->>Guards: waitForRateLimit(config.rateLimitMs)
+    Guards->>API: generateProdWithTimeout(lastParagraph, fullText, recentProds, topicKeywords)
+    API-->>Guards: { selectedProd, confidence }
+    alt topicVersion changed or low confidence
+      Guards-->>Actions: discard queue item
+    else result approved
+      Guards->>Chips: append prod, prune non-pinned, cache normalized text
     end
   end
-
-  Watchdog-->>ProdTriggers: idle >= WATCHDOG_IDLE_MS?
-  alt Idle >= 6s & armed
-    ProdTriggers->>Queue: trigger({ force: true })
-    note over Queue,ProdTriggers: ensures chip after long pause
-  else Still typing / watchdog disarmed
-    note over Watchdog: keep checking every second
-  end
+  Note over Triggers: Watchdog arms on each keystroke and fires force trigger after 6s idle

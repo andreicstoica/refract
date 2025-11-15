@@ -1,27 +1,38 @@
 flowchart TD
   subgraph AppShell["App Shell (app/layout.tsx)"]
-    TimingConfigProvider -->|config| TextInput
-    ThemeProvider --> MapShell
+    TimingConfigProvider
+    ThemeProvider
   end
 
   subgraph Editor["TextInput Surface"]
     direction LR
-    useEditorText["useEditorText\n(text, ref, metrics)"] --> useSentenceTracker
-    useSentenceTracker["useSentenceTracker\n(sentences, positions)"] --> useProdTriggers
-    useProdTriggers["useProdTriggers\n(timers, heuristics)"] --> ProdsProvider
+    useEditorText["useEditorText\n(text, ref, metrics)"] --> TopicShift["useTopicShiftDetection\n(keywords, topicVersion)"]
+    useEditorText --> useSentenceTracker["useSentenceTracker\n(sentences, positions)"]
+    useSentenceTracker --> useProdTriggers["useProdTriggers\n(timers, heuristics, watchdog)"]
   end
 
-  ProdsProvider["ProdsProvider\n(queue, pinned)"] --> ChipOverlay
-  ProdsProvider --> HighlightOverlay
-  ProdsProvider --> ThemeOverlay
+  subgraph ProdsStack["ProdsProvider + useProdQueueManager"]
+    ProdContext["useProdActions / context\n(enqueue, updateTopicContext, notifyTopicShift)"] --> QueueGuards["Queue Guardrails\n(dedupe, rate limit, topic gating)"]
+    QueueGuards --> ProdState["prods[], pinnedIds,\nfilteredSentences"]
+  end
+
+  TopicShift -->|updateTopicContext| ProdContext
+  TopicShift -.->|notifyTopicShift| ProdContext
+  useProdTriggers -->|enqueueSentence| ProdContext
+
+  ProdState --> ChipOverlay
+  ProdState --> HighlightOverlay
+  ProdState --> ThemeOverlay
 
   ChipOverlay --> TextArea["Textarea DOM"]
   HighlightOverlay --> TextArea
 
   TimingConfigProvider --> useProdTriggers
-  TimingConfigProvider --> ThemeOverlay
+  TimingConfigProvider --> QueueGuards
 
   subgraph MapShell["Map / Theme Consumers"]
     ThemeOverlay["HighlightOverlay / Map"]
   end
 
+  ThemeProvider --> MapShell
+  ThemeProvider --> ThemeOverlay

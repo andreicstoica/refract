@@ -5,11 +5,12 @@ This document captures the high-level writing flow so reviewers can map hooks, p
 ## Information Flow Snapshot
 
 1. `TimingConfigProvider` (App Router layout) detects demo mode once, memoizes `getTimingConfig`, and surfaces `{ isDemoMode, config }`.
-2. `TextInput` composes the editor pipeline:
+2. `TextInput` composes the writing pipeline in priority order:
+	- `useTopicShiftDetection` extracts keywords, feeds `updateTopicContext({ keywords, version })`, and fires `notifyTopicShift()` so queue state resets the moment a micro-shift lands.
 	- `useEditorText` owns the textarea ref, text value, focus, and line metrics.
 	- `useSentenceTracker` translates `{ text, textareaRef }` into sentence arrays with cached measurements.
-	- `useProdTriggers` watches `{ text, sentences }`, applies timer heuristics, and invokes prod enqueue actions.
-3. `ProdsProvider` wraps the writing surface and exposes queue actions (`enqueue`, `pin`, `notifyTopicShift`, etc.) plus memoized selectors for overlays and chips.
+	- `useProdTriggers` watches `{ text, sentences }`, applies timer heuristics/watchdog logic, and invokes prod enqueue actions via the provider.
+3. `ProdsProvider` (backed by `useProdQueueManager`) wraps the writing surface and exposes queue actions (`enqueue`, `pin`, `notifyTopicShift`, `updateTopicContext`, etc.) plus memoized selectors for overlays, pins, and cached sentences.
 4. `ThemesProvider` (future) and highlight overlays consume the same text + sentence structures to keep animations aligned with chip placement.
 
 See `docs/diagrams/writing-flow.mmd` for the overall pipeline and `docs/diagrams/prod-triggers.mmd` for the timer + heuristic sequence that feeds the queue.
@@ -24,6 +25,7 @@ See `docs/diagrams/writing-flow.mmd` for the overall pipeline and `docs/diagrams
 
 | Layer | Responsibility | Key Files |
 | --- | --- | --- |
+| `useTopicShiftDetection` | Keyword extraction, Jaccard/EMA tracking, raises `{ hasTopicShift, topicVersion }` | `src/features/writing/hooks/useTopicShiftDetection.ts`, `src/lib/topic.ts` |
 | `useEditorText` | Controlled textarea value, cursor/focus, derived metrics | `src/features/writing/hooks/useEditorText.ts` (WIP) |
 | `useSentenceTracker` | Sentence tokenization, measurement caching (`measureSentencePositions`) | `src/features/writing/hooks/useSentenceTracker.ts` + `src/lib/sentences.ts` |
 | `useProdTriggers` | Debounce + watchdog timers, heuristics (`shouldTriggerProd`) | `src/features/prods/hooks/useProdTriggers.ts` + `src/lib/prodTriggerRules.ts` |
@@ -33,17 +35,17 @@ Observability hooks (e.g., logging, debug counters) should subscribe at the prov
 
 ## Prods System
 
-- `ProdsProvider` wraps the editor stack on `/write` and `/demo`.
-- `useProdQueueManager` (existing) will split into:
-	1. `useProdQueue` (pure reducer for enqueue, dedupe, pin, drop oldest, topic-shift reset).
-	2. `useProdTelemetry` (timings, watchdog resets, queue length metrics).
-- Chip layout is delegated to `src/services/chipLayoutService.ts` so the provider only exposes logical positions (sentence id, offsets, max width). Chip overlays just render the placements they receive.
+- `ProdsProvider` wraps the editor stack on `/write` and `/demo`, keeps `{ prods, queueState, pinnedIds, filteredSentences }`, and wires `useProdActions()` (enqueue, pin, remove, notifyTopicShift, updateTopicContext, injectProd).
+- `useProdQueueManager` enforces the cadence guardrails: TTL dedupe maps, queue rate limiting, request cancellation, topic-version staleness checks, keyword forwarding, and the cached sentence list that backs embeddings and telemetry.
+- Chip layout stays in `src/services/chipLayoutService.ts` so the provider only exposes logical positions (sentence id, offsets, max width). Chip overlays just render the placements they receive.
 - `docs/diagrams/prod-queue.mmd` captures the queue transitions (initial, pending request, fulfilled, pinned, dropped).
 
 ### Queue Invariants
 
-- Dedupe uses `makeFingerprint(text)`; new hooks must pass fingerprints to avoid resurfacing identical text across topic resets.
-- `notifyTopicShift()` flushes transient chips (non-pinned) and resets timers in `useProdTriggers`.
+- Normalized text dedupe uses `recentSentenceTextMapRef` (≈10s in `/write`, ≈30–120s in `/demo`). Similarity dedupe uses `sentenceFingerprintsRef` (≈15s in `/write`, ≈60s in `/demo`). Hooks must pass normalized text + fingerprints for the guardrail to work.
+- `notifyTopicShift()` cancels all inflight requests, clears queue state + TTL maps, and increments the topic version so stale promises never promote a prod.
+- Each queue item records `topicVersion` and is discarded if the current version changed before the API response resolves.
+- Rate limiting (`waitForRateLimit(config.rateLimitMs)`) and queue pruning (3 items in `/write`, 5 in `/demo`) ensure ≤1 prod ships per small topic cluster.
 - `pinnedIds` survives queue clears; layout re-uses previous placements when possible (`tryReusePinnedPlacement`), so we document pinning expectations here instead of littering comments in layout helpers.
 
 ## Theme Analysis & Map
@@ -76,18 +78,20 @@ Observability hooks (e.g., logging, debug counters) should subscribe at the prov
 - Exported hooks/providers receive doc comments outlining inputs, outputs, and invariants (e.g., "`useProdTriggers` assumes timers fire on settled text; call `resetTriggers` whenever the queue flushes").
 - TODOs must pair an owner/tag and outcome (`TODO(andrei): Revisit watchdog delay once prod telemetry lands`). Delete logging-style breadcrumbs before shipping.
 
-## Diagram Guidance
+## Cadence & Topic Guardrails
 
-- Store Mermaid sources under `docs/diagrams/` with filenames that match the feature (`writing-flow.mmd`, `prod-queue.mmd`). Generate PNG/SVG artifacts only when needed for decks; the repo keeps the text sources for easy diffs.
-- Link diagrams back here using relative paths so GitHub renders them inline:
+See `specs/[review] prod-cadence-and-topic.md` for the investigation narrative that led to the current guardrails. The architecture snapshot above ties that spec to concrete hooks:
 
-```md
-![Writing flow](./diagrams/writing-flow.mmd)
-```
-
-- Keep diagrams focused on information flow (inputs → hooks → consumers). Sequence diagrams for timers, box diagrams for providers/hooks, and call out shared config boundaries.
-
-## Future Work
-
-- Keep prod trigger diagrams up to date as `useProdTriggers` migrates into the new queue pipeline.
-- Document telemetry touchpoints (e.g., queue length metrics, prod API latency) when instrumentation lands.
+1. **Topic Tracking**
+	- `useTopicShiftDetection` extracts keywords from the most recent text window, runs Jaccard/EMA smoothing, and increments `topicVersion` whenever overlap falls below the configured threshold.
+	- `TextInput` forwards `{ keywords, version }` via `updateTopicContext` so `useProdQueueManager` can enrich prompt payloads and stamp each queue item with the correct topic version.
+	- The same hook flips `hasTopicShift`, which triggers `notifyTopicShift()` to cancel inflight requests, drop pending items, and clear dedupe caches before new topics queue more chips.
+2. **Trigger Heuristics**
+	- `useProdTriggers` is the only place that transforms `{ text, sentences, config }` into `enqueueSentence` calls. It covers punctuation heuristics, the character-count fallback, settling timers, and the six-second watchdog that raises a `force` prod if the writer pauses mid-thought.
+3. **Queue Gating**
+	- `enqueueSentence` runs layered suppression: `shouldProcessSentence` filters low-signal sentences, normalized text + fingerprint TTLs block near-duplicates, and we skip items already in the queue, already pinned, or recently rendered.
+	- Accepted items store `{ topicVersion, timestamp, force? }`. `processSingleItem` respects `config.rateLimitMs`, includes `recentProds.slice(-5)` plus the latest `topicKeywords` in the API payload, and aborts requests whenever the topic version changes.
+	- Responses go through another guardrail: the queue drops low-confidence results (≤0.5 in `/write`, ≤0.05 in `/demo`), requires non-empty `selectedProd`, and only then appends to `prods[]` while pruning non-pinned items beyond the newest suggestion.
+4. **Resets & Telemetry Prep**
+	- `handleTopicShift` cancels in-flight requests, clears pending queue items, and wipes dedupe maps while leaving existing chips/pins intact. `clearAll` layers on a prod reset for demo refreshes.
+	- `filteredSentences` caches the vetted sentences for embeddings so telemetry uses the exact pool the prod guardrails approved.
