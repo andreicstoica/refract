@@ -2,113 +2,114 @@ import React from "react";
 import { debug } from "@/lib/debug";
 
 /**
- * RAF-based scroll coalescing helper
- *
- * Batches scroll callbacks to 1/frame using requestAnimationFrame so the
- * textarea overlays (chips + highlights) update in lockstep with the editor.
- * This was originally introduced for mobile jelly scrolls, but we keep it for
- * desktop as well because the overlays perform DOM writes on every scroll.
- * 
- * Usage:
- * ```ts
- * useEffect(() => {
- *   if (!elementRef.current) return;
- *   
- *   return subscribe(elementRef.current, (element) => {
- *     // Your scroll handler logic here (dev-only logging via debug helper)
- *     debug.dev('Scroll position:', element.scrollTop);
- *   });
- * }, []);
- * ```
+ * RAF-based scroll helper that polls the textarea's scroll position every frame.
+ * This keeps overlays perfectly in sync even when the browser batches scroll
+ * events (e.g., high refresh-rate trackpads) by reacting directly inside the
+ * animation loop.
  */
 
 type ScrollHandler = (element: HTMLElement) => void;
 
 interface ScrollSubscription {
-    element: HTMLElement;
-    handlers: Set<ScrollHandler>;
-    rafId: number | null;
-    isScheduled: boolean;
+	element: HTMLElement;
+	handlers: Set<ScrollHandler>;
+	rafId: number | null;
+	lastScrollTop: number;
+	lastScrollLeft: number;
 }
 
-// Global map to track subscriptions per element
 const subscriptions = new Map<HTMLElement, ScrollSubscription>();
-const HAS_RAF = typeof window !== "undefined" && typeof window.requestAnimationFrame === "function";
+const HAS_WINDOW = typeof window !== "undefined";
+const HAS_RAF = HAS_WINDOW && typeof window.requestAnimationFrame === "function";
+const HAS_CAF = HAS_WINDOW && typeof window.cancelAnimationFrame === "function";
 
-function executeHandlers(subscription: ScrollSubscription) {
-    subscription.rafId = null;
-    subscription.isScheduled = false;
-
-    // Execute all handlers for this element
-    subscription.handlers.forEach(handler => {
-        try {
-            handler(subscription.element);
-        } catch (error) {
-            debug.error('Error in scroll handler:', error);
-        }
-    });
+function runHandlers(subscription: ScrollSubscription) {
+	subscription.handlers.forEach((handler) => {
+		try {
+			handler(subscription.element);
+		} catch (error) {
+			debug.error("Error in scroll handler:", error);
+		}
+	});
 }
 
-function scheduleUpdate(subscription: ScrollSubscription) {
-    if (subscription.isScheduled) return;
+function step(subscription: ScrollSubscription) {
+	if (!HAS_RAF) {
+		// When RAF isn't available (SSR/tests), run once and bail.
+		runHandlers(subscription);
+		return;
+	}
 
-    subscription.isScheduled = true;
-    if (!HAS_RAF) {
-        // SSR/unit tests fall back to immediate execution to avoid hanging updates
-        executeHandlers(subscription);
-        return;
-    }
+	const loop = () => {
+		const { element } = subscription;
+		const nextTop = element.scrollTop;
+		const nextLeft = element.scrollLeft;
 
-    subscription.rafId = requestAnimationFrame(() => executeHandlers(subscription));
+		if (
+			nextTop !== subscription.lastScrollTop ||
+			nextLeft !== subscription.lastScrollLeft
+		) {
+			subscription.lastScrollTop = nextTop;
+			subscription.lastScrollLeft = nextLeft;
+			runHandlers(subscription);
+		}
+
+		if (subscription.handlers.size > 0) {
+			subscription.rafId = window.requestAnimationFrame(loop);
+		} else {
+			subscription.rafId = null;
+		}
+	};
+
+	// Kick off the loop immediately so we process any existing scroll offset.
+	loop();
 }
 
-function handleScroll(this: HTMLElement) {
-    const subscription = subscriptions.get(this);
-    if (subscription) {
-        scheduleUpdate(subscription);
-    }
+function ensureLoop(subscription: ScrollSubscription) {
+	if (!HAS_WINDOW) {
+		runHandlers(subscription);
+		return;
+	}
+
+	if (subscription.rafId != null) return;
+	step(subscription);
 }
 
 /**
- * Subscribe to scroll events with RAF coalescing
- * @param element - The element to listen for scroll events on
- * @param handler - The callback function to execute on scroll
- * @returns Cleanup function to remove the subscription
+ * Subscribe to scroll updates driven by RAF polling.
  */
 export function subscribe(element: HTMLElement, handler: ScrollHandler): () => void {
-    let subscription = subscriptions.get(element);
+	let subscription = subscriptions.get(element);
 
-    if (!subscription) {
-        subscription = {
-            element,
-            handlers: new Set(),
-            rafId: null,
-            isScheduled: false,
-        };
-        subscriptions.set(element, subscription);
+	if (!subscription) {
+		subscription = {
+			element,
+			handlers: new Set(),
+			rafId: null,
+			lastScrollTop: element.scrollTop,
+			lastScrollLeft: element.scrollLeft,
+		};
+		subscriptions.set(element, subscription);
+	}
 
-        // Add the actual DOM event listener (passive for performance)
-        element.addEventListener('scroll', handleScroll, { passive: true });
-    }
+	subscription.handlers.add(handler);
+	// Immediate sync so overlays line up before the next frame.
+	handler(element);
+	ensureLoop(subscription);
 
-    subscription.handlers.add(handler);
+	return () => {
+		const current = subscriptions.get(element);
+		if (!current) return;
 
-    // Return cleanup function
-    return () => {
-        const currentSubscription = subscriptions.get(element);
-        if (!currentSubscription) return;
-
-        currentSubscription.handlers.delete(handler);
-
-        // If no more handlers, clean up completely
-        if (currentSubscription.handlers.size === 0) {
-            if (currentSubscription.rafId && HAS_RAF) {
-                cancelAnimationFrame(currentSubscription.rafId);
-            }
-            element.removeEventListener('scroll', handleScroll);
-            subscriptions.delete(element);
-        }
-    };
+		current.handlers.delete(handler);
+		if (current.handlers.size === 0) {
+			if (current.rafId != null && HAS_CAF) {
+				window.cancelAnimationFrame(current.rafId);
+				current.rafId = null;
+			}
+			subscriptions.delete(element);
+		}
+	};
 }
 
 /**
@@ -118,17 +119,17 @@ export function subscribe(element: HTMLElement, handler: ScrollHandler): () => v
  * @param deps - Dependencies array (similar to useEffect)
  */
 export function useRafScroll<T extends HTMLElement>(
-    elementRef: React.RefObject<T | null> | undefined,
-    handler: ScrollHandler,
-    deps: React.DependencyList = []
+	elementRef: React.RefObject<T | null> | undefined,
+	handler: ScrollHandler,
+	deps: React.DependencyList = []
 ) {
-    const stableHandler = React.useCallback(handler, deps);
+	const stableHandler = React.useCallback(handler, deps);
 
-    React.useEffect(() => {
-        if (!elementRef) return;
-        const element = elementRef.current;
-        if (!element) return;
+	React.useEffect(() => {
+		if (!elementRef) return;
+		const element = elementRef.current;
+		if (!element) return;
 
-        return subscribe(element, stableHandler);
-    }, [elementRef, stableHandler]);
+		return subscribe(element, stableHandler);
+	}, [elementRef, stableHandler]);
 }

@@ -38,11 +38,8 @@ export function TextInput({
   extraTopPaddingPx = 0,
 }: TextInputProps) {
   const { config } = useTimingConfig();
-  const {
-    enqueueSentence,
-    notifyTopicShift,
-    updateTopicContext,
-  } = useProdActions();
+  const { enqueueSentence, notifyTopicShift, updateTopicContext } =
+    useProdActions();
 
   const editor = useEditorText({
     onTextChange: (newText) => {
@@ -72,7 +69,7 @@ export function TextInput({
     text: editor.text,
     textareaRef: editor.textareaRef,
     onUpdate: (textValue, sentencesList, positions) => {
-    onTextUpdate?.(textValue, sentencesList, positions);
+      onTextUpdate?.(textValue, sentencesList, positions);
     },
   });
 
@@ -102,6 +99,29 @@ export function TextInput({
       onTextareaRef?.(null);
     };
   }, [onTextareaRef, editor.textareaRef]);
+
+  // Lock page-level scroll so the textarea owns the only scrollbar.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const { body, documentElement } = document;
+    const prevBodyOverflow = body.style.overflow;
+    const prevHtmlOverflow = documentElement.style.overflow;
+    const prevBodyHeight = body.style.height;
+    const prevHtmlHeight = documentElement.style.height;
+
+    body.style.overflow = "hidden";
+    documentElement.style.overflow = "hidden";
+    body.style.height = "100%";
+    documentElement.style.height = "100%";
+
+    return () => {
+      body.style.overflow = prevBodyOverflow;
+      documentElement.style.overflow = prevHtmlOverflow;
+      body.style.height = prevBodyHeight;
+      documentElement.style.height = prevHtmlHeight;
+    };
+  }, []);
 
   // Simplified caret auto-scroll functionality for keyboard visibility
   const ensureCaretVisible = useCallback(() => {
@@ -195,7 +215,7 @@ export function TextInput({
               placeholder={placeholder}
               className={cn(
                 `${TEXTAREA_CLASSES.BASE} ${TEXTAREA_CLASSES.TEXT} ${TEXTAREA_CLASSES.PADDING} font-plex relative z-10`,
-                "py-6 h-full scrollbar-thin scroll-keyboard-safe scrollable"
+                "py-6 h-full scrollbar-thin scroll-keyboard-safe scrollable scroll-no-bounce"
               )}
               style={{
                 caretColor: "currentColor",
@@ -208,7 +228,7 @@ export function TextInput({
               }}
               autoComplete="off"
               autoCorrect="off"
-              autoCapitalize="off"
+              autoCapitalize="none"
               spellCheck="false"
               onWheelCapture={(e) => e.stopPropagation()}
               onPaste={(e) => {

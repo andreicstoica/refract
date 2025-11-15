@@ -4,7 +4,10 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { debug } from "@/lib/debug";
 
+type OpenAIModelId = Parameters<typeof openai>[0];
+
 export const maxDuration = 15; // 15 seconds; NextJS Route Handler timeout hint
+const PROD_MODEL = (process.env.OPENAI_PROD_MODEL || "gpt-5") as OpenAIModelId;
 
 const ProdResponseSchema = z.object({
 	selectedProd: z.string().optional().describe("Best single prod or empty if skipping"),
@@ -148,7 +151,7 @@ Generate a response that would genuinely help this person understand themselves 
 		let result;
 		try {
 			result = await generateObject({
-				model: openai("gpt-5.1-mini"),
+				model: openai(PROD_MODEL),
 				system: systemPrompt,
 				prompt: userPrompt,
 				schema: ProdResponseSchema,

@@ -6,7 +6,10 @@ import { clusterEmbeddings, sentencesToChunks } from "@/lib/embeddings";
 import { debug } from "@/lib/debug";
 import type { ClusterResult, EmbeddingResult, TextChunk } from "@/types/embedding";
 
+type OpenAIModelId = Parameters<typeof openai>[0];
+
 export const maxDuration = 40;
+const THEME_MODEL = (process.env.OPENAI_THEME_MODEL || "gpt-5") as OpenAIModelId;
 
 const EmbeddingsRequestSchema = z.object({
   sentences: z.array(z.object({
@@ -233,7 +236,7 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
 
     // Force a JSON-capable fast model so latency stays under map animation budget
     const result = await generateObject({
-      model: openai("gpt-5.1-nano"),
+      model: openai(THEME_MODEL),
       system: systemPrompt,
       prompt: userPrompt,
       schema: ComprehensiveThemeSchema,
