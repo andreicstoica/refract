@@ -37,16 +37,16 @@ stateDiagram-v2
     - Keep pinned prods
   end note
 
-  state ProdsArray["Prods Array (separate from queue)"]
+  state ProdsArray {
     [*] --> Active
     Active --> Pinned : pinProd(id)
     Pinned --> Active : removeProd(id)
     Active --> [*] : removeProd(id)
     Pinned --> [*] : removeProd(id)
-    
-    note right of ProdsArray
-      Prods live in separate array
-      after queue processing completes.
-      Pinning is independent of queue state.
-    end note
-  end
+  }
+  
+  note right of ProdsArray
+    Prods live in separate array
+    after queue processing completes.
+    Pinning is independent of queue state.
+  end note

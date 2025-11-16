@@ -1,63 +1,54 @@
-flowchart TD
-  subgraph AppShell["App Shell (app/layout.tsx)"]
+flowchart LR
+  subgraph Providers["App Providers"]
     direction TB
-    ThemeProvider
-    TimingConfigProvider
-    EmbeddingsProvider
+    Theme["ThemeProvider"]
+    Timing["TimingConfigProvider"]
+    Embeddings["EmbeddingsProvider"]
   end
 
-  subgraph PageLevel["Write Page (app/write/page.tsx)"]
+  subgraph EditorHooks["TextInput Hooks"]
     direction TB
+    EditorText["useEditorText"]
+    TopicShift["useTopicShiftDetection"]
+    SentenceTracker["useSentenceTracker"]
+    ProdTriggers["useProdTriggers"]
     
-    subgraph ProdsProvider["ProdsProvider (wraps TextInput)"]
-      direction TB
-      
-      subgraph Editor["TextInput Component"]
-        direction TB
-        useEditorText["useEditorText<br/>(text, ref, metrics)"]
-        TopicShift["useTopicShiftDetection<br/>(keywords, topicVersion)"]
-        useSentenceTracker["useSentenceTracker<br/>(sentences, positions)"]
-        useProdTriggers["useProdTriggers<br/>(timers, heuristics, watchdog)"]
-        
-        useEditorText --> TopicShift
-        useEditorText --> useSentenceTracker
-        useSentenceTracker --> useProdTriggers
-      end
-      
-      subgraph ProdsStack["useProdQueueManager"]
-        direction TB
-        ProdActions["useProdActions<br/>(enqueue, updateTopicContext, notifyTopicShift)"]
-        QueueManager["Queue Manager<br/>(guardrails, dedupe, rate limit)"]
-        ProdState["prods[], pinnedIds,<br/>filteredSentences"]
-        
-        ProdActions --> QueueManager
-        QueueManager --> ProdState
-      end
-      
-      Editor --> ProdsStack
-    end
-    
-    subgraph Overlays["UI Overlays"]
-      direction TB
-      ChipOverlay
-      HighlightOverlay
-    end
+    EditorText --> TopicShift
+    EditorText --> SentenceTracker
+    SentenceTracker --> ProdTriggers
   end
-
-  AppShell --> PageLevel
   
-  TopicShift -->|updateTopicContext| ProdActions
-  TopicShift -.->|notifyTopicShift<br/>(on shift)| ProdActions
-  useProdTriggers -->|enqueueSentence| ProdActions
+  subgraph QueueMgr["Prod Queue Manager"]
+    direction TB
+    Actions["useProdActions"]
+    Queue["Queue<br/>guardrails + dedupe"]
+    State["prods[] + pinnedIds"]
+    
+    Actions --> Queue
+    Queue --> State
+  end
   
-  TimingConfigProvider --> useProdTriggers
-  TimingConfigProvider --> QueueManager
+  subgraph UI["UI Layer"]
+    direction TB
+    Chips["ChipOverlay"]
+    Highlights["HighlightOverlay"]
+    TextArea["Textarea DOM"]
+  end
   
-  ProdState --> ChipOverlay
-  ProdState --> HighlightOverlay
+  Providers --> EditorHooks
   
-  ChipOverlay --> TextArea["Textarea DOM"]
-  HighlightOverlay --> TextArea
+  TopicShift -->|updateTopic| Actions
+  TopicShift -.->|notifyShift| Actions
+  ProdTriggers -->|enqueue| Actions
   
-  ThemeProvider --> HighlightOverlay
-  EmbeddingsProvider --> Editor
+  Timing --> ProdTriggers
+  Timing --> Queue
+  
+  State --> Chips
+  State --> Highlights
+  
+  Chips --> TextArea
+  Highlights --> TextArea
+  
+  Theme --> Highlights
+  Embeddings --> EditorHooks
