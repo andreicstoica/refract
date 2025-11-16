@@ -7,7 +7,7 @@ import { Play, Pause } from "lucide-react";
 
 interface WritingTimerProps {
   initialMinutes: number;
-  onTimerComplete: () => void;
+  onTimerComplete?: () => void;
   className?: string;
   onThreshold?: (secondsLeft: number) => void;
   thresholdSeconds?: number;
@@ -58,7 +58,7 @@ export function WritingTimer({
     if (timeLeft <= 0 && !hasTriggeredComplete.current) {
       hasTriggeredComplete.current = true;
       setTimeout(() => {
-        onTimerComplete();
+        onTimerComplete?.();
       }, 0);
     }
   }, [timeLeft, onTimerComplete]);

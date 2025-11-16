@@ -55,12 +55,9 @@ export default function WritePage() {
     setShowTimerSetup(false);
   };
 
-  const handleTimerComplete = () => {
-    // Nothing special here; analysis should already be running or completed
-  };
-
   const handlePreFinish = useCallback(
     async (_secondsLeft: number) => {
+      // The remaining seconds are ignored; only the threshold signal matters here.
       if (hasThemes || isGenerating || currentSentences.length === 0) return;
 
       try {
@@ -77,9 +74,10 @@ export default function WritePage() {
   );
 
   const handleTextUpdate = useCallback(
-    (text: string, sentences: Sentence[], positions: SentencePosition[]) => {
+    (text: string, sentences: Sentence[], _positions: SentencePosition[]) => {
       setCurrentText(text);
       setCurrentSentences(sentences);
+      // Sentence positions are unused here; we only persist the text + sentences.
     },
     []
   );
@@ -131,7 +129,6 @@ export default function WritePage() {
               <div data-timer-container className="flex items-center">
                 <WritingTimer
                   initialMinutes={timerMinutes}
-                  onTimerComplete={handleTimerComplete}
                   onThreshold={handlePreFinish}
                   thresholdSeconds={20}
                 />
