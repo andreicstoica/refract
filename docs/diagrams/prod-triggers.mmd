@@ -3,6 +3,7 @@ sequenceDiagram
   participant TextInput
   participant Topic as useTopicShiftDetection
   participant Triggers as useProdTriggers
+  participant Rules as prodTriggerRules
   participant Actions as ProdsProvider/useProdActions
   participant Guards as useProdQueueManager
   participant API as /api/prod
@@ -10,31 +11,52 @@ sequenceDiagram
 
   Writer->>TextInput: type / pause / resume
   TextInput->>Topic: share latest text window
+  
   Topic-->>Actions: updateTopicContext(keywords, topicVersion)
+  
   alt topic shift detected
     Topic->>Actions: notifyTopicShift()
     Actions->>Guards: cancelAllRequests + clear queue + reset TTL maps
   end
+  
   TextInput->>Triggers: { text, sentences, config }
-  Triggers->>Triggers: shouldTriggerProd + getProdTriggerReason
-  alt punctuation / char threshold satisfied
-    Triggers->>Actions: enqueueSentence(fullText, lastSentence)
-  else settle timer or watchdog
-    Triggers->>Triggers: wait config.settlingMs or WATCHDOG_IDLE_MS
-    Triggers->>Actions: enqueueSentence(..., force?)
+  
+  Triggers->>Rules: shouldTriggerProd(cooldown, min length)
+  
+  alt shouldTriggerProd returns false
+    Note over Triggers: Cooldown active or text too short
+  else shouldTriggerProd returns true
+    Triggers->>Rules: getProdTriggerReason()
+    
+    alt immediate trigger (punctuation / comma / char threshold)
+      Rules-->>Triggers: "punctuation" / "softComma" / "charThreshold"
+      Triggers->>Actions: enqueueSentence(fullText, lastSentence)
+    else no immediate trigger
+      Triggers->>Triggers: scheduleSettlingTrigger(config.settlingMs)
+      Note over Triggers: Wait for settling timer
+      Triggers->>Rules: shouldTriggerProd (re-check)
+      alt still valid after settling
+        Triggers->>Actions: enqueueSentence(fullText, lastSentence)
+      end
+    end
   end
-  Actions->>Guards: add queue item
+  
+  Note over Triggers: Watchdog timer (6s idle) forces prod with force=true
+  
+  Actions->>Guards: enqueueSentence(fullText, sentence)
+  
   Guards->>Guards: apply shouldProcessSentence + TTL dedupe
+  
   alt guardrails block sentence
     Note over Guards: short text / duplicate / queue full → drop
   else sentence accepted
     Guards->>Guards: waitForRateLimit(config.rateLimitMs)
-    Guards->>API: generateProdWithTimeout(lastParagraph, fullText, recentProds, topicKeywords)
+    Guards->>API: generateProdWithTimeout(lastParagraph, recentText, recentProds, topicKeywords)
     API-->>Guards: { selectedProd, confidence }
+    
     alt topicVersion changed or low confidence
-      Guards-->>Actions: discard queue item
+      Guards->>Guards: COMPLETE_PROCESSING (discard)
     else result approved
-      Guards->>Chips: append prod, prune non-pinned, cache normalized text
+      Guards->>Chips: append prod to array, cache normalized text
     end
   end
-  Note over Triggers: Watchdog arms on each keystroke and fires force trigger after 6s idle

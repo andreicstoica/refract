@@ -1,29 +1,52 @@
 stateDiagram-v2
   [*] --> Idle
+  
   Idle --> Pending : enqueueSentence<br/>(after filters)
+  
   Pending --> Idle : guardrail drop /<br/>queue trimmed
-  Pending --> Processing : START_PROCESSING /<br/>waitForRateLimit
-  Processing --> Promoted : API success /<br/>confidence ok
-  Processing --> Discarded : topicVersion mismatch /<br/>cancelled or low confidence
-  Processing --> Failed : timeout / network error
-  Promoted --> Visible
-  Discarded --> Idle
-  Failed --> Idle
-
-  state Visible {
-    [*] --> Active
-    Active --> Pinned : pin(id)
-    Pinned --> Active : unpin(id)
-    Active --> Expired : fade out / remove(id)
-    Pinned --> Expired : explicit remove
-    Expired --> [*]
-    note right of Visible: pinned chips survive topic resets;<br/>non-pinned ones are pruned to newest suggestion
-  }
-
-  Visible --> Idle : no prods remain / clearAll
+  Pending --> Processing : START_PROCESSING<br/>(waitForRateLimit)
+  
+  Processing --> Idle : COMPLETE_PROCESSING<br/>(API success + confidence ok)
+  Processing --> Idle : COMPLETE_PROCESSING<br/>(topicVersion mismatch / cancelled)
+  Processing --> Idle : FAIL_PROCESSING<br/>(timeout / network error)
+  Processing --> Idle : COMPLETE_PROCESSING<br/>(low confidence)
+  
+  note right of Pending
+    Deduplication checks:
+    - Normalized text TTL
+    - Fingerprint TTL
+    - Recent sentence text map
+    - Queue size cap (3 prod / 5 demo)
+  end note
+  
+  note right of Processing
+    Parallel processing:
+    - 2 slots on /write
+    - 3 slots on /demo
+    - Pulls newest pending items
+  end note
+  
   Idle --> TopicReset : notifyTopicShift
-  TopicReset --> Idle : cancelAllRequests +<br/>clear TTL maps
+  TopicReset --> Idle : cancelAllRequests +<br/>clear queue +<br/>reset TTL maps
+  
+  note right of TopicReset
+    On topic shift:
+    - Cancel all ongoing requests
+    - Clear pending queue
+    - Reset fingerprint maps
+    - Keep pinned prods
+  end note
 
-  note right of Pending: Normalized text + fingerprint TTLs and<br/>queue size caps fire before items enter Processing
-  note right of Processing: Parallel slots (2 on /write, 3 on /demo)<br/>pull newest pending items as soon as a slot frees up
-  note right of TopicReset: flush pending items, keep pinned placements,<br/>reset dedupe caches for the next topic cluster
+  state ProdsArray["Prods Array (separate from queue)"]
+    [*] --> Active
+    Active --> Pinned : pinProd(id)
+    Pinned --> Active : removeProd(id)
+    Active --> [*] : removeProd(id)
+    Pinned --> [*] : removeProd(id)
+    
+    note right of ProdsArray
+      Prods live in separate array
+      after queue processing completes.
+      Pinning is independent of queue state.
+    end note
+  end
