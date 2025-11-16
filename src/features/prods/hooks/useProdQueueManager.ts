@@ -208,12 +208,8 @@ export function useProdQueueManager({
                 markNow(recentSentenceTextMapRef.current, norm, nowTs);
             } catch { }
             setProds((prev) => {
-                const keepPinned = prev.filter(p => pinnedIdsRef.current.has(p.id));
-                // More aggressive clearing: keep only pinned prods and the new one
-                if (prev.length > keepPinned.length + 1) {
-                    debug.prods(`${config.emoji} 🗑️ Clearing ${prev.length - keepPinned.length - 1} old prods`);
-                }
-                return [...keepPinned, newProd];
+                // Keep existing prods so they can finish their fade lifecycle before removal
+                return [...prev, newProd];
             });
             queueDispatch({ type: 'COMPLETE_PROCESSING', payload: id });
             ongoingRequestsRef.current.delete(requestId);
