@@ -4,7 +4,7 @@ import {
   calculateSimilarityMatrix,
   clusterEmbeddings,
   attachEmbeddingsToChunks,
-} from "@/lib/embeddings";
+} from "@/lib/clustering";
 import type { Sentence } from "@/types/sentence";
 import type { TextChunk } from "@/types/embedding";
 import { cosineSimilarity } from "ai";

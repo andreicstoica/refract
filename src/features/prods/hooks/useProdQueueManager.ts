@@ -108,8 +108,6 @@ export function useProdQueueManager({
         nextAvailableAtRef.current = Date.now() + delayMs;
     }, []);
 
-    // (Removed) cancelRequestsForSentences was unused; we cancel wholesale on topic shifts for simplicity
-
     // Cancel all ongoing requests
     const cancelAllRequests = useCallback(() => {
         const requestCount = ongoingRequestsRef.current.size;

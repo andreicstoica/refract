@@ -2,7 +2,7 @@
 
 import type { Sentence } from "@/types/sentence";
 import type { Theme } from "@/types/theme";
-import { generateEmbeddings } from "@/features/ai/services/embeddingsClient";
+import { generateEmbeddings } from "@/features/themes/services/embeddingsClient";
 import { storage } from "@/features/writing/services/storage";
 import { debug } from "@/lib/debug";
 

@@ -2,15 +2,15 @@
  * Debug utilities for development logging
  */
 
-const isDev = process.env.NODE_ENV !== "production";
-const DEBUG_PRODS = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEBUG_PRODS === '1';
+const isDevEnv = () => typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+const isDebugProdsEnabled = () => typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEBUG_PRODS === '1';
 
 export const debug = {
     /**
      * Log only in development mode
      */
     dev: (message: string, ...args: any[]) => {
-        if (isDev) {
+        if (isDevEnv()) {
             console.log(message, ...args);
         }
     },
@@ -19,7 +19,7 @@ export const debug = {
      * Log only when DEBUG_PRODS is enabled
      */
     prods: (message: string, ...args: any[]) => {
-        if (DEBUG_PRODS) {
+        if (isDebugProdsEnabled()) {
             console.log(message, ...args);
         }
     },
@@ -28,7 +28,7 @@ export const debug = {
      * Log in development mode when DEBUG_PRODS is enabled
      */
     devProds: (message: string, ...args: any[]) => {
-        if (isDev && DEBUG_PRODS) {
+        if (isDevEnv() && isDebugProdsEnabled()) {
             console.log(message, ...args);
         }
     },

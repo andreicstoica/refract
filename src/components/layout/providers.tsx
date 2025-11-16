@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
-import { EmbeddingsProvider } from "@/features/ai/EmbeddingsProvider";
+import { EmbeddingsProvider } from "@/features/themes/EmbeddingsProvider";
 import { TimingConfigProvider } from "@/features/config/TimingConfigProvider";
 
 type ProvidersProps = {
