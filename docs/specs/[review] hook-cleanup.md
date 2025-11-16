@@ -90,7 +90,6 @@ interface ProdState {
 
 interface ProdActions {
 	enqueueSentence(args: { sentence: Sentence; fullText: string; force?: boolean }): void;
-	injectProd(args: { sentence: Sentence; fullText: string; text: string }): void;
 	pin(id: string): void;
 	remove(id: string): void;
 	notifyTopicShift(): void;

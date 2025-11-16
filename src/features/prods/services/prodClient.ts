@@ -8,7 +8,7 @@ const REQUEST_TIMEOUT_MS = 15000; // 15 seconds
  * Generate a prod suggestion with built-in timeout and cancellation support
  */
 export async function generateProdWithTimeout(
-    input: ProdRequest,
+    input: ProdRequest & { keywords?: string[]; recentText?: string },
     opts?: { signal?: AbortSignal }
 ): Promise<ProdResponse> {
     const controller = new AbortController();
@@ -35,7 +35,7 @@ export async function generateProdWithTimeout(
  * Generate a prod suggestion for the given text input
  */
 export async function generateProd(
-    input: ProdRequest,
+    input: ProdRequest & { keywords?: string[]; recentText?: string },
     opts?: { signal?: AbortSignal }
 ): Promise<ProdResponse> {
     const getNow = () => (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now());

@@ -16,7 +16,6 @@ interface ProdStateContextValue {
 
 interface ProdActionsContextValue {
 	enqueueSentence(args: { fullText: string; sentence: Sentence; force?: boolean }): void;
-	injectProd(args: { fullText: string; sentence: Sentence; text: string }): void;
 	pin(id: string): void;
 	remove(id: string): void;
 	notifyTopicShift(): void;
@@ -54,7 +53,6 @@ export function ProdsProvider({ children }: { children: React.ReactNode }) {
 		pinnedIds,
 		filteredSentences,
 		enqueueSentence,
-		injectProd,
 		pinProd,
 		removeProd,
 		handleTopicShift,
@@ -80,7 +78,6 @@ export function ProdsProvider({ children }: { children: React.ReactNode }) {
 
 	const actionsValue = useMemo<ProdActionsContextValue>(() => ({
 		enqueueSentence: ({ fullText, sentence, force }) => enqueueSentence(fullText, sentence, { force }),
-		injectProd: ({ fullText, sentence, text }) => injectProd(fullText, sentence, text),
 		pin: pinProd,
 		remove: removeProd,
 		notifyTopicShift: handleTopicShift,
@@ -89,7 +86,6 @@ export function ProdsProvider({ children }: { children: React.ReactNode }) {
 		updateTopicContext,
 	}), [
 		enqueueSentence,
-		injectProd,
 		pinProd,
 		removeProd,
 		handleTopicShift,

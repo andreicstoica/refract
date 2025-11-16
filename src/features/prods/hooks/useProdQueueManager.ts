@@ -19,11 +19,9 @@ interface OngoingRequest {
 export function queueReducer(state: QueueState, action: QueueAction): QueueState {
     switch (action.type) {
         case 'ENQUEUE': {
-            // Keep all existing items except pending ones, then append the new pending item
-            const nonPendingItems = state.items.filter(item => item.status !== 'pending');
             return {
                 ...state,
-                items: [...nonPendingItems, { ...action.payload, status: 'pending' }]
+                items: [...state.items, { ...action.payload, status: 'pending' }]
             };
         }
         case 'START_PROCESSING':
@@ -36,21 +34,24 @@ export function queueReducer(state: QueueState, action: QueueAction): QueueState
                         : item
                 )
             };
-        case 'COMPLETE_PROCESSING':
+        case 'COMPLETE_PROCESSING': {
+            const remaining = state.items.filter(item => item.id !== action.payload);
+            const stillProcessing = remaining.some(item => item.status === 'processing');
             return {
                 ...state,
-                items: state.items.filter(item => item.id !== action.payload)
+                items: remaining,
+                isProcessing: stillProcessing
             };
-        case 'FAIL_PROCESSING':
+        }
+        case 'FAIL_PROCESSING': {
+            const remaining = state.items.filter(item => item.id !== action.payload);
+            const stillProcessing = remaining.some(item => item.status === 'processing');
             return {
                 ...state,
-                items: state.items.filter(item => item.id !== action.payload)
+                items: remaining,
+                isProcessing: stillProcessing
             };
-        case 'SET_PROCESSING':
-            return {
-                ...state,
-                isProcessing: action.payload
-            };
+        }
         case 'CLEAR_QUEUE':
             return {
                 items: [],
@@ -148,11 +149,12 @@ export function useProdQueueManager({
 
             // Enhanced API call with timeout and cancellation
             const apiStart = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+            const recentText = fullText.slice(-300); // Last 300 characters of the full text
             const data = await generateProdWithTimeout({
                 lastParagraph: sentence.text,
-                fullText: fullText,
-                recentProds: prods.slice(-5).map(p => p.text), // Last 5 prods for context
-                topicKeywords, // Current topic keywords
+                recentText,
+                keywords: topicKeywords,
+                recentProds: prods.slice(-3).map(p => p.text), // Last 3 prods for context
             }, { signal: controller.signal });
 
             const apiElapsed = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - apiStart;
@@ -234,14 +236,13 @@ export function useProdQueueManager({
     // Process queue sequentially with cancellation support (single-flight)
     useEffect(() => {
         const processQueue = async () => {
-            if (queueState.isProcessing) {
-                debug.devProds("⏸️ Queue is already processing, skipping");
-                return;
-            }
-
             let pendingItems = queueState.items.filter(item => item.status === 'pending');
+            const processingCount = queueState.items.filter(item => item.status === 'processing').length;
+
             if (pendingItems.length === 0) {
-                debug.devProds(`${config.emoji} 📭 No pending items in queue`);
+                if (processingCount === 0) {
+                    debug.devProds(`${config.emoji} 📭 No pending items in queue`);
+                }
                 return;
             }
 
@@ -256,60 +257,24 @@ export function useProdQueueManager({
                 debug.devProds(`${config.emoji} 🗑️ Pruned queue to ${MAX_QUEUE_SIZE} most recent items`);
             }
 
-            debug.devProds(`${config.emoji} 🔄 Processing most recent pending item`);
-            queueDispatch({ type: 'SET_PROCESSING', payload: true });
-            // Process the most recent pending item (LIFO)
-            const nextItem = pendingItems[pendingItems.length - 1];
-            await processSingleItem(nextItem);
+            const maxParallel = isDemoMode ? 3 : 2;
+            const availableSlots = Math.max(0, maxParallel - processingCount);
 
-            queueDispatch({ type: 'SET_PROCESSING', payload: false });
+            if (availableSlots === 0) {
+                debug.devProds(`${config.emoji} ⏳ Queue at capacity (${processingCount}/${maxParallel})`);
+                return;
+            }
+
+            const itemsToProcess = pendingItems.slice(-availableSlots);
+            debug.devProds(`${config.emoji} 🔄 Launching ${itemsToProcess.length} queue item(s)`);
+            await Promise.all(itemsToProcess.map(item => processSingleItem(item)));
         };
 
         processQueue();
-    }, [queueState.items, queueState.isProcessing, processSingleItem]);
+    }, [queueState.items, processSingleItem, isDemoMode, config.emoji]);
 
     // Public API to add sentences to queue
     const recentSentenceTextMapRef = useRef<Map<string, number>>(new Map());
-
-    // Helper: directly inject a prod without hitting the API (kept for flexibility)
-    const injectProd = useCallback((fullText: string, sentence: Sentence, prodText: string) => {
-        const now = Date.now();
-        const normalized = normalizeText(sentence.text);
-
-        // Skip if a prod already exists for this sentence id very recently
-        const recentProdForSentence = prods.find(p => p.sentenceId === sentence.id && now - p.timestamp < 5000);
-        if (recentProdForSentence) return;
-
-        // Skip if we've produced for this exact text recently (longer timeout for demo chips)
-        const lastProducedAt = recentSentenceTextMapRef.current.get(normalized);
-        const demoChipTimeout = isDemoMode ? 120000 : 30000; // 2min for demo chips vs 30s for normal prods
-        if (lastProducedAt && now - lastProducedAt < demoChipTimeout) {
-            debug.prods(`${config.emoji} 🚫 Skipping duplicate prod for recently produced text:`, sentence.text.substring(0, 50) + "...");
-            return;
-        }
-
-        const newProd: Prod = {
-            id: `prod-${sentence.id}-${now}`,
-            text: prodText.trim(),
-            sentenceId: sentence.id,
-            sourceText: sentence.text,
-            timestamp: now,
-        };
-
-        // Mark this sentence text as recently processed to avoid overlaps
-        try {
-            cleanupOlderThan(recentSentenceTextMapRef.current, 120000, now);
-            markNow(recentSentenceTextMapRef.current, normalized, now);
-            // Also mark the fingerprint as processed to prevent normal prod system from processing it
-            const fingerprint = makeFingerprint(sentence.text);
-            markNow(sentenceFingerprintsRef.current, fingerprint, now);
-        } catch { }
-
-        setProds((prev) => {
-            const keepPinned = prev.filter(p => pinnedIdsRef.current.has(p.id));
-            return [...keepPinned, newProd];
-        });
-    }, [prods]);
 
     const enqueueSentence = useCallback((fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
         debug.prods(`${config.emoji} 📝 enqueueSentence called for sentence:`, sentence.text.substring(0, 50) + "...");
@@ -478,7 +443,6 @@ export function useProdQueueManager({
     return {
         prods,
         enqueueSentence,
-        injectProd,
         pinProd,
         removeProd,
         clearQueue,

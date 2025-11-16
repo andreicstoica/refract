@@ -30,6 +30,7 @@ export function useProdTriggers({
 	const lastTriggerCharPosRef = useRef(0);
 	const lastInputAtRef = useRef(Date.now());
 	const watchdogArmedRef = useRef(true);
+	const idleLockRef = useRef(false);
 	const textRef = useRef(text);
 	const sentencesRef = useRef(sentences);
 
@@ -37,6 +38,7 @@ export function useProdTriggers({
 		textRef.current = text;
 		lastInputAtRef.current = Date.now();
 		watchdogArmedRef.current = true;
+		idleLockRef.current = false;
 	}, [text]);
 
 	useEffect(() => {
@@ -54,6 +56,9 @@ export function useProdTriggers({
 			onTrigger(fullText, lastSentence, opts);
 			lastTriggerAtRef.current = Date.now();
 			lastTriggerCharPosRef.current = fullText.length;
+			if (opts?.force) {
+				idleLockRef.current = true;
+			}
 		},
 		[onTrigger, prodsEnabled, config]
 	);
@@ -87,6 +92,10 @@ export function useProdTriggers({
 	}, [config, triggerProd]);
 
 	const evaluateTriggers = useCallback(() => {
+		if (idleLockRef.current) {
+			return;
+		}
+
 		if (!text.trim()) {
 			if (settlingTimerRef.current) {
 				clearTimeout(settlingTimerRef.current);

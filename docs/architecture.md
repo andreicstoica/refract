@@ -16,7 +16,7 @@ This document captures the high-level writing flow so reviewers can map hooks, p
 	- `useEditorText` owns the textarea ref, text value, focus, and line metrics.
 	- `useSentenceTracker` translates `{ text, textareaRef }` into sentence arrays with cached measurements.
 	- `useProdTriggers` watches `{ text, sentences }`, applies timer heuristics/watchdog logic, and invokes prod enqueue actions via the provider.
-3. `ProdsProvider` (backed by `useProdQueueManager`) wraps the writing surface and exposes queue actions (`enqueue`, `pin`, `notifyTopicShift`, `updateTopicContext`, etc.) plus memoized selectors for overlays, pins, and cached sentences.
+3. `ProdsProvider` (backed by `useProdQueueManager`) wraps the writing surface and exposes queue actions (`enqueue`, `pin`, `notifyTopicShift`, `updateTopicContext`, etc.) plus memoized selectors for overlays, pins, and cached sentences. The provider now supervises a multi-flight queue: up to two concurrent prod requests on `/write` (three on `/demo`) to keep throughput high even when individual API calls approach the timeout.
 4. `ThemesProvider` (future) and highlight overlays consume the same text + sentence structures to keep animations aligned with chip placement.
 
 See `docs/diagrams/writing-flow.mmd` for the overall pipeline and `docs/diagrams/prod-triggers.mmd` for the timer + heuristic sequence that feeds the queue.
@@ -41,17 +41,16 @@ Observability hooks (e.g., logging, debug counters) should subscribe at the prov
 
 ## Prods System
 
-- `ProdsProvider` wraps the editor stack on `/write` and `/demo`, keeps `{ prods, queueState, pinnedIds, filteredSentences }`, and wires `useProdActions()` (enqueue, pin, remove, notifyTopicShift, updateTopicContext, injectProd).
-- `useProdQueueManager` enforces the cadence guardrails: TTL dedupe maps, queue rate limiting, request cancellation, topic-version staleness checks, keyword forwarding, and the cached sentence list that backs embeddings and telemetry.
+- `ProdsProvider` wraps the editor stack on `/write` and `/demo`, keeps `{ prods, queueState, pinnedIds, filteredSentences }`, and wires `useProdActions()` (enqueue, pin, remove, notifyTopicShift, updateTopicContext). `queueState` now reflects multiple concurrent `processing` entries so the UI can show “2 in flight” instead of a binary “busy” flag.
+- `useProdQueueManager` enforces the cadence guardrails: TTL dedupe maps, queue rate limiting, request cancellation, topic-version staleness checks, keyword forwarding, and the cached sentence list that backs embeddings and telemetry. Instead of single-flight processing, the manager backfills as many slots as the current parallel cap allows (2 prod / 3 demo) to shrink worst-case wait time.
+- `/api/prod` now defaults to `gpt-5-mini` (configurable via `OPENAI_PROD_MODEL`) so each slot completes faster; softer model output is balanced by stricter dedupe and minimum confidence thresholds.
 - Chip layout stays in `src/lib/chips/chipLayout.ts` so the provider only exposes logical positions (sentence id, offsets, max width). Chip overlays just render the placements they receive.
 - `docs/diagrams/prod-queue.mmd` captures the queue transitions (initial, pending request, fulfilled, pinned, dropped).
-
-### Queue Invariants
 
 - Normalized text dedupe uses `recentSentenceTextMapRef` (≈10s in `/write`, ≈30–120s in `/demo`). Similarity dedupe uses `sentenceFingerprintsRef` (≈15s in `/write`, ≈60s in `/demo`). Hooks must pass normalized text + fingerprints for the guardrail to work.
 - `notifyTopicShift()` cancels all inflight requests, clears queue state + TTL maps, and increments the topic version so stale promises never promote a prod.
 - Each queue item records `topicVersion` and is discarded if the current version changed before the API response resolves.
-- Rate limiting (`waitForRateLimit(config.rateLimitMs)`) and queue pruning (3 items in `/write`, 5 in `/demo`) ensure ≤1 prod ships per small topic cluster.
+- Rate limiting (`waitForRateLimit(config.rateLimitMs)`) and queue pruning (3 items in `/write`, 5 in `/demo`) prevent runaway bursts; after pruning we launch as many items as the parallel cap allows so users see chips sooner even while some calls linger near the 15 s timeout.
 - `pinnedIds` survives queue clears; layout re-uses previous placements when possible (`tryReusePinnedPlacement`), so we document pinning expectations here instead of littering comments in layout helpers.
 
 ## Theme Analysis & Map
@@ -94,9 +93,10 @@ See `specs/[review] prod-cadence-and-topic.md` for the investigation narrative t
 	- The same hook flips `hasTopicShift`, which triggers `notifyTopicShift()` to cancel inflight requests, drop pending items, and clear dedupe caches before new topics queue more chips.
 2. **Trigger Heuristics**
 	- `useProdTriggers` is the only place that transforms `{ text, sentences, config }` into `enqueueSentence` calls. It covers punctuation heuristics, the character-count fallback, settling timers, and the six-second watchdog that raises a `force` prod if the writer pauses mid-thought.
+	- After the watchdog fires we lock new triggers until the user types again so we don’t keep seeding the queue while the user is idle.
 3. **Queue Gating**
 	- `enqueueSentence` runs layered suppression: `shouldProcessSentence` filters low-signal sentences, normalized text + fingerprint TTLs block near-duplicates, and we skip items already in the queue, already pinned, or recently rendered.
-	- Accepted items store `{ topicVersion, timestamp, force? }`. `processSingleItem` respects `config.rateLimitMs`, includes `recentProds.slice(-5)` plus the latest `topicKeywords` in the API payload, and aborts requests whenever the topic version changes.
+	- Accepted items store `{ topicVersion, timestamp, force? }`. `processSingleItem` respects `config.rateLimitMs`, includes `recentProds.slice(-5)` plus the latest `topicKeywords` in the API payload, and aborts requests whenever the topic version changes. Once a slot frees up we immediately start the next pending item so a backlog drains in parallel.
 	- Responses go through another guardrail: the queue drops low-confidence results (≤0.5 in `/write`, ≤0.05 in `/demo`), requires non-empty `selectedProd`, and only then appends to `prods[]` while pruning non-pinned items beyond the newest suggestion.
 4. **Resets & Telemetry Prep**
 	- `handleTopicShift` cancels in-flight requests, clears pending queue items, and wipes dedupe maps while leaving existing chips/pins intact. `clearAll` layers on a prod reset for demo refreshes.

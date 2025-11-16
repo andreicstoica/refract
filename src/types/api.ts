@@ -4,7 +4,9 @@ import type { ClusterResult } from "./embedding";
 
 export interface ProdRequest {
     lastParagraph: string;
-    fullText: string;
+    fullText?: string;
+    recentText?: string;
+    keywords?: string[];
     recentProds?: string[];
     topicKeywords?: string[];
 }

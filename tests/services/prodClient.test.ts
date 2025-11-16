@@ -15,7 +15,7 @@ describe("prodClient", () => {
     // @ts-expect-error override global fetch
     globalThis.fetch = () => Promise.resolve(new Response(JSON.stringify(mockBody), { status: 200, headers: { "Content-Type": "application/json" } }));
 
-    const res = await generateProd({ lastParagraph: "I had a good day.", fullText: "I had a good day." });
+    const res = await generateProd({ lastParagraph: "I had a good day.", recentText: "I had a good day." });
     expect(res.selectedProd).toBe(mockBody.selectedProd);
     expect(res.confidence).toBe(0.9);
   });
@@ -39,7 +39,7 @@ describe("prodClient", () => {
     };
 
     const external = autoAbort(5); // abort quickly
-    const res = await generateProdWithTimeout({ lastParagraph: "...", fullText: "..." }, { signal: external.signal });
+    const res = await generateProdWithTimeout({ lastParagraph: "...", recentText: "..." }, { signal: external.signal });
     expect(res.confidence).toBe(0);
   });
 });

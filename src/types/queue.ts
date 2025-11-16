@@ -10,14 +10,13 @@ export interface QueueItem {
 }
 
 export interface QueueState {
-    items: QueueItem[];
-    isProcessing: boolean;
+	items: QueueItem[];
+	isProcessing: boolean;
 }
 
 export type QueueAction =
-    | { type: 'ENQUEUE'; payload: Omit<QueueItem, 'status'> }
-    | { type: 'START_PROCESSING'; payload: string }
-    | { type: 'COMPLETE_PROCESSING'; payload: string }
-    | { type: 'FAIL_PROCESSING'; payload: string }
-    | { type: 'SET_PROCESSING'; payload: boolean }
-    | { type: 'CLEAR_QUEUE' };
+	| { type: "ENQUEUE"; payload: Omit<QueueItem, "status"> }
+	| { type: "START_PROCESSING"; payload: string }
+	| { type: "COMPLETE_PROCESSING"; payload: string }
+	| { type: "FAIL_PROCESSING"; payload: string }
+	| { type: "CLEAR_QUEUE" };

@@ -25,4 +25,5 @@ stateDiagram-v2
   TopicReset --> Idle : cancelAllRequests +<br/>clear TTL maps
 
   note right of Pending: Normalized text + fingerprint TTLs and<br/>queue size caps fire before items enter Processing
+  note right of Processing: Parallel slots (2 on /write, 3 on /demo)<br/>pull newest pending items as soon as a slot frees up
   note right of TopicReset: flush pending items, keep pinned placements,<br/>reset dedupe caches for the next topic cluster

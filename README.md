@@ -24,12 +24,14 @@ Web-based journaling tool that annotates your writing in real time with short �
 - Meta-Reflection: tracks interaction patterns (e.g., ignored chips) and offers a tailored challenge next session/day.
 - Semantic Bubble Layout: circular positioning with organic randomization creates natural, explorable clusters.
 - Mobile-first Design: optimized for thumb use, large tap targets, responsive motion.
+- Parallel Prod Queue: up to two prod requests run concurrently on `/write` (three on `/demo`) and fall back to cached pins, so new chips land even if one API call hits the full timeout window.
 
 ## Technical Plan
 
 - Frontend: Next.js 15 (App Router), React 19, Tailwind, Framer Motion, GSAP
 - Language Processing:
   - Sentence chunking + small, fast embeddings (OpenAI text-embedding-3-small).
+  - Prod generation: `/api/prod` defaults to `gpt-5-mini` (overridable via `OPENAI_PROD_MODEL`) with 15 s timeouts and client-side cancellations.
   - Clustering: k-means with cosine similarity; theme labels via LLM refinement.
   - Layout: contextual positioning of UI elements to written text.
 - Mobile:
@@ -68,6 +70,12 @@ Open http://localhost:3001 to develop.
 - `src/types/`, `src/index.css`, `docs/` – Global type definitions, Tailwind entrypoint, and long-form documentation/diagrams.
 
 Pure-ish helpers stay in `src/lib`, while anything that talks to IO (fetch requests, AbortControllers, `localStorage`, DOM measurements) lives beside the feature that uses it under `src/features/*/services`.
+
+## Prod Queue & Timing Highlights
+
+- `useProdTriggers` fires `enqueueSentence` after punctuation/settling heuristics and arms a six-second watchdog. Once that watchdog forces a prod, the hook pauses additional triggers until the user types again, so idle sessions don’t churn requests.
+- `useProdQueueManager` trims the pending list to the newest 3 items (`/write`) or 5 items (`/demo`), then launches as many API calls as the current parallel cap allows (2 or 3). Each request includes topic keywords, recent prods, and the latest topic version so stale responses are discarded.
+- Client + server share a 15 s timeout; `generateProdWithTimeout` aborts any stragglers, and confidence gating still protects quality when the faster `gpt-5-mini` model replies quickly.
 
 ## Documentation
 

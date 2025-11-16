@@ -26,13 +26,15 @@ describe("queueReducer", () => {
 		expect(state1.items[0].status).toBe("pending");
 	});
 
-	it("keeps only the most recent pending item (prunes older pendings)", () => {
+	it("keeps previously queued pending items instead of pruning automatically", () => {
 		const initial: QueueState = { items: [], isProcessing: false };
 		const s1 = queueReducer(initial, { type: "ENQUEUE", payload: makeBaseItem("q1", "A.") });
 		const s2 = queueReducer(s1, { type: "ENQUEUE", payload: makeBaseItem("q2", "B.") });
-		expect(s2.items.length).toBe(1);
-		expect(s2.items[0].id).toBe("q2");
+		expect(s2.items.length).toBe(2);
+		expect(s2.items[0].id).toBe("q1");
 		expect(s2.items[0].status).toBe("pending");
+		expect(s2.items[1].id).toBe("q2");
+		expect(s2.items[1].status).toBe("pending");
 	});
 
 	it("retains processing items when enqueuing a new pending", () => {
@@ -49,17 +51,15 @@ describe("queueReducer", () => {
 		expect(state2.items.find((i) => i.id === "q2")?.status).toBe("pending");
 	});
 
-	it("transitions processing state and completes correctly", () => {
+	it("automatically toggles the processing flag when work completes", () => {
 		const initial: QueueState = { items: [], isProcessing: false };
 		const base = makeBaseItem("q1", "Do it.");
 		let s = queueReducer(initial, { type: "ENQUEUE", payload: base });
-		s = queueReducer(s, { type: "SET_PROCESSING", payload: true });
-		expect(s.isProcessing).toBe(true);
 		s = queueReducer(s, { type: "START_PROCESSING", payload: "q1" });
+		expect(s.isProcessing).toBe(true);
 		expect(s.items[0].status).toBe("processing");
 		s = queueReducer(s, { type: "COMPLETE_PROCESSING", payload: "q1" });
 		expect(s.items.length).toBe(0);
-		s = queueReducer(s, { type: "SET_PROCESSING", payload: false });
 		expect(s.isProcessing).toBe(false);
 	});
 
