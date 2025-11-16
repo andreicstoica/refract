@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 import { cn } from "@/lib/helpers";
-import { storage } from "@/services/storage";
+import { storage } from "@/features/writing/services/storage";
 import { TimerControls } from "./TimerControls";
 import { Intro } from "./Intro";
 import { useModalKeyboard } from "@/hooks/useModalKeyboard";
@@ -24,26 +24,25 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
     null
   );
   const [arrowPressed, setArrowPressed] = useState<"up" | "down" | null>(null);
+  const [isPage1Entering, setIsPage1Entering] = useState(false);
+
   const contentRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const stagingRef = useRef<HTMLDivElement>(null);
-  // Track whether we're running the page transition animation to avoid
-  // clobbering GSAP with the reset effect below.
   const isTransitioningRef = useRef(false);
-  // Single GSAP timeline instance to avoid duplicate animations in dev/StrictMode
   const tlRef = useRef<gsap.core.Timeline | null>(null);
-  // Flag to render the next page pre-hidden (prevents one-frame flash)
-  const [isPage1Entering, setIsPage1Entering] = useState(false);
+  const prevMinutesRef = useRef(selectedMinutes);
 
-  // Check if user has seen intro before
   useEffect(() => {
     if (isOpen && storage.getHasSeenIntro()) {
-      setCurrentPage(1); // Skip to timer setup
+      setCurrentPage(1);
     }
   }, [isOpen]);
 
-  // Reset content position when page changes only if not mid-transition
-  // (e.g., initial render or skip-to-timer path).
+  useEffect(() => {
+    prevMinutesRef.current = selectedMinutes;
+  }, [selectedMinutes]);
+
   useEffect(() => {
     if (isTransitioningRef.current) return;
     if (contentRef.current) {
@@ -51,25 +50,26 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
     }
   }, [currentPage]);
 
+  const handlePrevious = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 0));
+  };
+
   const handleStart = () => {
     onStart(selectedMinutes);
   };
 
   const handleNext = () => {
     if (!contentRef.current || !modalRef.current || !stagingRef.current) return;
-    // Prevent reset effect from interfering during the transition
+
     isTransitioningRef.current = true;
     setIsPage1Entering(true);
+    storage.setHasSeenIntro(true);
 
-    storage.setHasSeenIntro(true); // Mark intro as seen
-
-    // Kill any previous timeline before starting a new one
     if (tlRef.current) {
       tlRef.current.kill();
       tlRef.current = null;
     }
 
-    // Inline transition: measure, animate out, resize, swap, animate in
     const modalEl = modalRef.current;
     const contentEl = contentRef.current;
     const stageEl = stagingRef.current;
@@ -78,12 +78,10 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
     const currentHeight = modalEl.offsetHeight;
     const targetHeight = stageEl.offsetHeight;
 
-    // Fix current height so the card doesn’t jump while content animates out
     gsap.set(modalEl, { height: currentHeight });
 
     const tl = gsap
       .timeline()
-      // Fade out current content to the left with slight stagger
       .to(contentEl.children, {
         opacity: 0,
         x: -25,
@@ -91,7 +89,6 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
         ease: "power2.inOut",
         stagger: 0.08,
       })
-      // Resize the modal to the target height
       .to(
         modalEl,
         {
@@ -101,20 +98,16 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
         },
         ">-0.1"
       )
-      // Swap to page 1
       .call(() => {
         setCurrentPage(1);
       })
-      // Animate new content in from the right after React commits
       .call(
         () => {
-          // After React commits page 1, animate new content in
           requestAnimationFrame(() => {
             if (!contentRef.current || !modalRef.current) return;
             const inner = contentRef.current;
             const modalNow = modalRef.current;
 
-            // Initial state for children, then animate in
             gsap.set(inner.children, { opacity: 0, x: 25 });
             gsap.to(inner.children, {
               opacity: 1,
@@ -137,11 +130,6 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
     tlRef.current = tl;
   };
 
-  const handlePrevious = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 0));
-  };
-
-  // Use the keyboard hook
   useModalKeyboard({
     isOpen,
     currentPage,
@@ -149,25 +137,23 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
     inputBuffer,
     onNext: handleNext,
     onPrevious: handlePrevious,
-    onStart,
+    onStart: handleStart,
     onMinutesChange: (minutes) => {
+      const prevMinutes = prevMinutesRef.current;
       setSelectedMinutes(minutes);
-      // Trigger animation states for keyboard input
-      if (minutes > selectedMinutes) {
+
+      if (minutes > prevMinutes) {
         setNumberDirection("up");
         setArrowPressed("up");
-        setTimeout(() => {
-          setNumberDirection(null);
-          setArrowPressed(null);
-        }, 200);
-      } else if (minutes < selectedMinutes) {
+      } else if (minutes < prevMinutes) {
         setNumberDirection("down");
         setArrowPressed("down");
-        setTimeout(() => {
-          setNumberDirection(null);
-          setArrowPressed(null);
-        }, 200);
       }
+
+      setTimeout(() => {
+        setNumberDirection(null);
+        setArrowPressed(null);
+      }, 200);
     },
     onInputBufferChange: setInputBuffer,
     onEnterPressed: setIsEnterPressed,
@@ -197,7 +183,6 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
             role="dialog"
             aria-modal="true"
           >
-            {/* Hidden staging area to measure timer page height */}
             <div
               ref={stagingRef}
               className="absolute -top-[9999px] left-0 text-center space-y-8 p-8 border border-border/50 rounded-md max-w-sm w-full opacity-0 pointer-events-none"
@@ -219,7 +204,6 @@ export function IntroModal({ isOpen, onStart, className }: IntroModalProps) {
               {currentPage === 1 && (
                 <div
                   className="space-y-8"
-                  // Pre-hide and offset the timer page during entry to prevent flash
                   style={
                     isPage1Entering
                       ? { opacity: 0, transform: "translateX(25px)" }

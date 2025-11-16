@@ -27,6 +27,21 @@ export function attachEmbeddingsToChunks(
 }
 
 /**
+ * Build cosine similarity matrix for a set of embeddings.
+ * Used by tests and any future analysis tools to inspect relationships between chunks.
+ */
+export function calculateSimilarityMatrix(embeddings: number[][]): number[][] {
+  if (embeddings.length === 0) return [];
+
+  return embeddings.map((row, i) =>
+    embeddings.map((col, j) => {
+      if (i === j) return 1;
+      return cosineSimilarity(row, col);
+    })
+  );
+}
+
+/**
  * Simple k-means clustering for embeddings
  */
 export function clusterEmbeddings(
@@ -166,4 +181,3 @@ function calculateCentroid(embeddings: number[][]): number[] {
 
   return centroid;
 }
-

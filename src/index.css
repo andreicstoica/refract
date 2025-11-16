@@ -35,6 +35,11 @@ textarea {
 	touch-action: pan-x pan-y;
 }
 
+.scroll-no-bounce {
+	/* Prevent rubber-band effects so overlays never desync at the edges */
+	overscroll-behavior: none;
+}
+
 :root {
 	--radius: 0.625rem;
 	--background: 0 0% 100%;

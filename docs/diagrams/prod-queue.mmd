@@ -1,0 +1,29 @@
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Pending : enqueueSentence<br/>(after filters)
+  Pending --> Idle : guardrail drop /<br/>queue trimmed
+  Pending --> Processing : START_PROCESSING /<br/>waitForRateLimit
+  Processing --> Promoted : API success /<br/>confidence ok
+  Processing --> Discarded : topicVersion mismatch /<br/>cancelled or low confidence
+  Processing --> Failed : timeout / network error
+  Promoted --> Visible
+  Discarded --> Idle
+  Failed --> Idle
+
+  state Visible {
+    [*] --> Active
+    Active --> Pinned : pin(id)
+    Pinned --> Active : unpin(id)
+    Active --> Expired : fade out / remove(id)
+    Pinned --> Expired : explicit remove
+    Expired --> [*]
+    note right of Visible: pinned chips survive topic resets;<br/>non-pinned ones are pruned to newest suggestion
+  }
+
+  Visible --> Idle : no prods remain / clearAll
+  Idle --> TopicReset : notifyTopicShift
+  TopicReset --> Idle : cancelAllRequests +<br/>clear TTL maps
+
+  note right of Pending: Normalized text + fingerprint TTLs and<br/>queue size caps fire before items enter Processing
+  note right of Processing: Parallel slots (2 on /write, 3 on /demo)<br/>pull newest pending items as soon as a slot frees up
+  note right of TopicReset: flush pending items, keep pinned placements,<br/>reset dedupe caches for the next topic cluster

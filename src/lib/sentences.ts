@@ -1,3 +1,4 @@
+import { debug } from "@/lib/debug";
 import type { Sentence, SentencePosition } from "@/types/sentence";
 
 // Lightweight, dependency-free sentence splitter that preserves indices.
@@ -58,8 +59,6 @@ export function splitIntoSentences(inputText: string): Sentence[] {
 
   return sentences;
 }
-
-const isDev = process.env.NODE_ENV !== "production";
 
 // Cache for mirror element and position calculations
 let mirrorElement: HTMLDivElement | null = null;
@@ -177,9 +176,7 @@ export function measureSentencePositions(
     };
 
     results.push(position);
-    if (isDev) {
-      console.log("📍 Measured position for sentence:", sentence.text.substring(0, 30), position);
-    }
+    debug.dev("📍 Measured position for sentence:", sentence.text.substring(0, 30), position);
   }
 
   // Cache results
@@ -198,4 +195,3 @@ export function measureSentencePositions(
 export function clearPositionCache() {
   positionCache.clear();
 }
-

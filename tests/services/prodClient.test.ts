@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { generateProd, generateProdWithTimeout } from "../../src/services/prodClient";
+import { generateProd, generateProdWithTimeout } from "@/features/prods/services/prodClient";
 
 // Helper to create an AbortController that aborts after ms
 function autoAbort(ms: number) {
@@ -11,10 +11,11 @@ function autoAbort(ms: number) {
 describe("prodClient", () => {
   it("returns data on success", async () => {
     const mockBody = { selectedProd: "What felt most meaningful?", confidence: 0.9 };
-    // @ts-expect-error override global fetch
-    globalThis.fetch = async () => new Response(JSON.stringify(mockBody), { status: 200, headers: { "Content-Type": "application/json" } });
 
-    const res = await generateProd({ lastParagraph: "I had a good day.", fullText: "I had a good day." });
+    // @ts-expect-error override global fetch
+    globalThis.fetch = () => Promise.resolve(new Response(JSON.stringify(mockBody), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const res = await generateProd({ lastParagraph: "I had a good day.", recentText: "I had a good day." });
     expect(res.selectedProd).toBe(mockBody.selectedProd);
     expect(res.confidence).toBe(0.9);
   });
@@ -38,8 +39,7 @@ describe("prodClient", () => {
     };
 
     const external = autoAbort(5); // abort quickly
-    const res = await generateProdWithTimeout({ lastParagraph: "...", fullText: "..." }, { signal: external.signal });
+    const res = await generateProdWithTimeout({ lastParagraph: "...", recentText: "..." }, { signal: external.signal });
     expect(res.confidence).toBe(0);
   });
 });
-

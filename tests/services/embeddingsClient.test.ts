@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "bun:test";
-import { generateEmbeddings } from "@/services/embeddingsClient";
+import { generateEmbeddings } from "@/features/ai/services/embeddingsClient";
 import type { Sentence } from "@/types/sentence";
 
 // Mock fetch globally

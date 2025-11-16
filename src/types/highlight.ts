@@ -6,7 +6,7 @@ export type HighlightRange = {
     intensity: number;
 };
 
-export type SegmentMeta = {
+export type SegmentPaintState = {
     start: number;
     end: number;
     color: string | null;

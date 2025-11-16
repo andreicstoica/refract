@@ -2,14 +2,12 @@
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { createHash } from "crypto";
+import { debug } from "@/lib/debug";
 
-export const maxDuration = 15;
+type OpenAIModelId = Parameters<typeof openai>[0];
 
-// Simple in-memory cache for request deduplication
-const requestCache = new Map<string, { timestamp: number; response: any }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_CACHE_SIZE = 100;
+export const maxDuration = 15; // 15 seconds; NextJS Route Handler timeout hint
+const PROD_MODEL = (process.env.OPENAI_PROD_MODEL || "gpt-5") as OpenAIModelId;
 
 const ProdResponseSchema = z.object({
 	selectedProd: z.string().optional().describe("Best single prod or empty if skipping"),
@@ -17,42 +15,24 @@ const ProdResponseSchema = z.object({
 });
 
 export async function POST(req: Request) {
-	const { lastParagraph, fullText }: { lastParagraph: string; fullText?: string } = await req.json();
+	const { lastParagraph, keywords, recentText }: { lastParagraph: string; keywords?: string[]; recentText?: string } = await req.json();
 
 	try {
-		// API-level deduplication: check if we've already processed this exact text
-		const requestHash = createHash("md5").update(lastParagraph).digest("hex");
-		const now = Date.now();
-
-		// Clean up expired cache entries
-		for (const [key, value] of requestCache.entries()) {
-			if (now - value.timestamp > CACHE_TTL_MS) {
-				requestCache.delete(key);
-			}
-		}
-
-		// Check cache for existing response
-		const cached = requestCache.get(requestHash);
-		if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
-			console.log("🔄 Returning cached response for request hash:", requestHash);
-			return Response.json(cached.response);
-		}
-
-		// Use full text for complete context
-		const truncatedContext = fullText || "";
+		// Build context from keywords + recent text
+		const contextParts = [];
+		if (keywords?.length) contextParts.push(`Keywords: ${keywords.join(", ")}`);
+		if (recentText) contextParts.push(recentText);
+		const truncatedContext = contextParts.join("\n").trim();
 
 		// Comprehensive system prompt for thoughtful prod generation
-		const systemPrompt = `You are a thoughtful mentor who helps people explore their inner world with curiosity, empathy, and wisdom. Your role is to generate gentle, insightful questions (called "prods") that encourage deeper self-reflection and understanding.
+		const systemPrompt = `You are a thoughtful mentor who helps people explore their inner world with curiosity, empathy, and wisdom. Your role is to generate gentle, insightful questions (called "prods") that encourage deeper self-reflection and understanding. Consider Nemawashi (根回し) when generating prods.
 
 ## Core Philosophy
 
-**Curiosity Over Judgment**: Approach each sentence with genuine curiosity about the writer's experience, never with criticism or assumptions.
-
-**Emotional Attunement**: Match the emotional tone and energy of the original writing. Respect where the writer is, don't try to change their mood.
-
-**Growth-Oriented**: Focus on questions that reveal patterns, insights, or understanding rather than dwelling on problems or deficits.
-
-**Contextual Awareness**: Consider both the specific sentence and the broader context of their writing to craft relevant, meaningful questions.
+**Curiosity Over Judgment**
+**Emotional Attunement**
+**Growth-Oriented**
+**Contextual Awareness**
 
 ## Prod Guidelines
 
@@ -72,7 +52,6 @@ export async function POST(req: Request) {
 - Mirroring or summarizing the input
 - Generic questions that could apply to anything
 - Deficit-focused questions ("What's wrong with...")
-- Leading questions with obvious answers
 - Therapeutic interventions or advice
 
 ## Response Framework
@@ -92,7 +71,6 @@ export async function POST(req: Request) {
 **For Reflective or Analytical Content**:
 - Encourage deeper exploration of insights
 - Ask about implications or patterns
-- Explore the emotional dimension
 - Example: "I think I avoid conflict" → "What does avoiding it protect you from?"
 
 **For Mundane or Factual Content**:
@@ -104,8 +82,7 @@ export async function POST(req: Request) {
 
 **High Confidence (0.8-1.0)**:
 - Clear emotional content or insight opportunity
-- Strong context alignment
-- Specific, relevant question emerges naturally
+- Specific, relevant question that emerges naturally
 
 **Medium Confidence (0.5-0.7)**:
 - Some emotional content but less clear direction
@@ -115,7 +92,6 @@ export async function POST(req: Request) {
 **Low Confidence (0.2-0.4)**:
 - Limited emotional content or insight potential
 - Weak context connection
-- Generic question that might still add value
 
 **Skip (shouldSkip=true)**:
 - Purely factual or logistical content
@@ -140,7 +116,7 @@ export async function POST(req: Request) {
   - Mix concrete vs abstract: "What specific moment..." vs "What does this reveal about..."
 - **Similarity Check**: Before generating, mentally check if your question is just a slight variation of a very common pattern. If so, choose a completely different angle.
 
-Your goal is to help writers develop a deeper understanding of themselves through gentle, curious questioning.`;
+Your goal is to help writers develop a deeper understanding of themselves through gentle, curious questioning. Consider Nemawashi (根回し) when generating prods.`;
 
 		// User prompt with the specific data and task
 		const userPrompt = `${truncatedContext ? `### Recent Writing Context
@@ -171,13 +147,13 @@ Generate a response that would genuinely help this person understand themselves 
 		let result;
 		try {
 			result = await generateObject({
-				model: openai("gpt-5-mini"),
+				model: openai(PROD_MODEL),
 				system: systemPrompt,
 				prompt: userPrompt,
 				schema: ProdResponseSchema,
 			});
 		} catch (aiError) {
-			console.error("❌ AI generation failed:", aiError);
+			debug.error("❌ AI generation failed:", aiError);
 			throw aiError;
 		}
 
@@ -186,27 +162,16 @@ Generate a response that would genuinely help this person understand themselves 
 			confidence: result.object.confidence ?? 0
 		};
 
-		console.log("🎯 Generated prod:", {
+		debug.dev("🎯 Generated prod:", {
 			sentence: lastParagraph.slice(0, 50) + "...",
 			prod: response.selectedProd,
 			confidence: response.confidence
 		});
 
-		// Cache the response
-		requestCache.set(requestHash, { timestamp: now, response });
-
-		// Maintain cache size limit
-		if (requestCache.size > MAX_CACHE_SIZE) {
-			const entries = Array.from(requestCache.entries());
-			const sorted = entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-			const toRemove = sorted.slice(0, Math.floor(MAX_CACHE_SIZE / 2));
-			toRemove.forEach(([key]) => requestCache.delete(key));
-		}
-
 		return Response.json(response);
 
 	} catch (error) {
-		console.error("❌ Prod API Error:", error);
+		debug.error("❌ Prod API Error:", error);
 
 		// Return a simple fallback response if generation fails
 		return Response.json({

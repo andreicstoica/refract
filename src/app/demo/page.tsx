@@ -1,14 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { IntroModal } from "@/components/IntroModal";
 import { WritingTimer } from "@/components/WritingTimer";
 import { TextInput } from "@/components/TextInput";
-import { useGenerateEmbeddings } from "@/hooks/useGenerateEmbeddings";
-import { useViewportKeyboardCSSVar } from "@/hooks/useViewportKeyboard";
 import { ThemeToggleButtons } from "@/components/highlight/ThemeToggleButtons";
-import { HighlightLayer } from "@/components/highlight/HighlightLayer";
-import { rangesFromThemes } from "@/lib/highlight";
+import { HighlightOverlay } from "@/components/highlight/HighlightOverlay";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -18,18 +15,14 @@ import {
 import { RefreshCw, Clipboard } from "lucide-react";
 import { cn } from "@/lib/helpers";
 import type { Sentence, SentencePosition } from "@/types/sentence";
-import type { Theme } from "@/types/theme";
 import { AnimatePresence, motion } from "framer-motion";
-import { prewarmProd } from "@/services/prodClient";
-import { useHeaderRevealAnimation } from "@/hooks/useHeaderRevealAnimation";
+import { useHeaderRevealAnimation } from "@/features/ui/hooks/useHeaderRevealAnimation";
 import { DEMO_TEXT } from "@/lib/demoMode";
+import { ProdsProvider } from "@/features/prods/context/ProdsProvider";
+import { useThemeAnalysis } from "@/features/themes/hooks/useThemeAnalysis";
+import { debug } from "@/lib/debug";
 
 export default function DemoPage() {
-  const { generate, isGenerating } = useGenerateEmbeddings();
-
-  // Enable keyboard-safe spacing via CSS variables
-  useViewportKeyboardCSSVar();
-
   // Timer + intro state
   const [showTimerSetup, setShowTimerSetup] = useState(true);
   const [timerMinutes, setTimerMinutes] = useState(1);
@@ -41,16 +34,26 @@ export default function DemoPage() {
   const [currentText, setCurrentText] = useState("");
   const [currentSentences, setCurrentSentences] = useState<Sentence[]>([]);
 
-  // Theme state - simple, direct
-  const [themes, setThemes] = useState<Theme[] | null>(null);
-  const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
+  const {
+    themes,
+    selectedThemeIds,
+    isGenerating,
+    hasThemes,
+    highlightRanges,
+    allHighlightableRanges,
+    toggleTheme,
+    requestAnalysis,
+    rerunAnalysis,
+  } = useThemeAnalysis({
+    sentences: currentSentences,
+    text: currentText,
+  });
 
-  // Create textarea ref for HighlightLayer
+  // Create textarea ref for HighlightOverlay
   const textareaRefObject = useRef<HTMLTextAreaElement>(null as any);
   const highlightLayerRef = useRef<HTMLDivElement | null>(null);
   const chipsRef = useRef<HTMLDivElement | null>(null);
   const reloadButtonRef = useRef<HTMLButtonElement | null>(null);
-
   // Pre-load demo content to clipboard
   useEffect(() => {
     const loadClipboard = async () => {
@@ -70,7 +73,7 @@ export default function DemoPage() {
             await navigator.clipboard.writeText(DEMO_TEXT);
             setClipboardStatus(null);
           } catch (retryError) {
-            console.error(
+            debug.error(
               "Failed to load demo content to clipboard:",
               retryError
             );
@@ -82,8 +85,6 @@ export default function DemoPage() {
 
     loadClipboard();
 
-    // Warm the prod pipeline in demo to reduce first prod latency
-    prewarmProd();
   }, []);
 
   const handleTimerStart = (minutes: number) => {
@@ -91,98 +92,50 @@ export default function DemoPage() {
     setShowTimerSetup(false);
   };
 
-  const handleTimerComplete = () => {
-    // Nothing special here; analysis should already be running or completed
-  };
-
   const handlePreFinish = useCallback(
     async (_secondsLeft: number) => {
-      if (themes || isGenerating) return;
+      // The remaining seconds are ignored; we only care that the threshold fired.
+      if (hasThemes || isGenerating || currentSentences.length === 0) return;
 
       try {
-        if (process.env.NODE_ENV !== "production") {
-          console.log("🧠 analysis: started");
-        }
+        debug.dev("🧠 analysis: started");
 
-        const result = await generate(currentSentences, currentText);
-        if (result && result.length) {
-          setThemes(result);
-        }
+        await requestAnalysis();
 
-        if (process.env.NODE_ENV !== "production") {
-          console.log("✅ analysis: completed");
-        }
+        debug.dev("✅ analysis: completed");
       } catch (err) {
-        console.error("❌ analysis failed", err);
+        debug.error("❌ analysis failed", err);
       }
     },
-    [currentSentences, currentText, generate, themes, isGenerating]
+    [hasThemes, isGenerating, currentSentences.length, requestAnalysis]
   );
 
-  const handleTextUpdate = (
-    text: string,
-    sentences: Sentence[],
-    positions: SentencePosition[]
-  ) => {
-    setCurrentText(text);
-    setCurrentSentences(sentences);
-  };
-
-  // Build sentence lookup map
-  const sentenceMap = useMemo(() => {
-    const map = new Map<string, Sentence>();
-    for (const sentence of currentSentences) {
-      map.set(sentence.id, sentence);
-    }
-    return map;
-  }, [currentSentences]);
-
-  // All possible ranges (stable segmentation)
-  const allHighlightableRanges = useMemo(
-    () => rangesFromThemes(themes, sentenceMap),
-    [themes, sentenceMap]
+  const handleTextUpdate = useCallback(
+    (text: string, sentences: Sentence[], _positions: SentencePosition[]) => {
+      setCurrentText(text);
+      setCurrentSentences(sentences);
+      // Sentence positions are unused here; we only persist the text + sentences.
+    },
+    []
   );
-
-  // Currently active ranges (selected themes only)
-  const highlightRanges = useMemo(() => {
-    if (!themes || selectedThemeIds.length === 0) return [];
-    return rangesFromThemes(themes, sentenceMap, new Set(selectedThemeIds));
-  }, [themes, selectedThemeIds, sentenceMap]);
-
-  const toggleTheme = (themeId: string) => {
-    setSelectedThemeIds((prev) =>
-      prev.includes(themeId)
-        ? prev.filter((id) => id !== themeId)
-        : [...prev, themeId]
-    );
-  };
 
   // Explicit re-run of embeddings on demand
   const handleRerunEmbeddings = useCallback(async () => {
     if (isGenerating) return;
     try {
-      const result = await generate(currentSentences, currentText);
-      if (result && result.length) {
-        setThemes(result);
-      }
+      await rerunAnalysis();
     } catch (err) {
-      console.error("❌ re-run embeddings failed", err);
+      debug.error("❌ re-run embeddings failed", err);
     }
-  }, [isGenerating, generate, currentSentences, currentText]);
+  }, [isGenerating, rerunAnalysis]);
 
   // Header reveal animation when themes first appear
-  const hasThemes = Boolean(themes && themes.length > 0);
   useHeaderRevealAnimation(hasThemes, chipsRef, reloadButtonRef);
 
-  // Handle textarea ref for HighlightLayer
+  // Handle textarea ref for HighlightOverlay
   const handleTextareaRef = useCallback((el: HTMLTextAreaElement | null) => {
     textareaRefObject.current = el!; // Non-null assertion since TextInput always provides valid element
   }, []);
-
-  // HighlightLayer handles its own scroll sync via useRafScroll - no manual sync needed
-
-  // Animate header transition: smooth layout change from center to space-between
-  // hasThemes computed above
 
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background text-foreground">
@@ -236,7 +189,6 @@ export default function DemoPage() {
               <div data-timer-container className="flex items-center">
                 <WritingTimer
                   initialMinutes={timerMinutes}
-                  onTimerComplete={handleTimerComplete}
                   onThreshold={handlePreFinish}
                   thresholdSeconds={20}
                 />
@@ -291,25 +243,27 @@ export default function DemoPage() {
 
       {/* Writing Surface with highlight layer */}
       <div className="flex-1 min-h-0 max-w-6xl mx-auto w-full overflow-hidden">
-        <TextInput
-          onTextUpdate={handleTextUpdate}
-          onTextareaRef={handleTextareaRef}
-          prodsEnabled={!showTimerSetup}
-        >
-          {/* Highlight paint layer: fades in when themes ready */}
-          {hasThemes ? (
-            <div className="transition-opacity duration-300 ease-out opacity-100">
-              <HighlightLayer
-                ref={highlightLayerRef}
-                text={currentText}
-                currentRanges={highlightRanges}
-                allRanges={allHighlightableRanges}
-                textareaRef={textareaRefObject}
-                extraTopPaddingPx={0}
-              />
-            </div>
-          ) : null}
-        </TextInput>
+        <ProdsProvider>
+          <TextInput
+            onTextUpdate={handleTextUpdate}
+            onTextareaRef={handleTextareaRef}
+            prodsEnabled={!showTimerSetup}
+          >
+            {/* Highlight paint layer: fades in when themes ready */}
+            {hasThemes ? (
+              <div className="transition-opacity duration-300 ease-out opacity-100">
+                <HighlightOverlay
+                  ref={highlightLayerRef}
+                  text={currentText}
+                  activeRanges={highlightRanges}
+                  referenceRanges={allHighlightableRanges}
+                  textareaRef={textareaRefObject}
+                  extraTopPaddingPx={0}
+                />
+              </div>
+            ) : null}
+          </TextInput>
+        </ProdsProvider>
       </div>
     </div>
   );

@@ -1,10 +1,11 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/helpers";
-import { useState, useEffect, useRef, useMemo } from "react";
-import { AnimatedText } from "./ui/AnimatedText";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pin } from "lucide-react";
+import { debug } from "@/lib/debug";
+import { cn } from "@/lib/helpers";
+import { AnimatedText } from "./ui/AnimatedText";
 
 interface ChipProps {
   text: string;
@@ -108,17 +109,15 @@ export function Chip({
   };
 
   // Debug positioning in development
-  if (process.env.NODE_ENV !== "production") {
-    console.log("🎯 Chip positioning:", {
-      text: text.substring(0, 30) + "...",
-      position,
-      horizontalOffset,
-      verticalOffset,
-      chipTop,
-      chipLeft,
-      maxWidthPx,
-    });
-  }
+  debug.dev("🎯 Chip positioning:", {
+    text: text.substring(0, 30) + "...",
+    position,
+    horizontalOffset,
+    verticalOffset,
+    chipTop,
+    chipLeft,
+    maxWidthPx,
+  });
 
   return (
     <AnimatePresence>

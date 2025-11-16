@@ -1,14 +1,15 @@
 import { openai } from "@ai-sdk/openai";
-import { generateObject, embedMany } from "ai";
+import { embedMany, generateObject } from "ai";
 import { z } from "zod";
 import { MIN_CHUNK_CORRELATION } from "@/lib/highlight";
-import {
-  clusterEmbeddings,
-  sentencesToChunks,
-} from "@/lib/embeddings";
-import type { TextChunk, ClusterResult, EmbeddingResult } from "@/types/embedding";
+import { clusterEmbeddings, sentencesToChunks } from "@/lib/embeddings";
+import { debug } from "@/lib/debug";
+import type { ClusterResult, EmbeddingResult, TextChunk } from "@/types/embedding";
+
+type OpenAIModelId = Parameters<typeof openai>[0];
 
 export const maxDuration = 40;
+const THEME_MODEL = (process.env.OPENAI_THEME_MODEL || "gpt-5") as OpenAIModelId;
 
 const EmbeddingsRequestSchema = z.object({
   sentences: z.array(z.object({
@@ -43,15 +44,12 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    console.log(`🎯 Generating embeddings for ${sentences.length} sentences`);
+    debug.dev(`🎯 Generating embeddings for ${sentences.length} sentences`);
 
-    // Step 1: Convert sentences to chunks
     const chunks = sentencesToChunks(sentences);
 
-    // Step 2: Generate embeddings
     const embeddingResult = await generateEmbeddingVectors(chunks);
 
-    // Step 3: Cluster embeddings (default to 3 clusters, adjust based on content)
     const numClusters = Math.min(3, Math.max(2, Math.floor(chunks.length / 3)));
     const clusters = clusterEmbeddings(
       embeddingResult.chunks,
@@ -59,12 +57,10 @@ export async function POST(req: Request) {
       numClusters
     );
 
-    console.log(`📊 Created ${clusters.length} clusters from ${chunks.length} chunks`);
+    debug.dev(`📊 Created ${clusters.length} clusters from ${chunks.length} chunks`);
 
-    // Step 4: Generate rich theme data with AI
     const themeData = await generateComprehensiveThemes(clusters, fullText);
 
-    // Step 5: Enrich clusters with AI-generated theme data
     const enrichedClusters = clusters.map((cluster, index) => {
       const theme = themeData.find(t => t.clusterId === cluster.id);
       return {
@@ -76,10 +72,9 @@ export async function POST(req: Request) {
       };
     });
 
-    // Sort clusters by confidence and chunk count
     const sortedClusters = enrichedClusters
       .sort((a, b) => (b.confidence * b.chunks.length) - (a.confidence * a.chunks.length))
-      .slice(0, 3); // Return top 3 themes
+      .slice(0, 3); // UI renders three themes max
 
     return Response.json({
       clusters: sortedClusters,
@@ -92,7 +87,6 @@ export async function POST(req: Request) {
           confidence: c.confidence,
           chunkCount: filtered.length,
           color: c.color,
-          // Use correlation computed during clustering, filtered by threshold
           chunks: filtered.map(ch => ({
             text: ch.text,
             sentenceId: ch.sentenceId,
@@ -105,7 +99,7 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    console.error("❌ Embeddings API error:", error);
+    debug.error("❌ Embeddings API error:", error);
 
     if (error instanceof z.ZodError) {
       return Response.json({
@@ -133,7 +127,7 @@ async function generateComprehensiveThemes(
   if (clusters.length === 0) return [];
 
   try {
-    // Prepare cluster summaries for the AI
+    // Send compact summaries so prompts stay under token budget
     const clusterSummaries = clusters.map((cluster, index) => ({
       id: cluster.id,
       index: index + 1,
@@ -141,7 +135,7 @@ async function generateComprehensiveThemes(
       chunkCount: cluster.chunks.length,
     }));
 
-    console.log("📝 Sending to AI:", {
+    debug.dev("📝 Sending to AI:", {
       clustersCount: clusters.length,
       clusterSummaries: clusterSummaries.map(c => ({
         index: c.index,
@@ -152,7 +146,7 @@ async function generateComprehensiveThemes(
       fullTextLength: fullText?.length || 0
     });
 
-    // Construct the comprehensive system prompt
+    // System prompt encodes UI constraints (label length/uniqueness) up front
     const systemPrompt = `You are an expert at analyzing personal writing and creating meaningful thematic categorizations. Your task is to generate distinct, emotionally resonant theme labels for clusters of personal writing segments.
 
 ## Core Requirements
@@ -217,7 +211,7 @@ Make sure that the colors are not too similar to each other for good visual cont
 
 Return valid JSON matching the required schema with thoughtful, distinct themes that capture the essence of each writing cluster.`;
 
-    // Construct the user prompt with the data
+    // User prompt injects the actual cluster payload separate from instructions
     const userPrompt = `${fullText ? `### Full Writing Context
 ${fullText.slice(0, 4000)}${fullText.length > 4000 ? '\n[Content truncated for brevity]' : ''}
 
@@ -240,17 +234,17 @@ Generate a unique, meaningful theme for each cluster above. Consider:
 
 Generate themes that are distinct, emotionally resonant, and help the writer understand their own patterns of thought and feeling.`;
 
-    // Use a valid, fast JSON-capable model
+    // Force a JSON-capable fast model so latency stays under map animation budget
     const result = await generateObject({
-      model: openai("gpt-5-nano"),
+      model: openai(THEME_MODEL),
       system: systemPrompt,
       prompt: userPrompt,
       schema: ComprehensiveThemeSchema,
     });
 
-    console.log("🎨 AI generated themes:", result.object);
+    debug.dev("🎨 AI generated themes:", result.object);
 
-    // Transform the AI response to match our expected return format
+    // Normalize AI response before merging to guard against missing keys
     const themes = result.object.themes.map((theme: any, index: number) => ({
       clusterId: clusterSummaries[index]?.id || `cluster-${index}`,
       label: theme.theme,
@@ -259,19 +253,19 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
       color: theme.color,
     }));
 
-    console.log("✅ Processed themes:", themes);
+    debug.dev("✅ Processed themes:", themes);
 
     return themes;
 
   } catch (error) {
-    console.error("❌ Theme generation failed - detailed error:", {
+    debug.error("❌ Theme generation failed - detailed error:", {
       error: error instanceof Error ? error.message : error,
       stack: error instanceof Error ? error.stack : undefined,
       clustersLength: clusters.length,
       hasFullText: !!fullText
     });
 
-    // Enhanced fallback with expanded color variety
+    // Emit deterministic labels/colors when AI skips entries to keep UI predictable
     const fallbackColors = [
       "#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899",
       "#06B6D4", "#84CC16", "#F97316", "#6366F1", "#A855F7", "#14B8A6",
@@ -285,7 +279,7 @@ Generate themes that are distinct, emotionally resonant, and help the writer und
       color: fallbackColors[index % fallbackColors.length],
     }));
 
-    console.log("🔄 Using fallback themes:", fallbackThemes);
+    debug.dev("🔄 Using fallback themes:", fallbackThemes);
     return fallbackThemes;
   }
 }
@@ -313,7 +307,7 @@ async function generateEmbeddingVectors(
       values: texts,
     });
 
-    // Attach embeddings to chunks
+    // Keep chunks + embeddings paired for downstream metrics/telemetry
     const chunksWithEmbeddings = chunks.map((chunk, index) => ({
       ...chunk,
       embedding: result.embeddings[index],
@@ -324,11 +318,11 @@ async function generateEmbeddingVectors(
       embeddings: result.embeddings,
       usage: {
         tokens: result.usage?.tokens || 0,
-        cost: (result.usage?.tokens || 0) * 0.00002, // Approximate cost for text-embedding-3-small
+        cost: (result.usage?.tokens || 0) * 0.00002, // Rough per-call cost for text-embedding-3-small
       },
     };
   } catch (error) {
-    console.error("❌ Embedding generation failed:", error);
+    debug.error("❌ Embedding generation failed:", error);
     throw new Error("Failed to generate embeddings");
   }
 }

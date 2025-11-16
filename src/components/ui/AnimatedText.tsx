@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/helpers";
 
 interface AnimatedTextProps {
@@ -20,39 +20,54 @@ export function AnimatedText({
   onAnimationComplete,
   reverse = false,
 }: AnimatedTextProps) {
+  const TOTAL_STEPS = 60;
   const [revealProgress, setRevealProgress] = useState(reverse ? 100 : 0);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const completionRef = useRef(onAnimationComplete);
 
   useEffect(() => {
-    const startTimer = setTimeout(() => {
-      setIsAnimating(true);
+    completionRef.current = onAnimationComplete;
+  }, [onAnimationComplete]);
 
-      const stepDuration = duration / 60; // 60fps for smooth animation
+  useEffect(() => {
+    let animation: ReturnType<typeof window.setInterval> | null = null;
+    const stepDuration = duration / TOTAL_STEPS || 0;
 
+    // Reset to the initial state whenever the animation restarts
+    setRevealProgress(reverse ? 100 : 0);
+
+    const startTimer = window.setTimeout(() => {
       let currentStep = 0;
-      const animation = setInterval(() => {
-        currentStep++;
-        const progress = (currentStep / 60) * 100;
-        
-        if (reverse) {
-          // Animate from 100 to 0 for reverse (out) animation
-          setRevealProgress(100 - progress);
-        } else {
-          // Animate from 0 to 100 for normal (in) animation
-          setRevealProgress(progress);
-        }
 
-        if (currentStep >= 60) {
-          clearInterval(animation);
-          onAnimationComplete?.();
-        }
-      }, stepDuration);
+      animation = setInterval(
+        () => {
+          currentStep += 1;
+          const progress = Math.min((currentStep / TOTAL_STEPS) * 100, 100);
 
-      return () => clearInterval(animation);
+          if (reverse) {
+            setRevealProgress(100 - progress);
+          } else {
+            setRevealProgress(progress);
+          }
+
+          if (currentStep >= TOTAL_STEPS) {
+            if (animation) {
+              window.clearInterval(animation);
+              animation = null;
+            }
+            completionRef.current?.();
+          }
+        },
+        stepDuration > 0 ? stepDuration : 16
+      ); // fallback to ~60fps
     }, delay);
 
-    return () => clearTimeout(startTimer);
-  }, [text, duration, delay, onAnimationComplete, reverse]);
+    return () => {
+      window.clearTimeout(startTimer);
+      if (animation) {
+        window.clearInterval(animation);
+      }
+    };
+  }, [text, duration, delay, reverse]);
 
   return (
     <div className={cn("relative", className)}>
@@ -65,7 +80,7 @@ export function AnimatedText({
       <span
         className="font-cursive text-blue-600 dark:text-blue-400 text-sm absolute top-0 left-0"
         style={{
-          WebkitMask: reverse 
+          WebkitMask: reverse
             ? `linear-gradient(to left, transparent ${revealProgress}%, black ${revealProgress}%, black 100%)`
             : `linear-gradient(to right, black 0%, black ${revealProgress}%, transparent ${revealProgress}%)`,
           mask: reverse
