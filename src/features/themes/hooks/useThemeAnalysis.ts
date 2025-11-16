@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useEmbeddings } from "@/features/ai/EmbeddingsProvider";
+import { useEmbeddings } from "@/features/themes/EmbeddingsProvider";
 import { rangesFromThemes } from "@/lib/highlight";
 import type { HighlightRange } from "@/types/highlight";
 import type { Sentence } from "@/types/sentence";

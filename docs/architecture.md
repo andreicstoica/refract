@@ -4,7 +4,7 @@ This document captures the high-level writing flow so reviewers can map hooks, p
 
 ## Directory Conventions
 
-- `src/features/*` own end-to-end slices (writing, prods, ai, themes, ui). Hooks, providers, and React state live beside the feature that consumes them.
+- `src/features/*` own end-to-end slices (writing, prods, themes, ui). Hooks, providers, and React state live beside the feature that consumes them; themes now includes the embeddings provider/services that power clustering.
 - `src/features/*/services` wrap effectful helpers (fetch clients, AbortControllers, `localStorage` access) scoped to that feature.
 - `src/lib/*` houses pure utilities—sentence parsing, chip layout math, highlight helpers, timing constants—that multiple features share.
 
@@ -17,7 +17,7 @@ This document captures the high-level writing flow so reviewers can map hooks, p
 	- `useSentenceTracker` translates `{ text, textareaRef }` into sentence arrays with cached measurements.
 	- `useProdTriggers` watches `{ text, sentences }`, applies timer heuristics/watchdog logic, and invokes prod enqueue actions via the provider.
 3. `ProdsProvider` (backed by `useProdQueueManager`) wraps the writing surface and exposes queue actions (`enqueue`, `pin`, `notifyTopicShift`, `updateTopicContext`, etc.) plus memoized selectors for overlays, pins, and cached sentences. The provider now supervises a multi-flight queue: up to two concurrent prod requests on `/write` (three on `/demo`) to keep throughput high even when individual API calls approach the timeout.
-4. `ThemesProvider` (future) and highlight overlays consume the same text + sentence structures to keep animations aligned with chip placement.
+4. `EmbeddingsProvider` (themes feature) and highlight overlays consume the same text + sentence structures to keep animations aligned with chip placement.
 
 See `docs/diagrams/writing-flow.mmd` for the overall pipeline and `docs/diagrams/prod-triggers.mmd` for the timer + heuristic sequence that feeds the queue.
 

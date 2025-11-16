@@ -93,24 +93,20 @@ export function Hero() {
               "absolute z-20 text-sm font-medium text-blue-600 dark:text-blue-400",
               "leading-tight group inline-flex items-center",
               "whitespace-nowrap overflow-hidden text-ellipsis",
-              "pointer-events-none max-w-[280px]"
+              "pointer-events-none max-w-[280px]",
             )}
             style={{
               top: `${chipPosition.top}%`,
               left: `${chipPosition.left}%`,
             }}
           >
-            <AnimatedText
-              text={mockChips[currentChipIndex]}
-              duration={1500}
-              delay={0}
-            />
+            <AnimatedText text={mockChips[currentChipIndex]} duration={1500} delay={0} />
             <Pin
               size={14}
               className={cn(
                 "ml-0.5 rotate-[12deg]",
                 "transition-all duration-200 ease-out",
-                "opacity-0"
+                "opacity-0",
               )}
               aria-hidden="true"
             />

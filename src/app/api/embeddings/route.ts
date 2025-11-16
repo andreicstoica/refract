@@ -2,7 +2,7 @@ import { openai } from "@ai-sdk/openai";
 import { embedMany, generateObject } from "ai";
 import { z } from "zod";
 import { MIN_CHUNK_CORRELATION } from "@/lib/highlight";
-import { clusterEmbeddings, sentencesToChunks } from "@/lib/embeddings";
+import { clusterEmbeddings, sentencesToChunks } from "@/lib/clustering";
 import { debug } from "@/lib/debug";
 import type { ClusterResult, EmbeddingResult, TextChunk } from "@/types/embedding";
 

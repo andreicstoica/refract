@@ -14,14 +14,14 @@ export const DEFAULTS = {
 	keywordLimit: 15,       // Cap keywords for performance
 };
 
-export function extractKeywords(text: string): string[] {
+export function extractKeywords(text: string, parser: typeof nlp = nlp): string[] {
   if (!text.trim()) return [];
 
   // Limit analysis to most recent context window for performance
   const WINDOW = 600; // characters
   const slice = text.length > WINDOW ? text.slice(-WINDOW) : text;
 
-  const doc = nlp(slice);
+  const doc = parser(slice);
   const keywords = new Set<string>();
 
   // Extract nouns and noun phrases
@@ -29,7 +29,7 @@ export function extractKeywords(text: string): string[] {
 
   // Add lemmatized versions
   nouns.forEach((word: string) => {
-    const lemma = nlp(word).nouns().toSingular().out('text');
+    const lemma = parser(word).nouns().toSingular().out('text');
     if (lemma) keywords.add(lemma.toLowerCase());
   });
 
@@ -38,8 +38,8 @@ export function extractKeywords(text: string): string[] {
   const adjectives = doc.adjectives().out('array');
 
   [...verbs, ...adjectives].slice(0, 5).forEach((word: string) => {
-    const lemma = nlp(word).verbs().toInfinitive().out('text') ||
-                  nlp(word).adjectives().toSuperlative().out('text') ||
+    const lemma = parser(word).verbs().toInfinitive().out('text') ||
+                  parser(word).adjectives().toSuperlative().out('text') ||
                   word;
     if (lemma) keywords.add(lemma.toLowerCase());
   });
@@ -107,4 +107,3 @@ export function updateTopicState(
 
 	return { shift, state: nextState };
 }
-

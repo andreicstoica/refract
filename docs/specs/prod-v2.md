@@ -205,7 +205,7 @@ interface ProdRequest {
 ## Module References
 
 - Hooks: `@/hooks/useTextProcessing`, `@/hooks/useProds`, `@/hooks/useGenerateEmbeddings`
-- Services: `@/features/prods/services/prodClient`, `@/features/ai/services/embeddingsClient`, `@/features/writing/services/storage`
+- Services: `@/features/prods/services/prodClient`, `@/features/themes/services/embeddingsClient`, `@/features/writing/services/storage`
 - Types: `@/types/api`, `@/types/prod`, `@/types/sentence`, `@/types/queue`, `@/types/theme`
 - Utils: `@/utils/sentenceUtils`, `@/utils/positionUtils`, `@/utils/shouldProcessSentence`, `@/utils/prodSelectors`
 - NLP: `compromise` (keywords and topic shifts)

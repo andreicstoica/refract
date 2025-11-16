@@ -16,10 +16,7 @@ export function sentencesToChunks(sentences: Sentence[]): TextChunk[] {
 /**
  * Attach embeddings to text chunks (pure function)
  */
-export function attachEmbeddingsToChunks(
-  chunks: TextChunk[],
-  embeddings: number[][]
-): TextChunk[] {
+export function attachEmbeddingsToChunks(chunks: TextChunk[], embeddings: number[][]): TextChunk[] {
   return chunks.map((chunk, index) => ({
     ...chunk,
     embedding: embeddings[index],
@@ -37,7 +34,7 @@ export function calculateSimilarityMatrix(embeddings: number[][]): number[][] {
     embeddings.map((col, j) => {
       if (i === j) return 1;
       return cosineSimilarity(row, col);
-    })
+    }),
   );
 }
 
@@ -47,17 +44,20 @@ export function calculateSimilarityMatrix(embeddings: number[][]): number[][] {
 export function clusterEmbeddings(
   chunks: TextChunk[],
   embeddings: number[][],
-  k: number = 3
+  k: number = 3,
+  randomFn: () => number = Math.random,
 ): ClusterResult[] {
   if (chunks.length < k) {
     // Not enough chunks for clustering, return single cluster
-    return [{
-      id: "cluster-0",
-      label: "Main Theme",
-      chunks: chunks,
-      centroid: embeddings[0] || [],
-      confidence: 1.0,
-    }];
+    return [
+      {
+        id: "cluster-0",
+        label: "Main Theme",
+        chunks: chunks,
+        centroid: embeddings[0] || [],
+        confidence: 1.0,
+      },
+    ];
   }
 
   // K-means clustering implementation
@@ -68,18 +68,18 @@ export function clusterEmbeddings(
   let centroids: number[][] = [];
 
   // K-means++ initialization
-  centroids.push([...embeddings[Math.floor(Math.random() * n)]]);
+  centroids.push([...embeddings[Math.floor(randomFn() * n)]]);
 
   for (let i = 1; i < k; i++) {
-    const distances = embeddings.map(embedding => {
-      const minDistance = Math.min(...centroids.map(centroid =>
-        1 - cosineSimilarity(embedding, centroid)
-      ));
+    const distances = embeddings.map((embedding) => {
+      const minDistance = Math.min(
+        ...centroids.map((centroid) => 1 - cosineSimilarity(embedding, centroid)),
+      );
       return minDistance;
     });
 
     const totalDistance = distances.reduce((sum, d) => sum + d, 0);
-    let random = Math.random() * totalDistance;
+    let random = randomFn() * totalDistance;
     let selectedIndex = 0;
 
     for (let j = 0; j < n; j++) {
@@ -156,7 +156,7 @@ export function clusterEmbeddings(
   }
 
   // Sort clusters by size and confidence to prioritize meaningful ones
-  return clusters.sort((a, b) => (b.chunks.length * b.confidence) - (a.chunks.length * a.confidence));
+  return clusters.sort((a, b) => b.chunks.length * b.confidence - a.chunks.length * a.confidence);
 }
 
 /**
