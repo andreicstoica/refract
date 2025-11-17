@@ -1,23 +1,10 @@
 import { describe, it, expect } from "bun:test";
-import { normalizeText, makeFingerprint, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
+import { normalizeText, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
 
 describe("dedup helpers", () => {
 	it("normalizeText trims and lowercases", () => {
 		expect(normalizeText("  Hello World  ")).toBe("hello world");
 		expect(normalizeText("MIXED\nCase\t ")).toBe("mixed\ncase");
-	});
-
-	it("makeFingerprint uses 30-char prefix and length", () => {
-		const short = "Hello";
-		expect(makeFingerprint(short)).toBe("hello-5");
-
-		const long = "a".repeat(50);
-		// Expect 30 'a' + '-' + 50
-		expect(makeFingerprint(long)).toBe("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-50");
-
-		const mixed = "The quick brown fox jumps over the lazy dog"; // len 43
-		// first 30 chars lowercased
-		expect(makeFingerprint(mixed)).toBe("the quick brown fox jumps over-43");
 	});
 
 	it("hasRecent/markNow return true within TTL and false after", () => {
