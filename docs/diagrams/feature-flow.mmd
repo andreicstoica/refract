@@ -29,17 +29,14 @@ flowchart LR
     TopicShift["useTopicShiftDetection"]
     ProdTriggers["useProdTriggers"]
     Actions["useProdActions"]
-    SentenceResolver["resolveLatestSentence"]
     Queue["Queue<br/>guardrails + dedupe"]
     State["prods[] + pinnedIds"]
     
     TopicShift -->|updateTopic| Actions
     TopicShift -.->|notifyShift| Actions
     ProdTriggers -->|enqueue| Actions
-    Actions --> SentenceResolver
-    SentenceResolver --> Queue
+    Actions --> Queue
     Queue --> State
-    SentenceResolver -.-> SentenceResolverNote["Re-split text → refresh sentence IDs<br/>before dedupe runs"]
   end
   
   subgraph ThemeFlow["Theme Highlight Flow"]
@@ -62,8 +59,7 @@ flowchart LR
   EditorText --> TopicShift
   EditorText --> SentenceTracker
   SentenceTracker --> ProdTriggers
-  SentenceTracker --> ThemeAnalysis
-  
+  SentenceTracker --> ThemeAnalysis  
   Timing --> ProdTriggers
   Timing --> Queue
   
@@ -78,6 +74,5 @@ flowchart LR
   
   class EditorText,SentenceTracker,TopicShift,ProdTriggers,ThemeAnalysis hookClass
   class Embeddings,Timing,Theme,Actions providerClass
-  class SentenceResolver ruleClass
   class Queue,State queueClass
   class Chips,Highlights,TextArea,ThemeToggles uiClass

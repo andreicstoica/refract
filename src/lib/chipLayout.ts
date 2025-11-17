@@ -290,8 +290,19 @@ export function calculateChipLayout(
         const totalWidth = chipWidths.reduce((sum, w) => sum + w, 0) +
             (chipWidths.length - 1) * spacing;
 
-        const preferredStart = pos!.left + pos!.width - totalWidth; // End-align with sentence
         const availableSpace = containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD);
+
+        // If chips are wider than sentence, center them around sentence center
+        // Otherwise, end-align with sentence
+        let preferredStart: number;
+        if (totalWidth > pos!.width) {
+            // Center around sentence midpoint
+            const sentenceCenter = pos!.left + pos!.width / 2;
+            preferredStart = sentenceCenter - totalWidth / 2;
+        } else {
+            // End-align with sentence
+            preferredStart = pos!.left + pos!.width - totalWidth;
+        }
 
         let startX: number;
         if (totalWidth <= availableSpace) {

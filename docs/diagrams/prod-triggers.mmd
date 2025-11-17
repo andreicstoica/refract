@@ -58,8 +58,8 @@ sequenceDiagram
   
   Actions->>Guards: enqueueSentence(fullText, sentence)
   
-  Guards->>Guards: resolved = resolveLatestSentence(fullText, sentence)
-  Guards->>Guards: apply shouldProcessSentence + sentence.id guard (15s/60s) + display TTL (10s/30s)
+  Guards->>Guards: apply shouldProcessSentence + enqueue/display TTLs (15s/60s, 10s/30s)
+  Note over Guards: sentence.id comes from splitIntoSentences (startIndex + normalized prefix) & keys both guard maps
   
   alt guardrails block sentence
     Note over Guards: short text / duplicate / queue full → drop

@@ -35,11 +35,11 @@ describe("splitIntoSentences", () => {
 		const sentences = splitIntoSentences(text);
 
 		expect(sentences.length).toBe(3);
-		// Ensure IDs are stable and ordered - format: sentence-${start}-${hash}-${length}
+		// Ensure IDs are stable and ordered - format: sentence-${start}-${hash}
 		expect(sentences.map((s) => s.id)).toEqual([
-			"sentence-0-hello-6",
-			"sentence-7-hello-6",
-			"sentence-14-hello-6"
+			"sentence-0-hello",
+			"sentence-7-hello",
+			"sentence-14-hello"
 		]);
 
 		let cursor = 0;

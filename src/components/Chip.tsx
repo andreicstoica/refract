@@ -154,6 +154,7 @@ export function Chip({
             // Simplified width control - trust the layout system
             maxWidth: maxWidthPx ? `${Math.floor(maxWidthPx)}px` : "280px",
             width: maxWidthPx ? `${Math.floor(maxWidthPx)}px` : "auto",
+            willChange: "opacity", // tells browser only opacity changes, not layout
           }}
           onClick={handleTap}
         >
@@ -165,7 +166,7 @@ export function Chip({
           <Pin
             size={14}
             className={cn(
-              "ml-0.5 rotate-[12deg]", // tighter gap next to text
+              "ml-0.5 rotate-[12deg] flex-shrink-0",
               // gentle appear animation on hover
               "transition-all duration-200 ease-out",
               pinned

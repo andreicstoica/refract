@@ -8,61 +8,60 @@ import type { Sentence, SentencePosition } from "@/types/sentence";
 // - Preserve the exact substring (no trimming) to keep start/end indices stable
 // - If no terminal punctuation or newline boundary exists, return the whole text as a single sentence
 export function splitIntoSentences(inputText: string): Sentence[] {
-	const text = String(inputText);
-	if (!text.trim()) return [];
+  const text = String(inputText);
+  if (!text.trim()) return [];
 
-	const sentences: Sentence[] = [];
-	let start = 0;
+  const sentences: Sentence[] = [];
+  let start = 0;
 
-	const isTerminal = (ch: string) => ch === "." || ch === "!" || ch === "?";
-	const isNewline = (ch: string) => ch === "\n" || ch === "\r";
+  const isTerminal = (ch: string) => ch === "." || ch === "!" || ch === "?";
+  const isNewline = (ch: string) => ch === "\n" || ch === "\r";
 
-	const pushSentence = (rangeStart: number, rangeEnd: number) => {
-		if (rangeEnd <= rangeStart) return;
-		const raw = text.slice(rangeStart, rangeEnd);
-		const leadingWs = raw.match(/^\s+/)?.[0].length ?? 0;
-		const sentenceText = raw.slice(leadingWs);
-		if (sentenceText.length === 0) return;
-		const normalizedText = sentenceText.trim().toLowerCase().replace(/\s+/g, " ");
-		const contentHash = normalizedText.slice(0, 20);
-		const startPos = rangeStart + leadingWs;
-		const lengthSuffix = sentenceText.length;
-		sentences.push({
-			id: `sentence-${startPos}-${contentHash.replace(/[^\w]/g, "").slice(0, 10)}-${lengthSuffix}`,
-			text: sentenceText,
-			startIndex: startPos,
-			endIndex: rangeStart + leadingWs + sentenceText.length,
-		});
-	};
+  const pushSentence = (rangeStart: number, rangeEnd: number) => {
+    if (rangeEnd <= rangeStart) return;
+    const raw = text.slice(rangeStart, rangeEnd);
+    const leadingWs = raw.match(/^\s+/)?.[0].length ?? 0;
+    const sentenceText = raw.slice(leadingWs);
+    if (sentenceText.length === 0) return;
+    const normalizedText = sentenceText.trim().toLowerCase().replace(/\s+/g, " ");
+    const contentHash = normalizedText.slice(0, 20);
+    const startPos = rangeStart + leadingWs;
+    sentences.push({
+      id: `sentence-${startPos}-${contentHash.replace(/[^\w]/g, "").slice(0, 10)}`,
+      text: sentenceText,
+      startIndex: startPos,
+      endIndex: rangeStart + leadingWs + sentenceText.length,
+    });
+  };
 
-	for (let i = 0; i < text.length; i++) {
-		const ch = text[i];
-		if (isTerminal(ch)) {
-			// lookahead: whitespace, newline, or end of string
-			const next = text[i + 1];
-			if (i === text.length - 1 || /\s/.test(next)) {
-				pushSentence(start, i + 1);
-				start = i + 1;
-			}
-			continue;
-		}
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (isTerminal(ch)) {
+      // lookahead: whitespace, newline, or end of string
+      const next = text[i + 1];
+      if (i === text.length - 1 || /\s/.test(next)) {
+        pushSentence(start, i + 1);
+        start = i + 1;
+      }
+      continue;
+    }
 
-		if (isNewline(ch)) {
-			pushSentence(start, i);
-			if (ch === "\r" && text[i + 1] === "\n") {
-				i += 1;
-				start = i + 1;
-			} else {
-				start = i + 1;
-			}
-		}
-	}
+    if (isNewline(ch)) {
+      pushSentence(start, i);
+      if (ch === "\r" && text[i + 1] === "\n") {
+        i += 1;
+        start = i + 1;
+      } else {
+        start = i + 1;
+      }
+    }
+  }
 
-	if (start < text.length || sentences.length === 0) {
-		pushSentence(start, text.length);
-	}
+  if (start < text.length || sentences.length === 0) {
+    pushSentence(start, text.length);
+  }
 
-	return sentences;
+  return sentences;
 }
 
 // Cache for mirror element and position calculations
