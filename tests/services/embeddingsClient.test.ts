@@ -1,34 +1,56 @@
 import { describe, it, expect, vi, beforeEach } from "bun:test";
 import { generateEmbeddings } from "@/features/themes/services/embeddingsClient";
+import type { EmbeddingsResponse } from "@/types/api";
 import type { Sentence } from "@/types/sentence";
 
-// Mock fetch globally
-global.fetch = vi.fn();
+const fetchMock = vi.fn<typeof fetch>();
+
+// Mock fetch globally, including Bun's preconnect helper
+global.fetch = Object.assign(fetchMock, {
+	preconnect: vi.fn(),
+}) as typeof fetch;
+
+function createJsonResponse(body: EmbeddingsResponse, init?: ResponseInit) {
+	const headers = new Headers(init?.headers);
+	if (!headers.has("Content-Type")) {
+		headers.set("Content-Type", "application/json");
+	}
+
+	return new Response(JSON.stringify(body), {
+		...init,
+		headers,
+		status: init?.status ?? 200,
+	});
+}
+
+function createInvalidJsonResponse() {
+	const response = new Response(null, { status: 200 });
+	response.json = async () => {
+		throw new Error("Invalid JSON");
+	};
+	return response;
+}
 
 describe("embeddingsClient", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-    });
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
 
-    it("generates embeddings successfully", async () => {
-        const mockResponse = {
-            clusters: [],
-            themes: [
-                {
-                    id: "theme-1",
-                    label: "Work Productivity",
-                    confidence: 0.85,
-                    keywords: ["work", "productivity", "focus"],
-                    sentenceIds: ["sentence-1", "sentence-2"],
-                },
-            ],
-            usage: { tokens: 0 },
-        };
+	it("generates embeddings successfully", async () => {
+		const mockResponse = {
+			clusters: [],
+			themes: [
+				{
+					id: "theme-1",
+					label: "Work Productivity",
+					confidence: 0.85,
+					chunkCount: 2,
+				},
+			],
+			usage: { tokens: 0 },
+		} satisfies EmbeddingsResponse;
 
-        (fetch as any).mockResolvedValueOnce({
-            ok: true,
-            json: async () => mockResponse,
-        });
+		fetchMock.mockResolvedValueOnce(createJsonResponse(mockResponse));
 
         const sentences: Sentence[] = [
             { id: "sentence-1", text: "I had a productive day at work.", startIndex: 0, endIndex: 30 },
@@ -40,7 +62,7 @@ describe("embeddingsClient", () => {
             fullText: "I had a productive day at work. The meeting went really well.",
         });
 
-        expect(fetch).toHaveBeenCalledWith("/api/embeddings", {
+        expect(fetchMock).toHaveBeenCalledWith("/api/embeddings", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -51,15 +73,11 @@ describe("embeddingsClient", () => {
             }),
         });
 
-        expect(result).toEqual(mockResponse);
-    });
+		expect(result).toEqual(mockResponse);
+	});
 
-    it("handles API errors gracefully", async () => {
-        (fetch as any).mockResolvedValueOnce({
-            ok: false,
-            status: 500,
-            statusText: "Internal Server Error",
-        });
+	it("handles API errors gracefully", async () => {
+		fetchMock.mockResolvedValueOnce(new Response(null, { status: 500, statusText: "Internal Server Error" }));
 
         const sentences: Sentence[] = [
             { id: "sentence-1", text: "Test sentence.", startIndex: 0, endIndex: 14 },
@@ -74,7 +92,7 @@ describe("embeddingsClient", () => {
     });
 
     it("handles network errors", async () => {
-        (fetch as any).mockRejectedValueOnce(new Error("Network error"));
+        fetchMock.mockRejectedValueOnce(new Error("Network error"));
 
         const sentences: Sentence[] = [
             { id: "sentence-1", text: "Test sentence.", startIndex: 0, endIndex: 14 },
@@ -88,21 +106,22 @@ describe("embeddingsClient", () => {
         ).rejects.toThrow("Network error");
     });
 
-    it("handles empty sentences array", async () => {
-        const mockResponse = { clusters: [], themes: [], usage: { tokens: 0 } };
+	it("handles empty sentences array", async () => {
+		const mockResponse = {
+			clusters: [],
+			themes: [],
+			usage: { tokens: 0 },
+		} satisfies EmbeddingsResponse;
 
-        (fetch as any).mockResolvedValueOnce({
-            ok: true,
-            json: async () => mockResponse,
-        });
+		fetchMock.mockResolvedValueOnce(createJsonResponse(mockResponse));
 
         const result = await generateEmbeddings({
             sentences: [],
             fullText: "",
         });
 
-        expect(result).toEqual(mockResponse);
-        expect(fetch).toHaveBeenCalledWith("/api/embeddings", {
+		expect(result).toEqual(mockResponse);
+		expect(fetchMock).toHaveBeenCalledWith("/api/embeddings", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -114,13 +133,8 @@ describe("embeddingsClient", () => {
         });
     });
 
-    it("handles malformed JSON response", async () => {
-        (fetch as any).mockResolvedValueOnce({
-            ok: true,
-            json: async () => {
-                throw new Error("Invalid JSON");
-            },
-        });
+	it("handles malformed JSON response", async () => {
+		fetchMock.mockResolvedValueOnce(createInvalidJsonResponse());
 
         const sentences: Sentence[] = [
             { id: "sentence-1", text: "Test sentence.", startIndex: 0, endIndex: 14 },
