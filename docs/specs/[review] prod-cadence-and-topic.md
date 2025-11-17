@@ -15,7 +15,7 @@
 
 The layered deduplication approach remains the same:
 - **Enqueue guard** (sentence ID, 15s/60s TTL) prevents duplicate queue entries
-- **Display guard** (normalized text, 30s/120s TTL) prevents duplicate visible prods
+- **Display guard** (normalized text, 10s/30s TTL) prevents duplicate visible prods
 
 ## Problem (Historical Context)
 - Recent demo/prod sessions generated the identical prod four times consecutively for the same fragment of text.

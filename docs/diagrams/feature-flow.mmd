@@ -39,7 +39,7 @@ flowchart LR
     Actions --> SentenceResolver
     SentenceResolver --> Queue
     Queue --> State
-    SentenceResolver -.-> SentenceResolverNote["Re-split text → refresh sentence IDs<br/>before TTL dedupe runs"]
+    SentenceResolver -.-> SentenceResolverNote["Re-split text → refresh sentence IDs<br/>before dedupe runs"]
   end
   
   subgraph ThemeFlow["Theme Highlight Flow"]

@@ -28,7 +28,7 @@ sequenceDiagram
   
   alt topic shift detected
     Topic->>Actions: notifyTopicShift()
-    Actions->>Guards: cancelAllRequests + clear queue + reset TTL maps
+    Actions->>Guards: cancelAllRequests + clear queue + reset maps
   end
   
   TextInput->>Triggers: { text, sentences, config }
@@ -59,7 +59,7 @@ sequenceDiagram
   Actions->>Guards: enqueueSentence(fullText, sentence)
   
   Guards->>Guards: resolved = resolveLatestSentence(fullText, sentence)
-  Guards->>Guards: apply shouldProcessSentence + sentence.id guard (15s/60s) + display TTL (30s/120s)
+  Guards->>Guards: apply shouldProcessSentence + sentence.id guard (15s/60s) + display TTL (10s/30s)
   
   alt guardrails block sentence
     Note over Guards: short text / duplicate / queue full → drop

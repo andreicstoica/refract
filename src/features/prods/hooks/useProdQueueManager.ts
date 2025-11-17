@@ -302,26 +302,24 @@ export function useProdQueueManager({
         const sentence = resolveLatestSentence(fullText, initialSentence);
         debug.prods(`${config.emoji} 📝 enqueueSentence called for sentence:`, sentence.text.substring(0, 50) + "...");
 
-        // Clean old fingerprints (>30s) periodically
         const now = Date.now();
-        const cleanupThreshold = 30000;
+        const sentenceText = sentence.text.trim();
+        const normalized = normalizeText(sentenceText);
+        const displayGuardTimeout = isDemoMode ? 30000 : 10000; // 30s demo vs 10s write
 
         // Early exit: check if this sentence text already has a recent prod
-        const normalizedText = sentence.text.trim().toLowerCase();
-        const lastProducedAtEarly = displayGuardMapRef.current.get(normalizedText);
-        const recentProdTimeout = isDemoMode ? 45000 : 30000; // 45s in demo vs 30s in prod
-        if (lastProducedAtEarly && now - lastProducedAtEarly < recentProdTimeout) {
+        if (hasRecent(displayGuardMapRef.current, normalized, displayGuardTimeout, now)) {
             debug.prods(`${config.emoji} 🚫 Prod already exists for this text recently, blocking:`, sentence.text.substring(0, 50) + "...");
             return;
         }
-        cleanupOlderThan(enqueueGuardMapRef.current, cleanupThreshold, now);
 
-        // Use sentence ID for deduplication - it's already stable and content-based
-        const sentenceText = sentence.text.trim();
+        // Clean old fingerprints and keep them at least as long as the guard window (60s demo / 30s write)
+        const enqueueTimeout = isDemoMode ? 60000 : 15000; // 60s in demo vs 15s in prod (prevent demo overlaps)
+        const cleanupThreshold = Math.max(enqueueTimeout, 30000);
+        cleanupOlderThan(enqueueGuardMapRef.current, cleanupThreshold, now);
 
         // Skip if we've processed this sentence ID recently (much longer timeout in demo mode)
         const lastProcessedAt = enqueueGuardMapRef.current.get(sentence.id);
-        const enqueueTimeout = isDemoMode ? 60000 : 15000; // 60s in demo vs 15s in prod (prevent demo overlaps)
         if (lastProcessedAt && now - lastProcessedAt < enqueueTimeout) {
             debug.prods(`${config.emoji} 🔄 Sentence processed recently, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
@@ -330,16 +328,6 @@ export function useProdQueueManager({
         // Pre-filter sentences to skip obvious non-candidates
         if (!opts?.force && !shouldProcessSentence(sentence)) {
             debug.prods(`${config.emoji} ⏭️ Skipping sentence:`, sentence.text);
-            return;
-        }
-
-        // Normalize sentence text for robust de-duplication
-        const normalized = normalizeText(sentenceText);
-
-        // Skip if we've produced for this text recently 
-        const textTimeout = isDemoMode ? 20000 : 10000; // 20s demo / 10s write
-        if (hasRecent(displayGuardMapRef.current, normalized, textTimeout, now)) {
-            debug.prods(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
 
