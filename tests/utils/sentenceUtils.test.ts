@@ -82,4 +82,18 @@ describe("splitIntoSentences", () => {
 		expect(sentences[0].startIndex).toBe(0);
 		expect(sentences[0].endIndex).toBe(text.length);
 	});
+
+	it("treats newline-only breaks as sentence boundaries", () => {
+		const text = "Line one\nLine two\r\nLine three";
+		const sentences = splitIntoSentences(text);
+
+		expect(sentences.map((s) => s.text)).toEqual([
+			"Line one",
+			"Line two",
+			"Line three",
+		]);
+
+		expect(sentences[1].startIndex).toBeGreaterThan(sentences[0].endIndex);
+		expect(sentences[2].startIndex).toBeGreaterThan(sentences[1].endIndex);
+	});
 });

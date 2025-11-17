@@ -19,7 +19,7 @@ flowchart TB
   Processing -->|FAIL_PROCESSING<br>timeout / network error| Idle
   Processing -->|COMPLETE_PROCESSING<br>low confidence| Idle
   Idle -->|notifyTopicShift| TopicReset
-  TopicReset -->|cancelAllRequests +<br>clear queue +<br>reset TTL maps| Idle
+  TopicReset -->|cancelAllRequests +<br>clear queue +<br>reset guard maps| Idle
   Processing -.->|success creates| ProdsActive
 
   linkStyle 0 stroke:#475569,stroke-width:1.5px,stroke-dasharray:5 4;
@@ -34,11 +34,11 @@ flowchart TB
   linkStyle 9 stroke:#c2410c,stroke-width:2.2px;
   linkStyle 10 stroke:#10b981,stroke-width:2px,stroke-dasharray:5 4;
 
-  Pending -.-> PendingNote["Dedup + queue controls:<br>- Fingerprint TTL (at enqueue, shorter)<br>- Normalized text TTL (at prod creation, longer)<br>- Recent sentence text map<br>- Trim write queue to newest 3 entries & demo queue to newest 5 entries<br>- Drop oldest before dispatch"]:::note
+  Pending -.-> PendingNote["Dedup + queue controls:<br>- Enqueue guard (fingerprint, 15s/60s) → blocks duplicate queue entries<br>- Display guard (normalized text, 30s/120s) → blocks duplicate visible prods<br>- Trim write queue to newest 3 entries & demo queue to newest 5 entries<br>- Drop oldest before dispatch"]:::note
   
   Processing -.-> ProcessingNote["Parallel processing:<br>- Concurrency cap 2 on /write<br>- Concurrency cap 3 on /demo<br>- Pull newest pending items (LIFO)<br>- Respects queue trims"]:::note
   
-  TopicReset -.-> TopicNote["On topic shift:<br>- Cancel all ongoing requests<br>- Clear pending queue<br>- Reset fingerprint maps<br>- Keep pinned prods"]:::note
+  TopicReset -.-> TopicNote["On topic shift:<br>- Cancel all ongoing requests<br>- Clear pending queue<br>- Reset guard maps<br>- Keep pinned prods"]:::note
 
   subgraph ProdsArray ["Prods Array (lives outside queue)"]
     direction TB

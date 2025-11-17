@@ -20,6 +20,7 @@ sequenceDiagram
   end
   
   TextInput->>Triggers: { text, sentences, config }
+  Note over TextInput,Triggers: Sentences split on punctuation<br>and newline boundaries to catch Enter-only writers
   
   Triggers->>Rules: shouldTriggerProd(cooldown, min length)
   

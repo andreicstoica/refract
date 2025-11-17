@@ -104,6 +104,15 @@ describe("splitIntoSentences", () => {
 		expect(result[1].startIndex).toBeGreaterThan(result[0].endIndex);
 	});
 
+	it("splits on newline boundaries when punctuation is missing", () => {
+		const result = splitIntoSentences("First idea\nSecond line\r\nThird chunk");
+		expect(result).toHaveLength(3);
+		expect(result[0].text).toBe("First idea");
+		expect(result[1].text).toBe("Second line");
+		expect(result[2].text).toBe("Third chunk");
+		expect(result[1].startIndex).toBeGreaterThan(result[0].endIndex);
+	});
+
 	it("returns the entire text when no terminal punctuation exists", () => {
 		const result = splitIntoSentences("stream of consciousness");
 		expect(result).toHaveLength(1);
@@ -141,4 +150,3 @@ describe("measureSentencePositions", () => {
 		expect(measureSentencePositions([], null as unknown as HTMLTextAreaElement)).toEqual([]);
 	});
 });
-
