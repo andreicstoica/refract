@@ -4,6 +4,11 @@ export function normalizeText(text: string): string {
 	return text.trim().toLowerCase();
 }
 
+/**
+ * Legacy fingerprint helper - now only used for debug logging.
+ * Production deduplication uses sentence.id instead (stable content-based identifiers).
+ * @deprecated Use sentence.id for deduplication instead
+ */
 export function makeFingerprint(text: string): string {
 	const t = String(text);
 	return `${t.substring(0, 30).toLowerCase()}-${t.length}`;

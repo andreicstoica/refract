@@ -5,7 +5,8 @@ import type { QueueItem, QueueState, QueueAction } from "@/types/queue";
 import type { getTimingConfig } from "@/lib/demoMode";
 import { generateProdWithTimeout } from "@/features/prods/services/prodClient";
 import { shouldProcessSentence } from "@/lib/shouldProcessSentence";
-import { normalizeText, makeFingerprint, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
+import { normalizeText, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
+import { splitIntoSentences } from "@/lib/sentences";
 import { debug } from "@/lib/debug";
 
 interface OngoingRequest {
@@ -14,6 +15,30 @@ interface OngoingRequest {
     startTime: number;
     sentenceId: string;
     topicVersion: number;
+}
+
+// Guard against stale sentence references (e.g., user never pauses long enough for
+// useSentenceTracker's debounce). Re-derive the matching sentence from the latest
+// full text so dedupe keys (sentence.id) advance as punctuation-less text grows.
+export function resolveLatestSentence(fullText: string, fallback: Sentence): Sentence {
+    if (!fullText || !fullText.trim()) return fallback;
+
+    const latestSentences = splitIntoSentences(fullText);
+    if (latestSentences.length === 0) {
+        return fallback;
+    }
+
+    const sameStart = latestSentences.find((s) => s.startIndex === fallback.startIndex);
+    if (sameStart) {
+        return sameStart;
+    }
+
+    const normalizedFallback = normalizeText(fallback.text);
+    const normalizedMatch = latestSentences.find(
+        (s) => normalizeText(s.text) === normalizedFallback
+    );
+
+    return normalizedMatch ?? latestSentences[latestSentences.length - 1];
 }
 
 export function queueReducer(state: QueueState, action: QueueAction): QueueState {
@@ -272,8 +297,9 @@ export function useProdQueueManager({
     // Display guard: prevents duplicate visible prods (longer window: 30s write, 120s demo)
     const displayGuardMapRef = useRef<Map<string, number>>(new Map());
 
-    const enqueueSentence = useCallback((fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
-        debug.prods(`${config.emoji} 📝 enqueueSentence called for sentence:`, sentence.text.substring(0, 50) + "...");
+	const enqueueSentence = useCallback((fullText: string, initialSentence: Sentence, opts?: { force?: boolean }) => {
+		const sentence = resolveLatestSentence(fullText, initialSentence);
+		debug.prods(`${config.emoji} 📝 enqueueSentence called for sentence:`, sentence.text.substring(0, 50) + "...");
 
         // Clean old fingerprints (>30s) periodically
         const now = Date.now();
@@ -289,15 +315,14 @@ export function useProdQueueManager({
         }
         cleanupOlderThan(enqueueGuardMapRef.current, cleanupThreshold, now);
 
-        // Create sentence fingerprint for deduplication
+        // Use sentence ID for deduplication - it's already stable and content-based
         const sentenceText = sentence.text.trim();
-        const fingerprint = makeFingerprint(sentenceText);
 
-        // Skip if we've processed this fingerprint recently (much longer timeout in demo mode)
-        const lastProcessedAt = enqueueGuardMapRef.current.get(fingerprint);
-        const fingerprintTimeout = isDemoMode ? 60000 : 15000; // 60s in demo vs 15s in prod (prevent demo overlaps)
-        if (lastProcessedAt && now - lastProcessedAt < fingerprintTimeout) {
-            debug.prods(`${config.emoji} 🔄 Similar sentence processed recently, skipping:`, sentence.text.substring(0, 50) + "...");
+        // Skip if we've processed this sentence ID recently (much longer timeout in demo mode)
+        const lastProcessedAt = enqueueGuardMapRef.current.get(sentence.id);
+        const enqueueTimeout = isDemoMode ? 60000 : 15000; // 60s in demo vs 15s in prod (prevent demo overlaps)
+        if (lastProcessedAt && now - lastProcessedAt < enqueueTimeout) {
+            debug.prods(`${config.emoji} 🔄 Sentence processed recently, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
 
@@ -349,8 +374,8 @@ export function useProdQueueManager({
             return;
         }
 
-        // Mark this sentence fingerprint as being processed
-        markNow(enqueueGuardMapRef.current, fingerprint, now);
+        // Mark this sentence ID as being processed
+        markNow(enqueueGuardMapRef.current, sentence.id, now);
 
         // Cache filtered sentence for embedding reuse
         setFilteredSentences(prev => {
@@ -421,7 +446,7 @@ export function useProdQueueManager({
         cancelAllRequests();
         queueDispatch({ type: 'CLEAR_QUEUE' });
 
-        // Clear fingerprints and recent sentence maps for fresh start
+        // Clear enqueue and display guard maps for fresh start
         enqueueGuardMapRef.current.clear();
         displayGuardMapRef.current.clear();
 
@@ -432,7 +457,7 @@ export function useProdQueueManager({
     const clearFilteredSentences = useCallback(() => {
         debug.prods(`${config.emoji} 🗑️ Clearing cached filtered sentences`);
         setFilteredSentences([]);
-        // Also clear fingerprints when clearing sentences
+        // Also clear guard maps when clearing sentences
         enqueueGuardMapRef.current.clear();
     }, [config]);
 

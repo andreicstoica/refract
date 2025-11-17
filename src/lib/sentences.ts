@@ -26,8 +26,9 @@ export function splitIntoSentences(inputText: string): Sentence[] {
 		const normalizedText = sentenceText.trim().toLowerCase().replace(/\s+/g, " ");
 		const contentHash = normalizedText.slice(0, 20);
 		const startPos = rangeStart + leadingWs;
+		const lengthSuffix = sentenceText.length;
 		sentences.push({
-			id: `sentence-${startPos}-${contentHash.replace(/[^\w]/g, "").slice(0, 10)}`,
+			id: `sentence-${startPos}-${contentHash.replace(/[^\w]/g, "").slice(0, 10)}-${lengthSuffix}`,
 			text: sentenceText,
 			startIndex: startPos,
 			endIndex: rangeStart + leadingWs + sentenceText.length,
