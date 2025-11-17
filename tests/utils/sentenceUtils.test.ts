@@ -35,11 +35,11 @@ describe("splitIntoSentences", () => {
 		const sentences = splitIntoSentences(text);
 
 		expect(sentences.length).toBe(3);
-		// Ensure IDs are stable and ordered - new format includes start index and content hash
+		// Ensure IDs are stable and ordered - format: sentence-${start}-${hash}-${length}
 		expect(sentences.map((s) => s.id)).toEqual([
-			"sentence-0-hello",
-			"sentence-7-hello",
-			"sentence-14-hello"
+			"sentence-0-hello-6",
+			"sentence-7-hello-6",
+			"sentence-14-hello-6"
 		]);
 
 		let cursor = 0;
@@ -81,5 +81,19 @@ describe("splitIntoSentences", () => {
 		expect(sentences[0].text).toBe(text);
 		expect(sentences[0].startIndex).toBe(0);
 		expect(sentences[0].endIndex).toBe(text.length);
+	});
+
+	it("treats newline-only breaks as sentence boundaries", () => {
+		const text = "Line one\nLine two\r\nLine three";
+		const sentences = splitIntoSentences(text);
+
+		expect(sentences.map((s) => s.text)).toEqual([
+			"Line one",
+			"Line two",
+			"Line three",
+		]);
+
+		expect(sentences[1].startIndex).toBeGreaterThan(sentences[0].endIndex);
+		expect(sentences[2].startIndex).toBeGreaterThan(sentences[1].endIndex);
 	});
 });

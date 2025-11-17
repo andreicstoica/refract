@@ -1,52 +1,56 @@
-stateDiagram-v2
-  [*] --> Idle
-  
-  Idle --> Pending : enqueueSentence<br/>(after filters)
-  
-  Pending --> Idle : guardrail drop /<br/>queue trimmed
-  Pending --> Processing : START_PROCESSING<br/>(waitForRateLimit)
-  
-  Processing --> Idle : COMPLETE_PROCESSING<br/>(API success + confidence ok)
-  Processing --> Idle : COMPLETE_PROCESSING<br/>(topicVersion mismatch / cancelled)
-  Processing --> Idle : FAIL_PROCESSING<br/>(timeout / network error)
-  Processing --> Idle : COMPLETE_PROCESSING<br/>(low confidence)
-  
-  note right of Pending
-    Deduplication checks:
-    - Normalized text TTL
-    - Fingerprint TTL
-    - Recent sentence text map
-    - Queue size cap (3 prod / 5 demo)
-  end note
-  
-  note right of Processing
-    Parallel processing:
-    - 2 slots on /write
-    - 3 slots on /demo
-    - Pulls newest pending items
-  end note
-  
-  Idle --> TopicReset : notifyTopicShift
-  TopicReset --> Idle : cancelAllRequests +<br/>clear queue +<br/>reset TTL maps
-  
-  note right of TopicReset
-    On topic shift:
-    - Cancel all ongoing requests
-    - Clear pending queue
-    - Reset fingerprint maps
-    - Keep pinned prods
-  end note
+flowchart TB
+  classDef note fill:#fef3c7,color:#78350f,stroke:#fbbf24,font-size:12px
+  classDef queueClass fill:#fed7aa,stroke:#f97316,stroke-width:2px
+  classDef stateClass fill:#dcfce7,stroke:#22c55e,stroke-width:2px
 
-  state ProdsArray {
-    [*] --> Active
-    Active --> Pinned : pinProd(id)
-    Pinned --> Active : removeProd(id)
-    Active --> [*] : removeProd(id)
-    Pinned --> [*] : removeProd(id)
-  }
+  subgraph QueueLoop [QueueLoop]
+    direction TB
+    Idle[[Idle]]
+    Pending[[Pending]]
+    Processing[[Processing]]
+  end
+
+  TopicReset[[TopicReset]]
+
+  Entry((Entry)) --> Idle
+  Idle -->|ENQUEUE<br>_| Pending
+  Pending -->|COMPLETE_PROCESSING<br>queue trimmed| Idle
+  Pending -->|START_PROCESSING<br>waitForRateLimit| Processing
+  Processing -->|COMPLETE_PROCESSING<br>API success + confidence ok| Idle
+  Processing -->|COMPLETE_PROCESSING<br>topicVersion mismatch / cancelled| Idle
+  Processing -->|FAIL_PROCESSING<br>timeout / network error| Idle
+  Processing -->|COMPLETE_PROCESSING<br>low confidence| Idle
+  Idle -->|notifyTopicShift| TopicReset
+  TopicReset -->|cancelAllRequests +<br>clear queue +<br>reset guard maps| Idle
+  Processing -.->|success creates| ProdsActive
+
+  linkStyle 0 stroke:#475569,stroke-width:1.5px,stroke-dasharray:5 4;
+  linkStyle 1 stroke:#2563eb,stroke-width:2.2px;
+  linkStyle 2 stroke:#c2410c,stroke-width:2.2px;
+  linkStyle 3 stroke:#2563eb,stroke-width:2.2px;
+  linkStyle 4 stroke:#c2410c,stroke-width:2.2px;
+  linkStyle 5 stroke:#c2410c,stroke-width:2.2px;
+  linkStyle 6 stroke:#c2410c,stroke-width:2.2px;
+  linkStyle 7 stroke:#c2410c,stroke-width:2.2px;
+  linkStyle 8 stroke:#2563eb,stroke-width:2.2px;
+  linkStyle 9 stroke:#c2410c,stroke-width:2.2px;
+  linkStyle 10 stroke:#10b981,stroke-width:2px,stroke-dasharray:5 4;
+
+  Pending -.-> PendingNote["Dedup + queue controls:<br>- Re-resolve sentence via resolveLatestSentence → keeps sentence.id synced with latest text<br>- Enqueue guard (sentence ID, 15s/60s) → blocks duplicate queue entries<br>- Display guard (normalized text, 30s/120s) → blocks duplicate visible prods<br>- Trim write queue to newest 3 entries & demo queue to newest 5 entries<br>- Drop oldest before dispatch"]:::note
   
-  note right of ProdsArray
-    Prods live in separate array
-    after queue processing completes.
-    Pinning is independent of queue state.
-  end note
+  Processing -.-> ProcessingNote["Parallel processing:<br>- Concurrency cap 2 on /write<br>- Concurrency cap 3 on /demo<br>- Pull newest pending items (LIFO)<br>- Respects queue trims"]:::note
+  
+  TopicReset -.-> TopicNote["On topic shift:<br>- Cancel all ongoing requests<br>- Clear pending queue<br>- Reset guard maps<br>- Keep pinned prods"]:::note
+
+  subgraph ProdsArray ["Prods Array (lives outside queue)"]
+    direction TB
+    ProdsActive[[Active]]
+    ProdsPinned[[Pinned]]
+    ProdsActive -->|pinProd| ProdsPinned
+    ProdsPinned -->|unpin| ProdsActive
+    ProdsActive -->|remove| ProdsEnd((Removed))
+    ProdsPinned -->|remove| ProdsEnd
+  end
+  
+  class Idle,Pending,Processing,TopicReset queueClass
+  class ProdsActive,ProdsPinned stateClass

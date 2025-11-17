@@ -1,0 +1,83 @@
+flowchart LR
+  classDef uiClass fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+  classDef hookClass fill:#dcfce7,stroke:#22c55e,stroke-width:2px
+  classDef providerClass fill:#f3e8ff,stroke:#a855f7,stroke-width:2px
+  classDef queueClass fill:#fed7aa,stroke:#f97316,stroke-width:2px
+  classDef ruleClass fill:#fef3c7,stroke:#eab308,stroke-width:2px
+
+  subgraph Providers["App Providers"]
+    direction TB
+    subgraph EmbeddingsLayer["Embedding Context"]
+      direction TB
+      Embeddings["EmbeddingsProvider"]
+    end
+    subgraph CoreProviders["Core Providers"]
+      direction TB
+      Timing["TimingConfigProvider"]
+      Theme["ThemeProvider"]
+    end
+  end
+
+  subgraph EditorCore["TextInput Core"]
+    direction TB
+    EditorText["useEditorText"]
+    SentenceTracker["useSentenceTracker"]
+  end
+  
+  subgraph ProdFlow["Prod Queue Flow"]
+    direction TB
+    TopicShift["useTopicShiftDetection"]
+    ProdTriggers["useProdTriggers"]
+    Actions["useProdActions"]
+    SentenceResolver["resolveLatestSentence"]
+    Queue["Queue<br/>guardrails + dedupe"]
+    State["prods[] + pinnedIds"]
+    
+    TopicShift -->|updateTopic| Actions
+    TopicShift -.->|notifyShift| Actions
+    ProdTriggers -->|enqueue| Actions
+    Actions --> SentenceResolver
+    SentenceResolver --> Queue
+    Queue --> State
+    SentenceResolver -.-> SentenceResolverNote["Re-split text → refresh sentence IDs<br/>before TTL dedupe runs"]
+  end
+  
+  subgraph ThemeFlow["Theme Highlight Flow"]
+    direction TB
+    ThemeToggles["ThemeToggleButtons"]
+    ThemeAnalysis["useThemeAnalysis"]
+    
+    ThemeAnalysis --> ThemeToggles
+  end
+  
+  subgraph UI["UI Layer"]
+    direction TB
+    Chips["ChipOverlay"]
+    Highlights["HighlightOverlay"]
+    TextArea["Textarea DOM"]
+  end
+  
+  Providers --> EditorText
+  
+  EditorText --> TopicShift
+  EditorText --> SentenceTracker
+  SentenceTracker --> ProdTriggers
+  SentenceTracker --> ThemeAnalysis
+  
+  Timing --> ProdTriggers
+  Timing --> Queue
+  
+  Embeddings --> ThemeAnalysis
+  Theme --> ThemeToggles
+  Theme --> Highlights
+  
+  State --> Chips
+  Chips --> TextArea
+  ThemeAnalysis --> Highlights
+  Highlights --> TextArea
+  
+  class EditorText,SentenceTracker,TopicShift,ProdTriggers,ThemeAnalysis hookClass
+  class Embeddings,Timing,Theme,Actions providerClass
+  class SentenceResolver ruleClass
+  class Queue,State queueClass
+  class Chips,Highlights,TextArea,ThemeToggles uiClass

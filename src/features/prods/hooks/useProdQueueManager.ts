@@ -5,7 +5,8 @@ import type { QueueItem, QueueState, QueueAction } from "@/types/queue";
 import type { getTimingConfig } from "@/lib/demoMode";
 import { generateProdWithTimeout } from "@/features/prods/services/prodClient";
 import { shouldProcessSentence } from "@/lib/shouldProcessSentence";
-import { normalizeText, makeFingerprint, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
+import { normalizeText, hasRecent, markNow, cleanupOlderThan } from "@/lib/dedup";
+import { splitIntoSentences } from "@/lib/sentences";
 import { debug } from "@/lib/debug";
 
 interface OngoingRequest {
@@ -14,6 +15,30 @@ interface OngoingRequest {
     startTime: number;
     sentenceId: string;
     topicVersion: number;
+}
+
+// Guard against stale sentence references (e.g., user never pauses long enough for
+// useSentenceTracker's debounce). Re-derive the matching sentence from the latest
+// full text so dedupe keys (sentence.id) advance as punctuation-less text grows.
+export function resolveLatestSentence(fullText: string, fallback: Sentence): Sentence {
+    if (!fullText || !fullText.trim()) return fallback;
+
+    const latestSentences = splitIntoSentences(fullText);
+    if (latestSentences.length === 0) {
+        return fallback;
+    }
+
+    const sameStart = latestSentences.find((s) => s.startIndex === fallback.startIndex);
+    if (sameStart) {
+        return sameStart;
+    }
+
+    const normalizedFallback = normalizeText(fallback.text);
+    const normalizedMatch = latestSentences.find(
+        (s) => normalizeText(s.text) === normalizedFallback
+    );
+
+    return normalizedMatch ?? latestSentences[latestSentences.length - 1];
 }
 
 export function queueReducer(state: QueueState, action: QueueAction): QueueState {
@@ -89,7 +114,8 @@ export function useProdQueueManager({
     const nextAvailableAtRef = useRef<number>(0);
     const ongoingRequestsRef = useRef<Map<string, OngoingRequest>>(new Map());
     const latestTopicVersionRef = useRef<number>(topicVersion ?? 0);
-    const sentenceFingerprintsRef = useRef<Map<string, number>>(new Map());
+    // Enqueue guard: prevents duplicate queue entries (shorter window: 15s write, 60s demo)
+    const enqueueGuardMapRef = useRef<Map<string, number>>(new Map());
 
     // Track latest topic version for staleness gating
     useEffect(() => {
@@ -202,8 +228,9 @@ export function useProdQueueManager({
             const norm = normalizeText(sentence.text);
             const nowTs = Date.now();
             try {
-                cleanupOlderThan(recentSentenceTextMapRef.current, 120000, nowTs);
-                markNow(recentSentenceTextMapRef.current, norm, nowTs);
+                const displayGuardTimeout = isDemoMode ? 30000 : 10000;
+                cleanupOlderThan(displayGuardMapRef.current, displayGuardTimeout, nowTs);
+                markNow(displayGuardMapRef.current, norm, nowTs);
             } catch { }
             setProds((prev) => {
                 // Keep existing prods so they can finish their fade lifecycle before removal
@@ -268,9 +295,11 @@ export function useProdQueueManager({
     }, [queueState.items, processSingleItem, isDemoMode, config.emoji]);
 
     // Public API to add sentences to queue
-    const recentSentenceTextMapRef = useRef<Map<string, number>>(new Map());
+    // Display guard: prevents duplicate visible prods (30s demo vs 10s write)
+    const displayGuardMapRef = useRef<Map<string, number>>(new Map());
 
-    const enqueueSentence = useCallback((fullText: string, sentence: Sentence, opts?: { force?: boolean }) => {
+    const enqueueSentence = useCallback((fullText: string, initialSentence: Sentence, opts?: { force?: boolean }) => {
+        const sentence = resolveLatestSentence(fullText, initialSentence);
         debug.prods(`${config.emoji} 📝 enqueueSentence called for sentence:`, sentence.text.substring(0, 50) + "...");
 
         // Clean old fingerprints (>30s) periodically
@@ -279,23 +308,22 @@ export function useProdQueueManager({
 
         // Early exit: check if this sentence text already has a recent prod
         const normalizedText = sentence.text.trim().toLowerCase();
-        const lastProducedAtEarly = recentSentenceTextMapRef.current.get(normalizedText);
-        const recentProdTimeout = isDemoMode ? 120000 : 30000; // 2min in demo vs 30s in prod
+        const lastProducedAtEarly = displayGuardMapRef.current.get(normalizedText);
+        const recentProdTimeout = isDemoMode ? 45000 : 30000; // 45s in demo vs 30s in prod
         if (lastProducedAtEarly && now - lastProducedAtEarly < recentProdTimeout) {
             debug.prods(`${config.emoji} 🚫 Prod already exists for this text recently, blocking:`, sentence.text.substring(0, 50) + "...");
             return;
         }
-        cleanupOlderThan(sentenceFingerprintsRef.current, cleanupThreshold, now);
+        cleanupOlderThan(enqueueGuardMapRef.current, cleanupThreshold, now);
 
-        // Create sentence fingerprint for deduplication
+        // Use sentence ID for deduplication - it's already stable and content-based
         const sentenceText = sentence.text.trim();
-        const fingerprint = makeFingerprint(sentenceText);
 
-        // Skip if we've processed this fingerprint recently (much longer timeout in demo mode)
-        const lastProcessedAt = sentenceFingerprintsRef.current.get(fingerprint);
-        const fingerprintTimeout = isDemoMode ? 60000 : 15000; // 60s in demo vs 15s in prod (prevent demo overlaps)
-        if (lastProcessedAt && now - lastProcessedAt < fingerprintTimeout) {
-            debug.prods(`${config.emoji} 🔄 Similar sentence processed recently, skipping:`, sentence.text.substring(0, 50) + "...");
+        // Skip if we've processed this sentence ID recently (much longer timeout in demo mode)
+        const lastProcessedAt = enqueueGuardMapRef.current.get(sentence.id);
+        const enqueueTimeout = isDemoMode ? 60000 : 15000; // 60s in demo vs 15s in prod (prevent demo overlaps)
+        if (lastProcessedAt && now - lastProcessedAt < enqueueTimeout) {
+            debug.prods(`${config.emoji} 🔄 Sentence processed recently, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
 
@@ -308,9 +336,9 @@ export function useProdQueueManager({
         // Normalize sentence text for robust de-duplication
         const normalized = normalizeText(sentenceText);
 
-        // Skip if we've produced for this text recently (much longer timeout in demo mode)
-        const textTimeout = isDemoMode ? 30000 : 10000; // 30s in demo vs 10s in prod (prevent overlaps with demo chips)
-        if (hasRecent(recentSentenceTextMapRef.current, normalized, textTimeout, now)) {
+        // Skip if we've produced for this text recently 
+        const textTimeout = isDemoMode ? 20000 : 10000; // 20s demo / 10s write
+        if (hasRecent(displayGuardMapRef.current, normalized, textTimeout, now)) {
             debug.prods(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
         }
@@ -347,8 +375,8 @@ export function useProdQueueManager({
             return;
         }
 
-        // Mark this sentence fingerprint as being processed
-        markNow(sentenceFingerprintsRef.current, fingerprint, now);
+        // Mark this sentence ID as being processed
+        markNow(enqueueGuardMapRef.current, sentence.id, now);
 
         // Cache filtered sentence for embedding reuse
         setFilteredSentences(prev => {
@@ -408,8 +436,8 @@ export function useProdQueueManager({
             pinnedIdsRef.current = cleared;
             return cleared;
         });
-        sentenceFingerprintsRef.current.clear();
-        recentSentenceTextMapRef.current.clear();
+        enqueueGuardMapRef.current.clear();
+        displayGuardMapRef.current.clear();
     }, [clearQueue, config]);
 
     // Handle topic shift - cancel relevant requests
@@ -419,9 +447,9 @@ export function useProdQueueManager({
         cancelAllRequests();
         queueDispatch({ type: 'CLEAR_QUEUE' });
 
-        // Clear fingerprints and recent sentence maps for fresh start
-        sentenceFingerprintsRef.current.clear();
-        recentSentenceTextMapRef.current.clear();
+        // Clear enqueue and display guard maps for fresh start
+        enqueueGuardMapRef.current.clear();
+        displayGuardMapRef.current.clear();
 
         debug.devProds(`${config.emoji} 🗑️ Cleared all prod-related state for topic shift`);
     }, [cancelAllRequests, config]);
@@ -430,8 +458,8 @@ export function useProdQueueManager({
     const clearFilteredSentences = useCallback(() => {
         debug.prods(`${config.emoji} 🗑️ Clearing cached filtered sentences`);
         setFilteredSentences([]);
-        // Also clear fingerprints when clearing sentences
-        sentenceFingerprintsRef.current.clear();
+        // Also clear guard maps when clearing sentences
+        enqueueGuardMapRef.current.clear();
     }, [config]);
 
     return {
