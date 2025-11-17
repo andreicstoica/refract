@@ -48,6 +48,7 @@ Observability hooks (e.g., logging, debug counters) should subscribe at the prov
 - `docs/diagrams/prod-queue.mmd` captures the queue transitions (initial, pending request, fulfilled, pinned, dropped).
 
 - Display guard uses `displayGuardMapRef` with normalized text (30s in `/write`, 120s in `/demo`) to prevent duplicate visible prods. Enqueue guard uses `enqueueGuardMapRef` with sentence IDs (15s in `/write`, 60s in `/demo`) to prevent duplicate queue entries. Sentence IDs are stable content-based identifiers (`sentence-${startPos}-${contentHash}-${sentenceLength}`) that eliminate the collision issues of prefix-based fingerprints while still rolling as punctuation-less sentences grow. These guards operate at different pipeline stages for layered deduplication.
+- `resolveLatestSentence(fullText, fallback)` re-splits the text (via `splitIntoSentences`) any time `useProdQueueManager` receives stale `Sentence` references. That re-hydrates the latest structure—start index, measured length, and normalized text—before we derive the sentence ID for dedupe, so long, punctuation-free sentences still rotate IDs even if `useSentenceTracker` has not flushed new tokens yet.
 - `notifyTopicShift()` cancels all inflight requests, clears queue state + guard maps, and increments the topic version so stale promises never promote a prod.
 - Each queue item records `topicVersion` and is discarded if the current version changed before the API response resolves.
 - Rate limiting (`waitForRateLimit(config.rateLimitMs)`) and queue pruning (3 items in `/write`, 5 in `/demo`) prevent runaway bursts; after pruning we launch as many items as the parallel cap allows so users see chips sooner even while some calls linger near the 15 s timeout.
@@ -94,8 +95,8 @@ See `specs/[review] prod-cadence-and-topic.md` for the investigation narrative t
 2. **Trigger Heuristics**
 	- `useProdTriggers` is the only place that transforms `{ text, sentences, config }` into `enqueueSentence` calls. It covers punctuation heuristics, the character-count fallback, settling timers, and the six-second watchdog that raises a `force` prod if the writer pauses mid-thought.
 	- After the watchdog fires we lock new triggers until the user types again so we don’t keep seeding the queue while the user is idle.
-3. **Queue Gating**
-	- `enqueueSentence` runs layered suppression: `shouldProcessSentence` filters low-signal sentences, enqueue + display guards block near-duplicates, and we skip items already in the queue, already pinned, or recently rendered.
+	3. **Queue Gating**
+		- `enqueueSentence` runs layered suppression: `resolveLatestSentence` re-derives the incoming `Sentence` from the latest text before `shouldProcessSentence` filters low-signal entries, enqueue + display guards block near-duplicates, and we skip items already in the queue, already pinned, or recently rendered.
 	- Accepted items store `{ topicVersion, timestamp, force? }`. `processSingleItem` respects `config.rateLimitMs`, includes `recentProds.slice(-5)` plus the latest `topicKeywords` in the API payload, and aborts requests whenever the topic version changes. Once a slot frees up we immediately start the next pending item so a backlog drains in parallel.
 	- Responses go through another guardrail: the queue drops low-confidence results (≤0.5 in `/write`, ≤0.05 in `/demo`), requires non-empty `selectedProd`, and only then appends to `prods[]` while pruning non-pinned items beyond the newest suggestion.
 4. **Resets & Telemetry Prep**

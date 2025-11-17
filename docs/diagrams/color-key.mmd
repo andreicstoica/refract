@@ -1,0 +1,17 @@
+flowchart LR
+  classDef uiClass fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+  classDef hookClass fill:#dcfce7,stroke:#22c55e,stroke-width:2px
+  classDef providerClass fill:#f3e8ff,stroke:#a855f7,stroke-width:2px
+  classDef queueClass fill:#fed7aa,stroke:#f97316,stroke-width:2px
+  classDef ruleClass fill:#fef3c7,stroke:#eab308,stroke-width:2px
+  classDef apiClass fill:#fce7f3,stroke:#ec4899,stroke-width:2px
+
+  subgraph ColorKey["Diagram Color Key"]
+    direction TB
+    UI["UI Layer<br/>Components, TextInput, DOM"]:::uiClass
+    Hooks["Hooks<br/>useTopicShift, useProdTriggers, etc."]:::hookClass
+    Providers["Providers<br/>ProdsProvider, EmbeddingsProvider, etc."]:::providerClass
+    Queue["Queue/Guards<br/>useProdQueueManager, queue states"]:::queueClass
+    Rules["Rules/Utils<br/>prodTriggerRules, resolveLatestSentence"]:::ruleClass
+    API["API<br/>/api/prod, /api/embeddings"]:::apiClass
+  end

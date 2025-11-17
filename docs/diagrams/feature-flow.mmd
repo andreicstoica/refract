@@ -1,4 +1,10 @@
 flowchart LR
+  classDef uiClass fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+  classDef hookClass fill:#dcfce7,stroke:#22c55e,stroke-width:2px
+  classDef providerClass fill:#f3e8ff,stroke:#a855f7,stroke-width:2px
+  classDef queueClass fill:#fed7aa,stroke:#f97316,stroke-width:2px
+  classDef ruleClass fill:#fef3c7,stroke:#eab308,stroke-width:2px
+
   subgraph Providers["App Providers"]
     direction TB
     subgraph EmbeddingsLayer["Embedding Context"]
@@ -23,14 +29,17 @@ flowchart LR
     TopicShift["useTopicShiftDetection"]
     ProdTriggers["useProdTriggers"]
     Actions["useProdActions"]
+    SentenceResolver["resolveLatestSentence"]
     Queue["Queue<br/>guardrails + dedupe"]
     State["prods[] + pinnedIds"]
     
     TopicShift -->|updateTopic| Actions
     TopicShift -.->|notifyShift| Actions
     ProdTriggers -->|enqueue| Actions
-    Actions --> Queue
+    Actions --> SentenceResolver
+    SentenceResolver --> Queue
     Queue --> State
+    SentenceResolver -.-> SentenceResolverNote["Re-split text → refresh sentence IDs<br/>before TTL dedupe runs"]
   end
   
   subgraph ThemeFlow["Theme Highlight Flow"]
@@ -66,3 +75,9 @@ flowchart LR
   Chips --> TextArea
   ThemeAnalysis --> Highlights
   Highlights --> TextArea
+  
+  class EditorText,SentenceTracker,TopicShift,ProdTriggers,ThemeAnalysis hookClass
+  class Embeddings,Timing,Theme,Actions providerClass
+  class SentenceResolver ruleClass
+  class Queue,State queueClass
+  class Chips,Highlights,TextArea,ThemeToggles uiClass

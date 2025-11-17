@@ -1,5 +1,7 @@
 flowchart TB
-  classDef note fill:#fef3c7,color:#78350f,stroke:#fbbf24,font-size:12px;
+  classDef note fill:#fef3c7,color:#78350f,stroke:#fbbf24,font-size:12px
+  classDef queueClass fill:#fed7aa,stroke:#f97316,stroke-width:2px
+  classDef stateClass fill:#dcfce7,stroke:#22c55e,stroke-width:2px
 
   subgraph QueueLoop [QueueLoop]
     direction TB
@@ -34,7 +36,7 @@ flowchart TB
   linkStyle 9 stroke:#c2410c,stroke-width:2.2px;
   linkStyle 10 stroke:#10b981,stroke-width:2px,stroke-dasharray:5 4;
 
-  Pending -.-> PendingNote["Dedup + queue controls:<br>- Enqueue guard (sentence ID, 15s/60s) → blocks duplicate queue entries<br>- Display guard (normalized text, 30s/120s) → blocks duplicate visible prods<br>- Trim write queue to newest 3 entries & demo queue to newest 5 entries<br>- Drop oldest before dispatch"]:::note
+  Pending -.-> PendingNote["Dedup + queue controls:<br>- Re-resolve sentence via resolveLatestSentence → keeps sentence.id synced with latest text<br>- Enqueue guard (sentence ID, 15s/60s) → blocks duplicate queue entries<br>- Display guard (normalized text, 30s/120s) → blocks duplicate visible prods<br>- Trim write queue to newest 3 entries & demo queue to newest 5 entries<br>- Drop oldest before dispatch"]:::note
   
   Processing -.-> ProcessingNote["Parallel processing:<br>- Concurrency cap 2 on /write<br>- Concurrency cap 3 on /demo<br>- Pull newest pending items (LIFO)<br>- Respects queue trims"]:::note
   
@@ -49,3 +51,6 @@ flowchart TB
     ProdsActive -->|remove| ProdsEnd((Removed))
     ProdsPinned -->|remove| ProdsEnd
   end
+  
+  class Idle,Pending,Processing,TopicReset queueClass
+  class ProdsActive,ProdsPinned stateClass

@@ -1,13 +1,25 @@
 sequenceDiagram
-  participant Writer
-  participant TextInput
-  participant Topic as useTopicShiftDetection
-  participant Triggers as useProdTriggers
-  participant Rules as prodTriggerRules
-  participant Actions as ProdsProvider/useProdActions
-  participant Guards as useProdQueueManager
-  participant API as /api/prod
-  participant Chips as ChipOverlay
+  box lightblue UI Layer
+    participant Writer
+    participant TextInput
+    participant Chips as ChipOverlay
+  end
+  box lightgreen Hooks
+    participant Topic as useTopicShiftDetection
+    participant Triggers as useProdTriggers
+  end
+  box lightyellow Rules
+    participant Rules as prodTriggerRules
+  end
+  box plum Providers
+    participant Actions as ProdsProvider/useProdActions
+  end
+  box wheat Queue/Guards
+    participant Guards as useProdQueueManager
+  end
+  box lightpink API
+    participant API as /api/prod
+  end
 
   Writer->>TextInput: type / pause / resume
   TextInput->>Topic: share latest text window
@@ -20,7 +32,7 @@ sequenceDiagram
   end
   
   TextInput->>Triggers: { text, sentences, config }
-  Note over TextInput,Triggers: Sentences split on punctuation<br>and newline boundaries to catch Enter-only writers
+  Note over TextInput,Triggers: Sentences split on punctuation and newlines
   
   Triggers->>Rules: shouldTriggerProd(cooldown, min length)
   
@@ -46,7 +58,8 @@ sequenceDiagram
   
   Actions->>Guards: enqueueSentence(fullText, sentence)
   
-  Guards->>Guards: apply shouldProcessSentence + TTL dedupe
+  Guards->>Guards: resolved = resolveLatestSentence(fullText, sentence)
+  Guards->>Guards: apply shouldProcessSentence + sentence.id guard (15s/60s) + display TTL (30s/120s)
   
   alt guardrails block sentence
     Note over Guards: short text / duplicate / queue full → drop
