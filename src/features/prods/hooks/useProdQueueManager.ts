@@ -228,7 +228,8 @@ export function useProdQueueManager({
             const norm = normalizeText(sentence.text);
             const nowTs = Date.now();
             try {
-                cleanupOlderThan(displayGuardMapRef.current, 120000, nowTs);
+                const displayGuardTimeout = isDemoMode ? 30000 : 10000;
+                cleanupOlderThan(displayGuardMapRef.current, displayGuardTimeout, nowTs);
                 markNow(displayGuardMapRef.current, norm, nowTs);
             } catch { }
             setProds((prev) => {
@@ -294,12 +295,12 @@ export function useProdQueueManager({
     }, [queueState.items, processSingleItem, isDemoMode, config.emoji]);
 
     // Public API to add sentences to queue
-    // Display guard: prevents duplicate visible prods (longer window: 30s write, 120s demo)
+    // Display guard: prevents duplicate visible prods (30s demo vs 10s write)
     const displayGuardMapRef = useRef<Map<string, number>>(new Map());
 
-	const enqueueSentence = useCallback((fullText: string, initialSentence: Sentence, opts?: { force?: boolean }) => {
-		const sentence = resolveLatestSentence(fullText, initialSentence);
-		debug.prods(`${config.emoji} 📝 enqueueSentence called for sentence:`, sentence.text.substring(0, 50) + "...");
+    const enqueueSentence = useCallback((fullText: string, initialSentence: Sentence, opts?: { force?: boolean }) => {
+        const sentence = resolveLatestSentence(fullText, initialSentence);
+        debug.prods(`${config.emoji} 📝 enqueueSentence called for sentence:`, sentence.text.substring(0, 50) + "...");
 
         // Clean old fingerprints (>30s) periodically
         const now = Date.now();
@@ -308,7 +309,7 @@ export function useProdQueueManager({
         // Early exit: check if this sentence text already has a recent prod
         const normalizedText = sentence.text.trim().toLowerCase();
         const lastProducedAtEarly = displayGuardMapRef.current.get(normalizedText);
-        const recentProdTimeout = isDemoMode ? 120000 : 30000; // 2min in demo vs 30s in prod
+        const recentProdTimeout = isDemoMode ? 45000 : 30000; // 45s in demo vs 30s in prod
         if (lastProducedAtEarly && now - lastProducedAtEarly < recentProdTimeout) {
             debug.prods(`${config.emoji} 🚫 Prod already exists for this text recently, blocking:`, sentence.text.substring(0, 50) + "...");
             return;
@@ -335,8 +336,8 @@ export function useProdQueueManager({
         // Normalize sentence text for robust de-duplication
         const normalized = normalizeText(sentenceText);
 
-        // Skip if we've produced for this text recently (much longer timeout in demo mode)
-        const textTimeout = isDemoMode ? 30000 : 10000; // 30s in demo vs 10s in prod (prevent overlaps with demo chips)
+        // Skip if we've produced for this text recently 
+        const textTimeout = isDemoMode ? 20000 : 10000; // 20s demo / 10s write
         if (hasRecent(displayGuardMapRef.current, normalized, textTimeout, now)) {
             debug.prods(`${config.emoji} 🔄 Recent prod already shown for this sentence text, skipping:`, sentence.text.substring(0, 50) + "...");
             return;
