@@ -56,8 +56,7 @@ Observability hooks (e.g., logging, debug counters) should subscribe at the prov
 
 ## Theme Analysis & Map
 
-- `useThemeAnalysis` (and `runEmbeddingsAnalysis`) read sentences + full text, call the client-side `generateEmbeddings` helper, and push `/api/embeddings` results into `ThemesProvider`.
-- `/api/embeddings` now orchestrates the new services: `sentencesToChunks` → `generateEmbeddingVectors` → `clusterEmbeddings` → `generateThemesForClusters` → `enrichClustersWithThemes` → `selectTopClusters` → `formatClustersForResponse`. See `docs/diagrams/theme-generation.mmd` for the full flow and how the response is persisted via `storage.setThemes`/`setSentences`.
+- `useThemeAnalysis` reads sentences + full text, requests embeddings via `/api/embeddings`, and pushes results into `ThemesProvider`.
 - Highlight flows (`HighlightOverlay`, `TextWithHighlights`) rely on `assignChunkIndices` to keep animation timing deterministic even as theme stacks change.
 - The map view uses the same provider but different consumers (bubble map vs highlight overlay). Shared contracts should sit in `src/features/themes/context/ThemeProvider.tsx`.
 

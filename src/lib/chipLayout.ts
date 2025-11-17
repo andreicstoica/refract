@@ -1,6 +1,7 @@
 import type { Prod } from "@/types/prod";
 import type { SentencePosition } from "@/types/sentence";
 import { CHIP_LAYOUT } from "@/lib/layoutConstants";
+import { makeFingerprint } from "@/lib/dedup";
 import { isMobileViewport, measureTextWidth } from "@/lib/helpers";
 import { debug } from "@/lib/debug";
 
@@ -282,7 +283,7 @@ export function calculateChipLayout(
 
             const clampedWidth = Math.min(maxWidth, Math.max(minWidth, actualWidth));
 
-            debug.dev(`Text measurement for "${prod.id}": textWidth=${textWidth}, actualWidth=${actualWidth}, clampedWidth=${clampedWidth}`);
+            debug.dev(`Text measurement for "${makeFingerprint(prod.text)}": textWidth=${textWidth}, actualWidth=${actualWidth}, clampedWidth=${clampedWidth}`);
 
             return clampedWidth;
         });
@@ -315,7 +316,7 @@ export function calculateChipLayout(
                 totalWidth,
                 containerWidth,
                 availableWidth: containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD),
-                chipTexts: sorted.map(p => p.id)
+                chipTexts: sorted.map(p => makeFingerprint(p.text))
             });
         }
 
@@ -350,7 +351,7 @@ export function calculateChipLayout(
                     width: chipWidth
                 });
 
-                debug.dev(`Mobile positioned chip "${prod.id}": h=${placement.h}, v=${placement.v}, absoluteX=${clampedX}, chipWidth=${chipWidth}, containerWidth=${containerWidth}, availableSpace=${containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD)}`);
+                debug.dev(`Mobile positioned chip "${makeFingerprint(prod.text)}": h=${placement.h}, v=${placement.v}, absoluteX=${clampedX}, chipWidth=${chipWidth}, containerWidth=${containerWidth}, availableSpace=${containerWidth - (2 * CHIP_LAYOUT.BOUNDARY_PAD)}`);
             }
         } else {
             // Desktop: Complex multi-lane positioning with collision detection
@@ -375,7 +376,7 @@ export function calculateChipLayout(
                     });
 
                     if (placement) {
-                        debug.dev(`Reused pinned placement for "${prod.id}"`);
+                        debug.dev(`Reused pinned placement for "${makeFingerprint(prod.text)}"`);
                     }
                 }
 
@@ -403,8 +404,8 @@ export function calculateChipLayout(
                 }
 
                 if (!placement) {
-                    debug.warn(`No position found for chip "${prod.id}" - skipping`);
-                    sentenceSkipped.push(prod.id);
+                    debug.warn(`No position found for chip "${makeFingerprint(prod.text)}" - skipping`);
+                    sentenceSkipped.push(makeFingerprint(prod.text));
                     totalSkipped++;
                     continue;
                 }
@@ -418,7 +419,7 @@ export function calculateChipLayout(
                     width: chipWidth,
                 });
 
-                debug.dev(`Desktop positioned chip "${prod.id}": h=${placement.placement.h}, v=${placement.placement.v}, absoluteX=${placement.absoluteX}, chipWidth=${chipWidth}, sentenceTop=${pos!.top}, sentenceLeft=${pos!.left}`);
+                debug.dev(`Desktop positioned chip "${makeFingerprint(prod.text)}": h=${placement.placement.h}, v=${placement.placement.v}, absoluteX=${placement.absoluteX}, chipWidth=${chipWidth}, sentenceTop=${pos!.top}, sentenceLeft=${pos!.left}`);
 
                 currentX = placement.absoluteX + chipWidth + spacing;
             }
