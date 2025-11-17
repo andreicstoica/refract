@@ -1,0 +1,68 @@
+flowchart LR
+  subgraph Providers["App Providers"]
+    direction TB
+    subgraph EmbeddingsLayer["Embedding Context"]
+      direction TB
+      Embeddings["EmbeddingsProvider"]
+    end
+    subgraph CoreProviders["Core Providers"]
+      direction TB
+      Timing["TimingConfigProvider"]
+      Theme["ThemeProvider"]
+    end
+  end
+
+  subgraph EditorCore["TextInput Core"]
+    direction TB
+    EditorText["useEditorText"]
+    SentenceTracker["useSentenceTracker"]
+  end
+  
+  subgraph ProdFlow["Prod Queue Flow"]
+    direction TB
+    TopicShift["useTopicShiftDetection"]
+    ProdTriggers["useProdTriggers"]
+    Actions["useProdActions"]
+    Queue["Queue<br/>guardrails + dedupe"]
+    State["prods[] + pinnedIds"]
+    
+    TopicShift -->|updateTopic| Actions
+    TopicShift -.->|notifyShift| Actions
+    ProdTriggers -->|enqueue| Actions
+    Actions --> Queue
+    Queue --> State
+  end
+  
+  subgraph ThemeFlow["Theme Highlight Flow"]
+    direction TB
+    ThemeToggles["ThemeToggleButtons"]
+    ThemeAnalysis["useThemeAnalysis"]
+    
+    ThemeAnalysis --> ThemeToggles
+  end
+  
+  subgraph UI["UI Layer"]
+    direction TB
+    Chips["ChipOverlay"]
+    Highlights["HighlightOverlay"]
+    TextArea["Textarea DOM"]
+  end
+  
+  Providers --> EditorText
+  
+  EditorText --> TopicShift
+  EditorText --> SentenceTracker
+  SentenceTracker --> ProdTriggers
+  SentenceTracker --> ThemeAnalysis
+  
+  Timing --> ProdTriggers
+  Timing --> Queue
+  
+  Embeddings --> ThemeAnalysis
+  Theme --> ThemeToggles
+  Theme --> Highlights
+  
+  State --> Chips
+  Chips --> TextArea
+  ThemeAnalysis --> Highlights
+  Highlights --> TextArea

@@ -19,7 +19,7 @@ This document captures the high-level writing flow so reviewers can map hooks, p
 3. `ProdsProvider` (backed by `useProdQueueManager`) wraps the writing surface and exposes queue actions (`enqueue`, `pin`, `notifyTopicShift`, `updateTopicContext`, etc.) plus memoized selectors for overlays, pins, and cached sentences. The provider now supervises a multi-flight queue: up to two concurrent prod requests on `/write` (three on `/demo`) to keep throughput high even when individual API calls approach the timeout.
 4. `EmbeddingsProvider` (themes feature) and highlight overlays consume the same text + sentence structures to keep animations aligned with chip placement.
 
-See `docs/diagrams/writing-flow.mmd` for the overall pipeline and `docs/diagrams/prod-triggers.mmd` for the timer + heuristic sequence that feeds the queue.
+See `docs/diagrams/feature-flow.mmd` for the overall pipeline and `docs/diagrams/prod-triggers.mmd` for the timer + heuristic sequence that feeds the queue.
 
 ## App Shell
 
@@ -61,18 +61,18 @@ Observability hooks (e.g., logging, debug counters) should subscribe at the prov
 
 ## Diagram Guidance
 
-- Store Mermaid sources under `docs/diagrams/` with filenames that match the feature (`writing-flow.mmd`, `prod-queue.mmd`). Generate PNG/SVG artifacts only when needed for decks; the repo keeps the text sources for easy diffs.
+- Store Mermaid sources under `docs/diagrams/` with filenames that match the feature (`feature-flow.mmd`, `prod-queue.mmd`). Generate PNG/SVG artifacts only when needed for decks; the repo keeps the text sources for easy diffs.
 - Link diagrams back here using relative paths so GitHub renders them inline:
 
 ```md
-![Writing flow](./diagrams/writing-flow.mmd)
+![Writing flow](./diagrams/feature-flow.mmd)
 ```
 
 - Keep diagrams focused on information flow (inputs → hooks → consumers). Sequence diagrams for timers, box diagrams for providers/hooks, and call out shared config boundaries.
 
 ### Diagram Index
 
-- `writing-flow.mmd` — Editor → hooks → providers → overlays (Mermaid flowchart).
+- `feature-flow.mmd` — Editor → hooks → providers → overlays (Mermaid flowchart).
 - `prod-queue.mmd` — State diagram for queue transitions (enqueue, pin, drop, reset).
 - `prod-triggers.mmd` — Sequence diagram for timer heuristics and watchdog triggers flowing into the queue.
 - Add highlight/theme diagrams once theme refactor ships.
