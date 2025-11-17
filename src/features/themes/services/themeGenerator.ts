@@ -10,6 +10,7 @@ const THEME_MODEL = (process.env.OPENAI_THEME_MODEL || "gpt-4o-mini") as OpenAIM
 
 const ComprehensiveThemeSchema = z.object({
     themes: z.array(z.object({
+        clusterId: z.string(),
         theme: z.string().max(30, "Theme label must be 30 characters or less"),
         description: z.string(),
         confidence: z.number(),
@@ -64,13 +65,42 @@ export async function generateThemesForClusters(
         debug.dev("🎨 AI generated themes:", result.object);
 
         // Normalize AI response before merging to guard against missing keys
-        const themes = result.object.themes.map((theme: any, index: number) => ({
-            clusterId: clusterSummaries[index]?.id || `cluster-${index}`,
-            label: theme.theme,
-            description: theme.description || `Theme representing ${theme.theme.toLowerCase()}`,
-            confidence: theme.confidence || 0.8,
-            color: theme.color,
-        }));
+        const clusterIdSet = new Set(clusterSummaries.map((summary) => summary.id));
+        const resolvedThemes = new Map<string, ThemeData>();
+
+        for (let index = 0; index < result.object.themes.length; index++) {
+            const theme = result.object.themes[index];
+            const suggestedClusterId = theme.clusterId;
+            const fallbackClusterId = clusterSummaries[index]?.id;
+            const clusterId = suggestedClusterId && clusterIdSet.has(suggestedClusterId)
+                ? suggestedClusterId
+                : fallbackClusterId ?? `cluster-${index}`;
+
+            if (resolvedThemes.has(clusterId)) {
+                continue;
+            }
+
+            resolvedThemes.set(clusterId, {
+                clusterId,
+                label: theme.theme,
+                description: theme.description || `Theme representing ${theme.theme.toLowerCase()}`,
+                confidence: theme.confidence || 0.8,
+                color: theme.color,
+            });
+        }
+
+        const missingClusters = clusters.filter((cluster) => !resolvedThemes.has(cluster.id));
+        if (missingClusters.length > 0) {
+            debug.dev("⚠️ Adding fallback themes for missing clusters", {
+                missingClusterIds: missingClusters.map((cluster) => cluster.id),
+            });
+            const fallbackThemes = generateFallbackThemes(missingClusters);
+            fallbackThemes.forEach((fallback) => {
+                resolvedThemes.set(fallback.clusterId, fallback);
+            });
+        }
+
+        const themes = Array.from(resolvedThemes.values());
 
         debug.dev("✅ Processed themes:", themes);
 
@@ -194,7 +224,7 @@ ${fullText.slice(0, 4000)}${fullText.length > 4000 ? '\n[Content truncated for b
         : '';
 
     const clustersSection = clusterSummaries.map((cluster) =>
-        `**Cluster ${cluster.index}** (${cluster.chunkCount} writing segments):
+        `**Cluster ${cluster.index}** (ID: ${cluster.id}, ${cluster.chunkCount} writing segments):
 ${cluster.texts.map(text => `• ${text}`).join('\n')}
 `
     ).join('\n');
@@ -214,4 +244,3 @@ Generate a unique, meaningful theme for each cluster above. Consider:
 
 Generate themes that are distinct, emotionally resonant, and help the writer understand their own patterns of thought and feeling.`;
 }
-
