@@ -12,6 +12,6 @@ flowchart LR
     Hooks["Hooks<br/>useTopicShift, useProdTriggers, etc."]:::hookClass
     Providers["Providers<br/>ProdsProvider, EmbeddingsProvider, etc."]:::providerClass
     Queue["Queue/Guards<br/>useProdQueueManager, queue states"]:::queueClass
-    Rules["Rules/Utils<br/>prodTriggerRules, resolveLatestSentence"]:::ruleClass
+    Rules["Rules/Utils<br/>prodTriggerRules, shouldProcessSentence"]:::ruleClass
     API["API<br/>/api/prod, /api/embeddings"]:::apiClass
   end

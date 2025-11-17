@@ -36,7 +36,7 @@ flowchart TB
   linkStyle 9 stroke:#c2410c,stroke-width:2.2px;
   linkStyle 10 stroke:#10b981,stroke-width:2px,stroke-dasharray:5 4;
 
-  Pending -.-> PendingNote["Dedup + queue controls:<br>- Re-resolve sentence via resolveLatestSentence → keeps sentence.id synced with latest text<br>- Enqueue guard (sentence ID, 15s/60s) → blocks duplicate queue entries<br>- Display guard (normalized text, 10s/30s) → blocks duplicate visible prods<br>- Trim write queue to newest 3 entries & demo queue to newest 5 entries<br>- Drop oldest before dispatch"]:::note
+  Pending -.-> PendingNote["Dedup + queue controls:<br>- sentence.id = sentence-${startIndex}-${normalizedPrefix}<br>- Enqueue guard (sentence ID, 15s/60s) → blocks duplicate queue entries<br>- Display guard (same sentence ID, 10s/30s) → blocks duplicate visible prods<br>- Trim write queue to newest 3 entries & demo queue to newest 5 entries<br>- Drop oldest before dispatch"]:::note
   
   Processing -.-> ProcessingNote["Parallel processing:<br>- Concurrency cap 2 on /write<br>- Concurrency cap 3 on /demo<br>- Pull newest pending items (LIFO)<br>- Respects queue trims"]:::note
   
