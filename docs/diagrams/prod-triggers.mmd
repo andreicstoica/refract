@@ -1,76 +1,47 @@
 sequenceDiagram
-  box lightblue UI Layer
-    participant Writer
-    participant TextInput
-    participant Chips as ChipOverlay
-  end
   box lightgreen Hooks
-    participant Topic as useTopicShiftDetection
     participant Triggers as useProdTriggers
   end
   box lightyellow Rules
     participant Rules as prodTriggerRules
   end
-  box plum Providers
-    participant Actions as ProdsProvider/useProdActions
-  end
-  box wheat Queue/Guards
-    participant Guards as useProdQueueManager
-  end
-  box lightpink API
-    participant API as /api/prod
+  box plum Queue
+    participant Queue as ProdsProvider
   end
 
-  Writer->>TextInput: type / pause / resume
-  TextInput->>Topic: share latest text window
+  Note over Triggers: Receives { text, sentences, config } from TextInput
+  Note over Triggers: Check: prodsEnabled + hasLastSentence + cooldown cleared
   
-  Topic-->>Actions: updateTopicContext(keywords, topicVersion)
+  Triggers->>Rules: shouldTriggerProd(cooldownMs, minChars)
+  Note over Rules: Requires 50 chars overall OR 20 chars in last sentence
   
-  alt topic shift detected
-    Topic->>Actions: notifyTopicShift()
-    Actions->>Guards: cancelAllRequests + clear queue + reset maps
-  end
-  
-  TextInput->>Triggers: { text, sentences, config }
-  Note over TextInput,Triggers: Sentences split on punctuation and newlines
-  
-  Triggers->>Rules: shouldTriggerProd(cooldown, min length)
-  
-  alt shouldTriggerProd returns false
-    Note over Triggers: Cooldown active or text too short
-  else shouldTriggerProd returns true
-    Triggers->>Rules: getProdTriggerReason()
+  alt cooldown active or insufficient text
+    Note over Triggers: Wait...
+  else cooldown cleared
+    Triggers->>Rules: getProdTriggerReason(lastTriggerPos, charTrigger)
+    Note over Rules: Priority: punctuation → softComma (>=25 overall + >=8 since last) → charThreshold
     
-    alt immediate trigger (punctuation / comma / char threshold)
-      Rules-->>Triggers: "punctuation" / "softComma" / "charThreshold"
-      Triggers->>Actions: enqueueSentence(fullText, lastSentence)
-    else no immediate trigger
-      Triggers->>Triggers: scheduleSettlingTrigger(config.settlingMs)
-      Note over Triggers: Wait for settling timer
-      Triggers->>Rules: shouldTriggerProd (re-check)
+    alt TRIGGER: Terminal punctuation (.!?)
+      Rules-->>Triggers: "punctuation"
+      Triggers->>Queue: enqueueSentence(fullText, lastSentence)
+    else TRIGGER: Soft comma + conditions
+      Rules-->>Triggers: "softComma"
+      Triggers->>Queue: enqueueSentence(fullText, lastSentence)
+    else TRIGGER: Character threshold reached
+      Rules-->>Triggers: "charThreshold"
+      Triggers->>Queue: enqueueSentence(fullText, lastSentence)
+    else No immediate trigger
+      Triggers->>Triggers: scheduleSettlingTimer(settlingMs)
+      Note over Triggers: After settling delay, re-check shouldTriggerProd
       alt still valid after settling
-        Triggers->>Actions: enqueueSentence(fullText, lastSentence)
+        Triggers->>Queue: enqueueSentence(fullText, lastSentence)
       end
     end
   end
   
-  Note over Triggers: Watchdog timer (6s idle) forces prod with force=true
+  Note over Triggers: WATCHDOG: 6s idle forces triggerProd(force=true) then locks until new input
   
-  Actions->>Guards: enqueueSentence(fullText, sentence)
-  
-  Guards->>Guards: apply shouldProcessSentence + enqueue/display TTLs (15s/60s, 10s/30s)
-  Note over Guards: sentence.id comes from splitIntoSentences (startIndex + normalized prefix) & keys both guard maps
-  
-  alt guardrails block sentence
-    Note over Guards: short text / duplicate / queue full → drop
-  else sentence accepted
-    Guards->>Guards: waitForRateLimit(config.rateLimitMs)
-    Guards->>API: generateProdWithTimeout(lastParagraph, recentText, recentProds, topicKeywords)
-    API-->>Guards: { selectedProd, confidence }
-    
-    alt topicVersion changed or low confidence
-      Guards->>Guards: COMPLETE_PROCESSING (discard)
-    else result approved
-      Guards->>Chips: append prod to array, cache normalized text
-    end
+  Queue->>Queue: Apply guardrails (shouldProcessSentence, TTLs, dedup)
+  alt sentence passes guards
+    Queue->>Queue: Rate limit then API call
   end
